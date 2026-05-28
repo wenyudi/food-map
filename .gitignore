@@ -1,0 +1,33 @@
+# 环境变量（包含 API key）
+.env
+.env.local
+
+# 数据 + 照片
+data/
+*.db
+*.db-journal
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+.venv/
+venv/
+
+# Node
+node_modules/
+frontend/dist/
+frontend/.vite/
+
+# 编辑器
+.vscode/
+.idea/
+*.swp
+.DS_Store
+Thumbs.db
+
+# 旧 B 方案的输出
+data/饼饼地图.html
+data/饼饼の美食地图.xlsx
+amap_poi_test.py

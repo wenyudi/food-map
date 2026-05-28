@@ -1,0 +1,24 @@
+.git
+.gitignore
+.env
+.env.local
+__pycache__
+*.pyc
+.venv
+venv
+
+# 前端 node_modules 太大，多阶段 build 时让 stage 1 自己 npm ci
+frontend/node_modules
+frontend/dist
+
+# 本地数据/照片，容器有 volume
+data
+
+# B 方案旧产物
+amap_poi_test.py
+*.xlsx
+
+# IDE
+.vscode
+.idea
+.DS_Store

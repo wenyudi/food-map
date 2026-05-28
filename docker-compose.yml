@@ -1,0 +1,16 @@
+services:
+  food_map:
+    build: .
+    image: food_map:latest
+    container_name: food_map
+    restart: unless-stopped
+    ports:
+      - "8765:8000"   # NAS 上暴露 8765，frpc 转发给 ECS Caddy
+    volumes:
+      - ./data:/data  # 数据 + 照片持久化
+    env_file:
+      - .env
+    environment:
+      # 容器内强制覆盖（避免 .env 里写的是本地相对路径）
+      DATABASE_PATH: /data/food_map.db
+      PHOTOS_DIR: /data/photos
