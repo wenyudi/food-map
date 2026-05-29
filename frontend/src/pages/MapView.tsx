@@ -198,7 +198,7 @@ function PopupContent({ point: p }: { point: Point }) {
       {photos.length > 0 && (
         <div style={{ marginTop: 6 }}>
           {photos.map(u => (
-            <img key={u} src={u} style={{ width: 56, height: 56, objectFit: 'cover', borderRadius: 6, marginRight: 4 }} />
+            <img key={u} src={u} className="zoomable" style={{ width: 56, height: 56, objectFit: 'cover', borderRadius: 6, marginRight: 4 }} />
           ))}
         </div>
       )}
@@ -230,7 +230,7 @@ function PopupContent({ point: p }: { point: Point }) {
               {e.data.my_photos && (
                 <div className="pt-photos">
                   {(e.data.my_photos as string).split('|').filter(Boolean).slice(0, 3).map((u: string) => (
-                    <img src={u} key={u} />
+                    <img src={u} key={u} className="zoomable" />
                   ))}
                 </div>
               )}

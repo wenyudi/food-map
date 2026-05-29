@@ -225,7 +225,7 @@ function TimelineRow({ event, isLast }: { event: TimelineEvent; isLast: boolean 
         {v.feeling && <div className="tl-content">{v.feeling}</div>}
         {photos.length > 0 && (
           <div className="tl-photos">
-            {photos.map(u => <img src={u} key={u} />)}
+            {photos.map(u => <img src={u} key={u} className="zoomable" />)}
           </div>
         )}
       </div>

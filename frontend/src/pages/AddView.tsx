@@ -33,6 +33,7 @@ export default function AddView({ onSubmitted, onOpenAccount }: Props) {
   const [text, setText] = useState('')
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [celebrate, setCelebrate] = useState<string | null>(null)  // 兑现种草时显示店名
   const [parsed, setParsed] = useState<ParsedSentence | null>(null)
   const [pois, setPois] = useState<any[]>([])
   const [selectedPoi, setSelectedPoi] = useState<any>(null)
@@ -106,7 +107,7 @@ export default function AddView({ onSubmitted, onOpenAccount }: Props) {
           reason: reason || '',
         })
       } else {
-        await addVisit({
+        const res = await addVisit({
           poi_id: store.poi_id,
           date: parsed.date || new Date().toISOString().slice(0, 10),
           meal_period: parsed.meal_period || guessMealPeriod(),
@@ -119,6 +120,12 @@ export default function AddView({ onSubmitted, onOpenAccount }: Props) {
         })
         // 记住这次的同行人，下次自动带出
         if (companions.trim()) localStorage.setItem(LS_COMPANIONS, companions.trim())
+        // 这次"吃过"刚好兑现了之前的种草 → 庆祝一下再跳走
+        if (res?.fulfilled_wish) {
+          setCelebrate(store.name || '这家店')
+          setTimeout(() => { setCelebrate(null); reset(); onSubmitted() }, 2000)
+          return
+        }
       }
       reset()
       onSubmitted()
@@ -241,6 +248,15 @@ export default function AddView({ onSubmitted, onOpenAccount }: Props) {
   const isVisit = parsed?.intent === 'visit'
   return (
     <div className="page add-confirm">
+      {celebrate && (
+        <div className="celebrate-overlay">
+          <div className="celebrate-card">
+            <div className="celebrate-emoji">✨</div>
+            <div className="celebrate-title">种草兑现啦</div>
+            <div className="celebrate-sub">惦记了一阵的 <b>{celebrate}</b><br />今天终于吃到了</div>
+          </div>
+        </div>
+      )}
       <div className="step-head">
         <button className="step-back" onClick={() => setStep('pick')} aria-label="改店">←</button>
         <div className="step-head-text">

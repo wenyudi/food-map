@@ -1725,3 +1725,60 @@ button.primary:disabled {
 @media (prefers-reduced-motion: reduce) {
   .page, .login-card, .account-overlay, .map-empty-card { animation: none !important; }
 }
+
+/* 种草兑现 · 庆祝浮层 */
+.celebrate-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 1200;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(61, 43, 26, 0.35);
+  backdrop-filter: blur(3px);
+  -webkit-backdrop-filter: blur(3px);
+  animation: fade-in 0.2s ease-out;
+}
+.celebrate-card {
+  background: var(--bg-card);
+  border-radius: var(--r-lg);
+  padding: 30px 30px 26px;
+  text-align: center;
+  max-width: 280px;
+  box-shadow: var(--shadow-float);
+  animation: pop-in 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+.celebrate-emoji { font-size: 54px; line-height: 1; animation: sparkle 1.2s ease-in-out infinite; }
+.celebrate-title { font-size: 20px; font-weight: 800; color: var(--primary-deep); margin-top: 8px; }
+.celebrate-sub { font-size: 13px; color: var(--text-soft); line-height: 1.7; margin-top: 8px; }
+.celebrate-sub b { color: var(--text); font-weight: 700; }
+@keyframes fade-in { from { opacity: 0; } to { opacity: 1; } }
+@keyframes pop-in { from { opacity: 0; transform: scale(0.8); } to { opacity: 1; transform: scale(1); } }
+@keyframes sparkle { 0%, 100% { transform: scale(1) rotate(0); } 50% { transform: scale(1.15) rotate(8deg); } }
+
+/* 图片大图 lightbox */
+.zoomable { cursor: zoom-in; }
+.lightbox {
+  position: fixed;
+  inset: 0;
+  z-index: 1300;
+  background: rgba(0, 0, 0, 0.9);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+  animation: fade-in 0.18s ease-out;
+}
+.lightbox img {
+  max-width: 100%;
+  max-height: 86%;
+  border-radius: var(--r-sm);
+  object-fit: contain;
+}
+.lightbox-tip {
+  position: absolute;
+  bottom: calc(env(safe-area-inset-bottom) + 20px);
+  color: rgba(255, 255, 255, 0.7);
+  font-size: 12px;
+  letter-spacing: 0.5px;
+}

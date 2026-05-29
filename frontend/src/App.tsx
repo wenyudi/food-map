@@ -100,6 +100,30 @@ export default function App() {
           <AccountView me={me} onLogout={handleLogout} onClose={() => setShowAccount(false)} />
         </div>
       )}
+
+      <Lightbox />
+    </div>
+  )
+}
+
+// 点开任意带 .zoomable 的图片 → 全屏看大图（事件委托，连地图 popup 里的图也能用）
+function Lightbox() {
+  const [src, setSrc] = useState<string | null>(null)
+  useEffect(() => {
+    function onClick(e: MouseEvent) {
+      const t = e.target as HTMLElement
+      if (t.tagName === 'IMG' && t.classList.contains('zoomable')) {
+        setSrc((t as HTMLImageElement).src)
+      }
+    }
+    document.addEventListener('click', onClick)
+    return () => document.removeEventListener('click', onClick)
+  }, [])
+  if (!src) return null
+  return (
+    <div className="lightbox" onClick={() => setSrc(null)}>
+      <img src={src} alt="" />
+      <div className="lightbox-tip">点击任意处关闭</div>
     </div>
   )
 }
