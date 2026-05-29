@@ -127,6 +127,14 @@ CREATE TABLE IF NOT EXISTS users (
     created_at TEXT NOT NULL
 );
 
+CREATE TABLE IF NOT EXISTS invite_codes (
+    code TEXT PRIMARY KEY,
+    created_by TEXT,
+    created_at TEXT NOT NULL,
+    used_by TEXT,
+    used_at TEXT
+);
+
 CREATE INDEX IF NOT EXISTS idx_visits_poi ON visits(poi_id);
 CREATE INDEX IF NOT EXISTS idx_wishes_poi_status ON wishes(poi_id, status);
 CREATE INDEX IF NOT EXISTS idx_users_username ON users(username);
@@ -295,6 +303,41 @@ def count_users() -> int:
     with _conn() as c:
         row = c.execute("SELECT COUNT(*) c FROM users").fetchone()
         return int(row["c"])
+
+
+# ---------- 邀请码 CRUD ----------
+
+def create_invite(code: str, created_by: str) -> None:
+    with _conn() as c:
+        c.execute(
+            "INSERT INTO invite_codes (code, created_by, created_at) VALUES (?, ?, ?)",
+            (code, created_by, datetime.now().isoformat(timespec="seconds")),
+        )
+
+
+def get_invite(code: str) -> Optional[dict]:
+    with _conn() as c:
+        row = c.execute("SELECT * FROM invite_codes WHERE code=?", (code,)).fetchone()
+        return _row_to_dict(row) if row else None
+
+
+def list_invites() -> list[dict]:
+    with _conn() as c:
+        rows = c.execute("SELECT * FROM invite_codes ORDER BY created_at DESC").fetchall()
+        return [_row_to_dict(r) for r in rows]
+
+
+def mark_invite_used(code: str, username: str) -> None:
+    with _conn() as c:
+        c.execute(
+            "UPDATE invite_codes SET used_by=?, used_at=? WHERE code=?",
+            (username, datetime.now().isoformat(timespec="seconds"), code),
+        )
+
+
+def delete_invite(code: str) -> None:
+    with _conn() as c:
+        c.execute("DELETE FROM invite_codes WHERE code=?", (code,))
 
 
 def compute_value_label(actual_per_person: float, amap_cost: str) -> str:

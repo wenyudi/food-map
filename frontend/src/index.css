@@ -127,6 +127,38 @@ input, textarea, select {
   color: var(--text-soft);
   letter-spacing: 0.5px;
 }
+.login-tabs {
+  display: flex;
+  gap: 4px;
+  background: var(--bg-soft);
+  border-radius: var(--r);
+  padding: 4px;
+  margin-bottom: 16px;
+}
+.login-tabs button {
+  flex: 1;
+  padding: 8px;
+  border: none;
+  border-radius: var(--r-sm);
+  background: transparent;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-soft);
+  transition: all 0.15s;
+}
+.login-tabs button.active {
+  background: var(--bg-card);
+  color: var(--primary-deep);
+  box-shadow: var(--shadow-sm);
+}
+
+.login-hint {
+  margin: 14px 0 0;
+  font-size: 12px;
+  color: var(--text-light);
+  text-align: center;
+}
+
 .login-card form {
   display: flex;
   flex-direction: column;
@@ -289,6 +321,64 @@ input, textarea, select {
   display: flex;
   flex-direction: column;
   gap: 8px;
+}
+
+/* 邀请码 */
+.invite-hint {
+  font-size: 12px;
+  color: var(--text-light);
+  line-height: 1.5;
+  margin-top: -2px;
+}
+.invite-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 0;
+  border-bottom: 1px solid var(--border);
+}
+.invite-row:last-child { border-bottom: none; }
+.invite-row.used { opacity: 0.55; }
+.invite-code {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 15px;
+  font-weight: 700;
+  letter-spacing: 1px;
+  color: var(--primary-deep);
+  background: var(--primary-soft);
+  padding: 4px 10px;
+  border-radius: var(--r-sm);
+  cursor: pointer;
+}
+.invite-status {
+  flex: 1;
+  font-size: 12px;
+  color: var(--text-soft);
+}
+.invite-status.unused { color: var(--m-meh); font-weight: 600; }
+.invite-copy {
+  font-size: 12px;
+  padding: 5px 10px;
+  border-radius: var(--r-sm);
+  border: 1px solid var(--primary-light);
+  background: var(--bg);
+  color: var(--primary-deep);
+  font-weight: 600;
+}
+.invite-del {
+  font-size: 12px;
+  padding: 5px 10px;
+  border-radius: var(--r-sm);
+  border: 1px solid var(--border);
+  background: var(--bg);
+  color: var(--text-soft);
+}
+.invite-divider {
+  margin-top: 12px;
+  padding-top: 8px;
+  border-top: 1px dashed var(--border);
+  font-size: 11px;
+  color: var(--text-light);
 }
 
 .logout-btn {

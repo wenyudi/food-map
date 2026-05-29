@@ -19,6 +19,7 @@
 from __future__ import annotations
 
 import os
+import secrets
 import socket
 import uuid
 from datetime import datetime
@@ -106,6 +107,12 @@ class ChangePasswordReq(BaseModel):
     new_password: str
 
 
+class RegisterReq(BaseModel):
+    username: str
+    password: str
+    invite_code: str
+
+
 @app.post("/api/auth/login")
 def post_login(req: LoginReq):
     user = db.get_user(req.username)
@@ -113,6 +120,48 @@ def post_login(req: LoginReq):
         raise HTTPException(401, "用户名或密码错误")
     token = auth.make_token(user["username"], user["role"])
     return {"token": token, "username": user["username"], "role": user["role"]}
+
+
+@app.post("/api/auth/register")
+def post_register(req: RegisterReq):
+    code = req.invite_code.strip().upper()
+    username = req.username.strip()
+    inv = db.get_invite(code)
+    if not inv:
+        raise HTTPException(400, "邀请码无效")
+    if inv.get("used_by"):
+        raise HTTPException(400, "邀请码已被使用")
+    if not username:
+        raise HTTPException(400, "用户名不能为空")
+    if db.get_user(username):
+        raise HTTPException(400, "用户名已存在")
+    if len(req.password) < 4:
+        raise HTTPException(400, "密码至少 4 位")
+    db.create_user(username, auth.hash_password(req.password), role="user")
+    db.mark_invite_used(code, username)
+    token = auth.make_token(username, "user")
+    return {"token": token, "username": username, "role": "user"}
+
+
+@app.post("/api/auth/invites")
+def gen_invite(admin: dict = Depends(require_admin)):
+    code = secrets.token_hex(4).upper()  # 8 位十六进制，比如 A1B2C3D4
+    db.create_invite(code, admin["username"])
+    return {"code": code}
+
+
+@app.get("/api/auth/invites")
+def get_invites(_: dict = Depends(require_admin)):
+    return db.list_invites()
+
+
+@app.delete("/api/auth/invites/{code}")
+def revoke_invite(code: str, _: dict = Depends(require_admin)):
+    inv = db.get_invite(code)
+    if inv and inv.get("used_by"):
+        raise HTTPException(400, "已使用的邀请码不能删")
+    db.delete_invite(code)
+    return {"ok": True}
 
 
 @app.get("/api/auth/me")

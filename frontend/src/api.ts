@@ -41,6 +41,9 @@ export interface LoginResp extends MeInfo {
 export const login = (username: string, password: string) =>
   api.post<LoginResp>('/auth/login', { username, password }).then(r => r.data)
 
+export const register = (username: string, password: string, invite_code: string) =>
+  api.post<LoginResp>('/auth/register', { username, password, invite_code }).then(r => r.data)
+
 export const getMe = () => api.get<MeInfo>('/auth/me').then(r => r.data)
 
 export const changePassword = (old_password: string, new_password: string) =>
@@ -60,6 +63,19 @@ export const createUserApi = (username: string, password: string, role = 'user')
 
 export const deleteUserApi = (username: string) =>
   api.delete(`/auth/users/${encodeURIComponent(username)}`).then(r => r.data)
+
+export interface InviteCode {
+  code: string
+  created_by: string | null
+  created_at: string
+  used_by: string | null
+  used_at: string | null
+}
+
+export const genInvite = () => api.post<{ code: string }>('/auth/invites').then(r => r.data)
+export const listInvites = () => api.get<InviteCode[]>('/auth/invites').then(r => r.data)
+export const revokeInvite = (code: string) =>
+  api.delete(`/auth/invites/${encodeURIComponent(code)}`).then(r => r.data)
 
 export interface Visit {
   visit_id: string
