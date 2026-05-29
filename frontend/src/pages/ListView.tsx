@@ -1,7 +1,10 @@
-import { useEffect, useState, useMemo, useRef } from 'react'
+import { useEffect, useState, useMemo, useRef, useCallback } from 'react'
 import { getPoints, getMonthlyStory } from '../api'
 import type { Point, Wish, Visit } from '../api'
 import { cleanTag } from '../lib/format'
+import EditRecordSheet from '../components/EditRecordSheet'
+
+type EditTarget = { kind: 'visit' | 'wish'; data: any; storeName: string }
 
 type FilterKey = 'all' | 'want' | 'fulfilled' | 'repeat'
 
@@ -50,12 +53,15 @@ export default function ListView({ refreshKey, focusPoiId, onPickStore }: Props)
   const [loading, setLoading] = useState(true)
   const [filter, setFilter] = useState<FilterKey>('all')
   const [flashId, setFlashId] = useState<string | null>(null)
+  const [editing, setEditing] = useState<EditTarget | null>(null)
   const cardRefs = useRef<Record<string, HTMLDivElement | null>>({})
 
-  useEffect(() => {
+  const load = useCallback(() => {
     setLoading(true)
     getPoints().then(setPoints).finally(() => setLoading(false))
-  }, [refreshKey])
+  }, [])
+
+  useEffect(() => { load() }, [load, refreshKey])
 
   const { filtered, counts } = useMemo(() => {
     const c = { all: points.length, want: 0, fulfilled: 0, repeat: 0 }
@@ -125,9 +131,20 @@ export default function ListView({ refreshKey, focusPoiId, onPickStore }: Props)
             flashing={flashId === p.poi_id}
             cardRef={(el) => { cardRefs.current[p.poi_id] = el }}
             onClick={() => onPickStore?.(p.poi_id)}
+            onEdit={setEditing}
           />
         ))}
       </div>
+
+      {editing && (
+        <EditRecordSheet
+          kind={editing.kind}
+          data={editing.data}
+          storeName={editing.storeName}
+          onClose={() => setEditing(null)}
+          onChanged={load}
+        />
+      )}
     </div>
   )
 }
@@ -140,12 +157,13 @@ function Chip({ active, onClick, children }: { active: boolean; onClick: () => v
   )
 }
 
-function StoreCard({ point, status, flashing, cardRef, onClick }: {
+function StoreCard({ point, status, flashing, cardRef, onClick, onEdit }: {
   point: Point
   status: StoreStatus
   flashing: boolean
   cardRef: (el: HTMLDivElement | null) => void
   onClick?: () => void
+  onEdit: (t: EditTarget) => void
 }) {
   const timeline = buildTimeline(point)
   const headEmoji = point.visit_count > 0 ? point.emoji : '🤍'
@@ -177,7 +195,14 @@ function StoreCard({ point, status, flashing, cardRef, onClick }: {
       </div>
 
       <div className="timeline">
-        {timeline.map((e, i) => <TimelineRow key={i} event={e} isLast={i === timeline.length - 1} />)}
+        {timeline.map((e, i) => (
+          <TimelineRow
+            key={i}
+            event={e}
+            isLast={i === timeline.length - 1}
+            onEdit={() => onEdit({ kind: e.type, data: e.data, storeName: point.name })}
+          />
+        ))}
       </div>
 
       <div className="store-card-foot">看在地图上 →</div>
@@ -185,7 +210,10 @@ function StoreCard({ point, status, flashing, cardRef, onClick }: {
   )
 }
 
-function TimelineRow({ event, isLast }: { event: TimelineEvent; isLast: boolean }) {
+function TimelineRow({ event, isLast, onEdit }: { event: TimelineEvent; isLast: boolean; onEdit: () => void }) {
+  const editBtn = (
+    <button className="tl-edit" onClick={e => { e.stopPropagation(); onEdit() }} aria-label="编辑">✏️</button>
+  )
   if (event.type === 'wish') {
     const w = event.data
     return (
@@ -201,6 +229,7 @@ function TimelineRow({ event, isLast }: { event: TimelineEvent; isLast: boolean 
           </div>
           {w.reason && <div className="tl-content">{w.reason}</div>}
         </div>
+        {editBtn}
       </div>
     )
   }
@@ -229,6 +258,7 @@ function TimelineRow({ event, isLast }: { event: TimelineEvent; isLast: boolean 
           </div>
         )}
       </div>
+      {editBtn}
     </div>
   )
 }

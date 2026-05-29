@@ -498,6 +498,87 @@ def post_wish(req: WishReq, user: dict = Depends(current_user)):
     return {"wish_id": wish.wish_id}
 
 
+# ---------- 编辑 / 删除 单条记录 ----------
+
+class VisitPatchReq(BaseModel):
+    date: Optional[str] = None
+    meal_period: Optional[str] = None
+    amount: Optional[float] = None
+    people_count: Optional[int] = None
+    mood_emoji: Optional[str] = None
+    want_again: Optional[bool] = None
+    feeling: Optional[str] = None
+    companions: Optional[str] = None
+    my_photos: Optional[str] = None
+
+
+class WishPatchReq(BaseModel):
+    source: Optional[str] = None
+    reason: Optional[str] = None
+
+
+@app.patch("/api/visit/{visit_id}")
+def patch_visit(visit_id: str, req: VisitPatchReq, user: dict = Depends(current_user)):
+    v = db.get_visit(visit_id)
+    if not v or v.get("circle_id") != user["circle_id"]:
+        raise HTTPException(404, "记录不存在")
+
+    fields: dict = {}
+    for k in ("date", "meal_period", "mood_emoji", "feeling", "companions", "my_photos"):
+        val = getattr(req, k)
+        if val is not None:
+            fields[k] = val
+    if req.amount is not None:
+        fields["amount"] = req.amount
+    if req.people_count is not None:
+        fields["people_count"] = req.people_count
+    if req.want_again is not None:
+        fields["want_again"] = 1 if req.want_again else 0
+
+    # 金额/人数变了就重算人均 + 性价比标签
+    amount = fields.get("amount", v["amount"]) or 0
+    people = fields.get("people_count", v["people_count"]) or 0
+    per_person = amount / people if people else 0
+    fields["per_person"] = round(per_person, 2)
+    fields["value_label"] = db.compute_value_label(per_person, v.get("amap_cost_ref") or "")
+
+    db.update_visit(visit_id, fields)
+    _invalidate_story_cache_for(fields.get("date", v.get("date", "")), user["circle_id"])
+    return {"ok": True, "per_person": fields["per_person"], "value_label": fields["value_label"]}
+
+
+@app.delete("/api/visit/{visit_id}")
+def delete_visit_endpoint(visit_id: str, user: dict = Depends(current_user)):
+    v = db.get_visit(visit_id)
+    if not v or v.get("circle_id") != user["circle_id"]:
+        raise HTTPException(404, "记录不存在")
+    db.delete_visit(visit_id)
+    # 这条访问当初兑现过的种草 → 退回「想去」
+    if v.get("wish_id"):
+        db.revert_wish_to_want(v["wish_id"])
+    _invalidate_story_cache_for(v.get("date", ""), user["circle_id"])
+    return {"ok": True}
+
+
+@app.patch("/api/wish/{wish_id}")
+def patch_wish(wish_id: str, req: WishPatchReq, user: dict = Depends(current_user)):
+    w = db.get_wish(wish_id)
+    if not w or w.get("circle_id") != user["circle_id"]:
+        raise HTTPException(404, "记录不存在")
+    fields = {k: getattr(req, k) for k in ("source", "reason") if getattr(req, k) is not None}
+    db.update_wish(wish_id, fields)
+    return {"ok": True}
+
+
+@app.delete("/api/wish/{wish_id}")
+def delete_wish_endpoint(wish_id: str, user: dict = Depends(current_user)):
+    w = db.get_wish(wish_id)
+    if not w or w.get("circle_id") != user["circle_id"]:
+        raise HTTPException(404, "记录不存在")
+    db.delete_wish(wish_id)
+    return {"ok": True}
+
+
 # ---------- 启动入口 ----------
 
 def _lan_ip() -> str:

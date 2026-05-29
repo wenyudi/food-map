@@ -261,6 +261,64 @@ def mark_wish_visited(wish_id: str, visit_id: str) -> None:
         )
 
 
+def revert_wish_to_want(wish_id: str) -> None:
+    """删除某条访问时，把它当初兑现的种草退回「想去」。"""
+    with _conn() as c:
+        c.execute(
+            "UPDATE wishes SET status='want', visited_at='', visit_id='' WHERE wish_id=?",
+            (wish_id,),
+        )
+
+
+# ---------- 单条 visit / wish 的增改删（编辑/删除记录用） ----------
+
+_VISIT_EDITABLE = {
+    "date", "meal_period", "amount", "people_count", "per_person",
+    "mood_emoji", "want_again", "feeling", "companions", "my_photos", "value_label",
+}
+_WISH_EDITABLE = {"source", "reason"}
+
+
+def get_visit(visit_id: str) -> Optional[dict]:
+    with _conn() as c:
+        row = c.execute("SELECT * FROM visits WHERE visit_id=?", (visit_id,)).fetchone()
+        return _row_to_dict(row) if row else None
+
+
+def update_visit(visit_id: str, fields: dict) -> None:
+    fields = {k: v for k, v in fields.items() if k in _VISIT_EDITABLE}
+    if not fields:
+        return
+    with _conn() as c:
+        sets = ",".join(f"{k}=:{k}" for k in fields)
+        c.execute(f"UPDATE visits SET {sets} WHERE visit_id=:_id", {**fields, "_id": visit_id})
+
+
+def delete_visit(visit_id: str) -> None:
+    with _conn() as c:
+        c.execute("DELETE FROM visits WHERE visit_id=?", (visit_id,))
+
+
+def get_wish(wish_id: str) -> Optional[dict]:
+    with _conn() as c:
+        row = c.execute("SELECT * FROM wishes WHERE wish_id=?", (wish_id,)).fetchone()
+        return _row_to_dict(row) if row else None
+
+
+def update_wish(wish_id: str, fields: dict) -> None:
+    fields = {k: v for k, v in fields.items() if k in _WISH_EDITABLE}
+    if not fields:
+        return
+    with _conn() as c:
+        sets = ",".join(f"{k}=:{k}" for k in fields)
+        c.execute(f"UPDATE wishes SET {sets} WHERE wish_id=:_id", {**fields, "_id": wish_id})
+
+
+def delete_wish(wish_id: str) -> None:
+    with _conn() as c:
+        c.execute("DELETE FROM wishes WHERE wish_id=?", (wish_id,))
+
+
 def load_all(circle_id: Optional[int] = None) -> dict:
     """stores 是全局 POI 缓存（公开数据，可共享）；visits / wishes 按圈子隔离。
     circle_id 为 None 时不过滤（仅内部/迁移用，不要直接喂给接口）。"""

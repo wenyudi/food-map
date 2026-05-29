@@ -1782,3 +1782,66 @@ button.primary:disabled {
   font-size: 12px;
   letter-spacing: 0.5px;
 }
+
+/* 时间线每行的编辑按钮（低调，点中才明显） */
+.tl-row { position: relative; }
+.tl-body { padding-right: 26px; }
+.tl-edit {
+  position: absolute;
+  top: -2px; right: -4px;
+  width: 30px; height: 30px;
+  border: none;
+  background: transparent;
+  font-size: 13px;
+  opacity: 0.35;
+  border-radius: 50%;
+  transition: opacity 0.15s, background 0.15s;
+}
+.tl-edit:active { opacity: 1; background: var(--bg-soft); }
+
+/* 编辑/删除 底部弹层 sheet */
+.sheet-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 1100;
+  background: rgba(61, 43, 26, 0.4);
+  display: flex;
+  align-items: flex-end;
+  animation: fade-in 0.2s ease-out;
+}
+.sheet {
+  width: 100%;
+  background: var(--bg);
+  border-radius: 22px 22px 0 0;
+  padding: 8px 20px calc(env(safe-area-inset-bottom) + 20px);
+  max-height: 88vh;
+  overflow-y: auto;
+  box-shadow: var(--shadow-lg);
+  animation: sheet-up 0.3s cubic-bezier(0.22, 1, 0.36, 1);
+}
+@keyframes sheet-up { from { transform: translateY(100%); } to { transform: translateY(0); } }
+.sheet-handle { width: 40px; height: 4px; border-radius: 2px; background: var(--border); margin: 6px auto 16px; }
+.sheet-title {
+  font-size: 17px; font-weight: 800; color: var(--text);
+  margin-bottom: 16px; display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+}
+.sheet-store {
+  font-size: 13px; font-weight: 600; color: var(--primary-deep);
+  background: var(--primary-soft); padding: 2px 10px; border-radius: var(--r-pill);
+}
+.sheet-actions { display: flex; gap: 12px; margin-top: 12px; align-items: center; }
+.sheet-actions .primary { margin-top: 0; flex: 1; }
+.sheet-del {
+  padding: 14px 18px; border-radius: var(--r); border: 1.5px solid #f0c7bf;
+  background: var(--bg-card); color: #d44d2f; font-size: 15px; font-weight: 700;
+}
+.sheet-confirm {
+  display: flex; align-items: center; gap: 10px; margin-top: 12px;
+  font-size: 14px; color: var(--text-soft); flex-wrap: wrap;
+}
+.sheet-confirm > span { flex: 1; }
+.sheet-cancel {
+  padding: 10px 16px; border-radius: var(--r-sm); border: 1px solid var(--border);
+  background: var(--bg-card); color: var(--text-soft); font-weight: 600;
+}
+.sheet-confirm .sheet-del { padding: 10px 16px; font-size: 14px; }

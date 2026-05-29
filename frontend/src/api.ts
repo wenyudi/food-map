@@ -180,6 +180,16 @@ export const addVisit = (data: any) =>
 export const addWish = (data: any) =>
   api.post('/wish', data).then(r => r.data)
 
+// 编辑 / 删除单条记录
+export const updateVisit = (visitId: string, data: any) =>
+  api.patch(`/visit/${visitId}`, data).then(r => r.data)
+export const deleteVisit = (visitId: string) =>
+  api.delete(`/visit/${visitId}`).then(r => r.data)
+export const updateWish = (wishId: string, data: any) =>
+  api.patch(`/wish/${wishId}`, data).then(r => r.data)
+export const deleteWish = (wishId: string) =>
+  api.delete(`/wish/${wishId}`).then(r => r.data)
+
 export interface MonthlyStory {
   story: string
   cached?: boolean
