@@ -92,7 +92,16 @@ export default function MapView({ refreshKey, focusPoiId, onConsumeFocus, onJump
         </div>
       )}
 
-      {loading && <div className="loading">加载中…</div>}
+      {loading && (
+        <div className="map-stat-bar">
+          {[0, 1, 2, 3].map(i => (
+            <span key={i} className="skel-stat">
+              <span className="skel-line" style={{ width: 26, height: 18 }} />
+              <span className="skel-line" style={{ width: 30, height: 9 }} />
+            </span>
+          ))}
+        </div>
+      )}
 
       {!loading && unlocated.length > 0 && (
         <div className="unlocated-tray">

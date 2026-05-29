@@ -46,9 +46,10 @@ interface Props {
   refreshKey: number
   focusPoiId?: string | null
   onPickStore?: (poiId: string) => void
+  onJumpToAdd?: () => void
 }
 
-export default function ListView({ refreshKey, focusPoiId, onPickStore }: Props) {
+export default function ListView({ refreshKey, focusPoiId, onPickStore, onJumpToAdd }: Props) {
   const [points, setPoints] = useState<Point[]>([])
   const [loading, setLoading] = useState(true)
   const [filter, setFilter] = useState<FilterKey>('all')
@@ -108,25 +109,38 @@ export default function ListView({ refreshKey, focusPoiId, onPickStore }: Props)
         </button>
       )}
 
-      <div className="filter-chips">
-        <Chip active={filter === 'all'} onClick={() => setFilter('all')}>
-          全部 <em>{counts.all}</em>
-        </Chip>
-        <Chip active={filter === 'want'} onClick={() => setFilter('want')}>
-          🤍 想去 <em>{counts.want}</em>
-        </Chip>
-        <Chip active={filter === 'fulfilled'} onClick={() => setFilter('fulfilled')}>
-          ✨ 已兑现 <em>{counts.fulfilled}</em>
-        </Chip>
-        <Chip active={filter === 'repeat'} onClick={() => setFilter('repeat')}>
-          🔁 二刷 <em>{counts.repeat}</em>
-        </Chip>
-      </div>
+      {points.length > 0 && (
+        <div className="filter-chips">
+          <Chip active={filter === 'all'} onClick={() => setFilter('all')}>
+            全部 <em>{counts.all}</em>
+          </Chip>
+          <Chip active={filter === 'want'} onClick={() => setFilter('want')}>
+            🤍 想去 <em>{counts.want}</em>
+          </Chip>
+          <Chip active={filter === 'fulfilled'} onClick={() => setFilter('fulfilled')}>
+            ✨ 已兑现 <em>{counts.fulfilled}</em>
+          </Chip>
+          <Chip active={filter === 'repeat'} onClick={() => setFilter('repeat')}>
+            🔁 二刷 <em>{counts.repeat}</em>
+          </Chip>
+        </div>
+      )}
 
-      {loading && <div className="loading">加载中…</div>}
+      {loading && <ListSkeleton />}
 
-      {!loading && filtered.length === 0 && (
-        <div className="empty">这里还空着 ✨<br />去录一笔吧</div>
+      {!loading && points.length === 0 && (
+        <div className="list-empty">
+          <div className="list-empty-emoji">🍜</div>
+          <div className="list-empty-title">还没有记录</div>
+          <div className="list-empty-sub">记下第一家店，这里就会热闹起来</div>
+          {onJumpToAdd && (
+            <button className="map-empty-btn" onClick={onJumpToAdd}>✏️ 去记第一笔</button>
+          )}
+        </div>
+      )}
+
+      {!loading && points.length > 0 && filtered.length === 0 && (
+        <div className="empty">这个分类下还没有 🍃</div>
       )}
 
       <div className="store-list">
@@ -206,6 +220,28 @@ function AskSheet({ onClose }: { onClose: () => void }) {
         {err && <div className="add-error">{err}</div>}
         {answer && <div className="ask-answer">{answer}</div>}
       </div>
+    </div>
+  )
+}
+
+function ListSkeleton() {
+  return (
+    <div className="store-list">
+      {[0, 1, 2].map(i => (
+        <div className="skel-card" key={i}>
+          <div className="skel-row">
+            <div className="skel-circle" />
+            <div className="skel-lines">
+              <span className="skel-line w70" />
+              <span className="skel-line w40" />
+            </div>
+          </div>
+          <div className="skel-lines">
+            <span className="skel-line w90" />
+            <span className="skel-line w60" />
+          </div>
+        </div>
+      ))}
     </div>
   )
 }

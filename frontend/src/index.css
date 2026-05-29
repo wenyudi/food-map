@@ -1711,8 +1711,7 @@ button.primary:disabled {
   from { opacity: 0; transform: translateY(10px); }
   to   { opacity: 1; transform: none; }
 }
-/* 账户页外层已有滑入动画，内层不再重复 */
-.account-page { animation: none; }
+/* 账户页现在是独立 Tab，和其它页一样有淡入入场（不再禁用） */
 
 /* 卡片按压反馈更统一 */
 .poi-card:active { transform: scale(0.985); }
@@ -2101,4 +2100,69 @@ button.primary:disabled {
 
 @media (prefers-reduced-motion: reduce) {
   .emoji-picker button .mood-glyph { animation: none !important; }
+}
+
+/* ============================================
+   全局打磨 · 骨架屏 / 空状态卡 / 日期时段
+   ============================================ */
+
+/* 骨架屏：复用 shimmer，列表卡 + 地图统计条 */
+.skel-line {
+  display: block;
+  height: 12px;
+  border-radius: 6px;
+  background: linear-gradient(90deg, var(--bg-soft) 0%, rgba(255, 255, 255, 0.75) 50%, var(--bg-soft) 100%);
+  background-size: 200% 100%;
+  animation: shimmer 1.4s ease-in-out infinite;
+}
+.skel-line.w40 { width: 40%; }
+.skel-line.w60 { width: 60%; }
+.skel-line.w70 { width: 70%; }
+.skel-line.w90 { width: 90%; }
+.skel-card {
+  background: var(--bg-card);
+  border-radius: var(--r);
+  box-shadow: var(--shadow-sm);
+  padding: 16px 18px;
+  margin-bottom: 14px;
+}
+.skel-row { display: flex; gap: 12px; align-items: center; margin-bottom: 16px; }
+.skel-circle {
+  width: 48px; height: 48px; border-radius: 50%; flex-shrink: 0;
+  background: linear-gradient(90deg, var(--bg-soft) 0%, rgba(255, 255, 255, 0.75) 50%, var(--bg-soft) 100%);
+  background-size: 200% 100%;
+  animation: shimmer 1.4s ease-in-out infinite;
+}
+.skel-lines { flex: 1; display: flex; flex-direction: column; gap: 9px; min-width: 0; }
+.skel-stat { display: flex; flex-direction: column; align-items: center; gap: 5px; flex: 1; }
+
+/* 列表空状态引导卡（与地图页空状态呼应） */
+.list-empty {
+  text-align: center;
+  margin: 10px 16px 24px;
+  padding: 44px 28px;
+  background: var(--bg-card);
+  border-radius: var(--r-lg);
+  box-shadow: var(--shadow-sm);
+}
+.list-empty-emoji { font-size: 44px; line-height: 1; }
+.list-empty-title { font-size: 18px; font-weight: 700; color: var(--text); margin-top: 10px; }
+.list-empty-sub { font-size: 13px; color: var(--text-soft); line-height: 1.6; margin-top: 6px; }
+
+/* 确认页：日期 + 早/中/晚 */
+.datetime-row { flex: 1; display: flex; gap: 8px; align-items: stretch; min-width: 0; }
+.datetime-row input[type="date"] {
+  flex: 1; min-width: 0;
+  padding: 11px 12px; border-radius: var(--r-sm);
+  border: 1.5px solid var(--border); background: var(--bg-card); color: var(--text);
+}
+.meal-toggle { display: flex; gap: 4px; flex-shrink: 0; }
+.meal-toggle button {
+  width: 38px; border-radius: var(--r-sm);
+  border: 1.5px solid var(--border); background: var(--bg-card);
+  color: var(--text-soft); font-size: 14px; font-weight: 600;
+  transition: all 0.15s;
+}
+.meal-toggle button.selected {
+  background: var(--primary); color: #fff; border-color: var(--primary);
 }

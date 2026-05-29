@@ -5,18 +5,16 @@ import type { MeInfo, UserItem, InviteCode } from '../api'
 interface Props {
   me: MeInfo
   onLogout: () => void
-  onClose: () => void
 }
 
-export default function AccountView({ me, onLogout, onClose }: Props) {
+export default function AccountView({ me, onLogout }: Props) {
   const isAdmin = me.role === 'admin'
   const [confirmLogout, setConfirmLogout] = useState(false)
 
   return (
     <div className="page account-page">
       <div className="acc-topbar">
-        <button className="acc-back" onClick={onClose} aria-label="返回">←</button>
-        <span className="acc-topbar-title">账户</span>
+        <span className="acc-topbar-title">我的账户</span>
       </div>
 
       <div className="acc-card">

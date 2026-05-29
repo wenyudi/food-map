@@ -21,7 +21,6 @@ const MOOD_ANIM: Record<Mood, string> = {
 
 interface Props {
   onSubmitted: () => void
-  onOpenAccount: () => void
 }
 
 // 记住上次填的城市 / 同行人，下次自动带出（去个人化：不再硬编码「重庆」「饼饼」）
@@ -34,7 +33,7 @@ const EXAMPLES: Array<{ kind: 'eat' | 'wish'; text: string }> = [
   { kind: 'wish', text: '小红书种草一家面包店，可颂据说一绝' },
 ]
 
-export default function AddView({ onSubmitted, onOpenAccount }: Props) {
+export default function AddView({ onSubmitted }: Props) {
   const [step, setStep] = useState<'input' | 'pick' | 'confirm'>('input')
   const [text, setText] = useState('')
   const [busy, setBusy] = useState(false)
@@ -58,6 +57,8 @@ export default function AddView({ onSubmitted, onOpenAccount }: Props) {
   const [companions, setCompanions] = useState(() => localStorage.getItem(LS_COMPANIONS) || '')
   const [source, setSource] = useState('小红书')
   const [reason, setReason] = useState('')
+  const [date, setDate] = useState('')              // 确认页可改的日期
+  const [meal, setMeal] = useState<'早' | '中' | '晚'>('中')  // 早 / 中 / 晚
 
   // 进入页面就异步拿定位（不阻塞 UI；失败/拒绝就没事，fallback 到城市搜）
   useEffect(() => {
@@ -92,6 +93,8 @@ export default function AddView({ onSubmitted, onOpenAccount }: Props) {
       setCompanions(p.companions || localStorage.getItem(LS_COMPANIONS) || '')
       setSource(p.source || '小红书')
       setReason(p.reason || '')
+      setDate(p.date || new Date().toISOString().slice(0, 10))
+      setMeal((p.meal_period as '早' | '中' | '晚') || guessMealPeriod())
 
       setStep('pick')
     } catch (e: any) {
@@ -121,6 +124,7 @@ export default function AddView({ onSubmitted, onOpenAccount }: Props) {
       setAmount(''); setPeople('2'); setEmoji('🤤'); setWantAgain(true)
       setFeeling(''); setCompanions(localStorage.getItem(LS_COMPANIONS) || '')
       setSource('小红书'); setReason('')
+      setDate(new Date().toISOString().slice(0, 10)); setMeal(guessMealPeriod())
       setStep('pick')
     } catch (e: any) {
       setError('搜索失败：' + (e?.response?.data?.detail || e?.message || e))
@@ -160,8 +164,8 @@ export default function AddView({ onSubmitted, onOpenAccount }: Props) {
       } else {
         const res = await addVisit({
           poi_id: store.poi_id,
-          date: parsed.date || new Date().toISOString().slice(0, 10),
-          meal_period: parsed.meal_period || guessMealPeriod(),
+          date: date || new Date().toISOString().slice(0, 10),
+          meal_period: meal,
           amount: Number(amount) || 0,
           people_count: Number(people) || 1,
           mood_emoji: emoji,
@@ -201,9 +205,6 @@ export default function AddView({ onSubmitted, onOpenAccount }: Props) {
   if (step === 'input') {
     return (
       <div className="page add-input">
-        <button className="account-btn" onClick={onOpenAccount} title="账户" aria-label="账户">
-          👤
-        </button>
         <h2>一句话记一笔</h2>
         <p className="hint">
           把刚吃的、或想去的店随口说一句，AI 自动认出店名、金额和心情。
@@ -346,6 +347,17 @@ export default function AddView({ onSubmitted, onOpenAccount }: Props) {
       {isVisit ? (
         <>
           <div className="form-row">
+            <label>时间</label>
+            <div className="datetime-row">
+              <input type="date" value={date} onChange={e => setDate(e.target.value)} />
+              <div className="meal-toggle">
+                {(['早', '中', '晚'] as const).map(m => (
+                  <button key={m} className={meal === m ? 'selected' : ''} onClick={() => setMeal(m)}>{m}</button>
+                ))}
+              </div>
+            </div>
+          </div>
+          <div className="form-row">
             <label>金额 ¥</label>
             <input type="number" inputMode="numeric" value={amount} onChange={e => setAmount(e.target.value)} />
           </div>
@@ -412,7 +424,7 @@ export default function AddView({ onSubmitted, onOpenAccount }: Props) {
   )
 }
 
-function guessMealPeriod() {
+function guessMealPeriod(): '早' | '中' | '晚' {
   const h = new Date().getHours()
   if (h < 10) return '早'
   if (h < 16) return '中'

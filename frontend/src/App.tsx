@@ -7,7 +7,7 @@ import Login from './pages/Login'
 import { getMe, getToken, clearToken } from './api'
 import type { MeInfo } from './api'
 
-type Tab = 'map' | 'add' | 'list'
+type Tab = 'map' | 'add' | 'list' | 'account'
 
 export default function App() {
   const [authState, setAuthState] = useState<'loading' | 'login' | 'app'>('loading')
@@ -15,7 +15,6 @@ export default function App() {
   const [tab, setTab] = useState<Tab>('map')
   const [refreshKey, setRefreshKey] = useState(0)
   const [focusPoiId, setFocusPoiId] = useState<string | null>(null)
-  const [showAccount, setShowAccount] = useState(false)
 
   // 启动时校验 token
   useEffect(() => {
@@ -34,7 +33,6 @@ export default function App() {
   }
 
   function handleLogout() {
-    setShowAccount(false)
     setMe(null)
     setAuthState('login')
     setTab('map')
@@ -70,17 +68,18 @@ export default function App() {
           />
         )}
         {tab === 'add' && (
-          <AddView
-            onSubmitted={handleSubmitted}
-            onOpenAccount={() => setShowAccount(true)}
-          />
+          <AddView onSubmitted={handleSubmitted} />
         )}
         {tab === 'list' && (
           <ListView
             refreshKey={refreshKey}
             focusPoiId={focusPoiId}
             onPickStore={(id) => jumpTo('map', id)}
+            onJumpToAdd={() => setTab('add')}
           />
+        )}
+        {tab === 'account' && (
+          <AccountView me={me} onLogout={handleLogout} />
         )}
       </div>
       <nav className="tabs">
@@ -93,13 +92,10 @@ export default function App() {
         <button onClick={() => setTab('list')} className={tab === 'list' ? 'active' : ''}>
           📋<span>列表</span>
         </button>
+        <button onClick={() => setTab('account')} className={tab === 'account' ? 'active' : ''}>
+          👤<span>我的</span>
+        </button>
       </nav>
-
-      {showAccount && (
-        <div className="account-overlay">
-          <AccountView me={me} onLogout={handleLogout} onClose={() => setShowAccount(false)} />
-        </div>
-      )}
 
       <Lightbox />
     </div>
