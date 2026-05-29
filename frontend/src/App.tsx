@@ -66,6 +66,7 @@ export default function App() {
             refreshKey={refreshKey}
             focusPoiId={focusPoiId}
             onConsumeFocus={() => setFocusPoiId(null)}
+            onJumpToAdd={() => setTab('add')}
           />
         )}
         {tab === 'add' && (

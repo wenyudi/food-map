@@ -67,12 +67,15 @@ export const deleteUserApi = (username: string) =>
 export interface InviteCode {
   code: string
   created_by: string | null
+  circle_id: number | null   // null = 注册时新建独立圈子（给朋友）；否则加入该圈子
   created_at: string
   used_by: string | null
   used_at: string | null
 }
 
-export const genInvite = () => api.post<{ code: string }>('/auth/invites').then(r => r.data)
+// new_circle=true → 给朋友新建独立圈子（仅管理员）；false → 邀请进自己的圈子
+export const genInvite = (new_circle = false) =>
+  api.post<{ code: string }>('/auth/invites', { new_circle }).then(r => r.data)
 export const listInvites = () => api.get<InviteCode[]>('/auth/invites').then(r => r.data)
 export const revokeInvite = (code: string) =>
   api.delete(`/auth/invites/${encodeURIComponent(code)}`).then(r => r.data)

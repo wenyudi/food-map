@@ -49,12 +49,13 @@ async def lifespan(app: FastAPI):
     admin_user = os.environ.get("INITIAL_ADMIN_USERNAME")
     admin_pass = os.environ.get("INITIAL_ADMIN_PASSWORD")
     if admin_user and admin_pass and not db.get_user(admin_user):
-        db.create_user(admin_user, auth.hash_password(admin_pass), role="admin")
-        print(f"  ✨ 已创建管理员: {admin_user}")
+        cid = db.create_circle("默认圈子")
+        db.create_user(admin_user, auth.hash_password(admin_pass), role="admin", circle_id=cid)
+        print(f"  ✨ 已创建管理员: {admin_user}（圈子 #{cid}）")
     yield
 
 
-app = FastAPI(title="饼饼の美食地图", lifespan=lifespan)
+app = FastAPI(title="馋图 API", lifespan=lifespan)
 
 PHOTOS_DIR = Path(os.environ.get("PHOTOS_DIR") or (Path(__file__).parent / "data" / "photos"))
 PHOTOS_DIR.mkdir(parents=True, exist_ok=True)
@@ -137,28 +138,49 @@ def post_register(req: RegisterReq):
         raise HTTPException(400, "用户名已存在")
     if len(req.password) < 4:
         raise HTTPException(400, "密码至少 4 位")
-    db.create_user(username, auth.hash_password(req.password), role="user")
+    # 邀请码带圈子：None=新建独立圈子（给朋友），否则加入该圈子（情侣共享一张图）
+    circle_id = inv.get("circle_id")
+    if circle_id is None:
+        circle_id = db.create_circle(username)
+    db.create_user(username, auth.hash_password(req.password), role="user", circle_id=circle_id)
     db.mark_invite_used(code, username)
     token = auth.make_token(username, "user")
     return {"token": token, "username": username, "role": "user"}
 
 
+class InviteReq(BaseModel):
+    new_circle: bool = False  # True=新建独立圈子（仅管理员）；False=加入自己的圈子
+
+
 @app.post("/api/auth/invites")
-def gen_invite(admin: dict = Depends(require_admin)):
+def gen_invite(req: InviteReq = InviteReq(), user: dict = Depends(current_user)):
+    is_admin = user.get("role") == "admin"
+    if req.new_circle and not is_admin:
+        raise HTTPException(403, "只有管理员能创建「新圈子」邀请码")
+    # 新圈子 → circle_id=None（注册时再建）；加入我的圈子 → 我的 circle_id
+    circle_id = None if req.new_circle else user.get("circle_id")
     code = secrets.token_hex(4).upper()  # 8 位十六进制，比如 A1B2C3D4
-    db.create_invite(code, admin["username"])
+    db.create_invite(code, user["username"], circle_id)
     return {"code": code}
 
 
 @app.get("/api/auth/invites")
-def get_invites(_: dict = Depends(require_admin)):
-    return db.list_invites()
+def get_invites(user: dict = Depends(current_user)):
+    items = db.list_invites()
+    if user.get("role") != "admin":
+        # 普通用户只看自己生成的邀请码
+        items = [i for i in items if i.get("created_by") == user["username"]]
+    return items
 
 
 @app.delete("/api/auth/invites/{code}")
-def revoke_invite(code: str, _: dict = Depends(require_admin)):
+def revoke_invite(code: str, user: dict = Depends(current_user)):
     inv = db.get_invite(code)
-    if inv and inv.get("used_by"):
+    if not inv:
+        return {"ok": True}
+    if user.get("role") != "admin" and inv.get("created_by") != user["username"]:
+        raise HTTPException(403, "不能撤销别人的邀请码")
+    if inv.get("used_by"):
         raise HTTPException(400, "已使用的邀请码不能删")
     db.delete_invite(code)
     return {"ok": True}
@@ -227,7 +249,7 @@ class VisitReq(BaseModel):
     mood_emoji: str
     want_again: bool
     feeling: str = ""
-    companions: str = "饼饼"
+    companions: str = ""
     my_photos: str = ""
     wish_id: str = ""
 
@@ -245,8 +267,8 @@ EMOJI_COLOR = {"😋": "#ff4757", "🤤": "#ffa502", "😂": "#7bed9f", "😐": 
 
 
 @app.get("/api/points")
-def get_points(_: dict = Depends(current_user)):
-    data = db.load_all()
+def get_points(user: dict = Depends(current_user)):
+    data = db.load_all(user["circle_id"])
     stores = {s["poi_id"]: s for s in data["stores"]}
     visits_by_poi: dict[str, list] = {}
     for v in data["visits"]:
@@ -263,6 +285,10 @@ def get_points(_: dict = Depends(current_user)):
         if not store.get("lng") or not store.get("lat"):
             continue
         my_visits = visits_by_poi.get(poi_id, [])
+        wish = wishes_by_poi.get(poi_id)
+        # stores 表是全局 POI 缓存——本圈子既没去过也没种草的店，不该出现在地图上
+        if not my_visits and not wish:
+            continue
         latest = my_visits[-1] if my_visits else None
         emoji = (latest or {}).get("mood_emoji", "")
         points.append({
@@ -278,18 +304,18 @@ def get_points(_: dict = Depends(current_user)):
 
 
 @app.get("/api/recent")
-def get_recent(limit: int = 10, _: dict = Depends(current_user)):
-    return db.list_recent_visits(limit)
+def get_recent(limit: int = 10, user: dict = Depends(current_user)):
+    return db.list_recent_visits(limit, user["circle_id"])
 
 
 @app.get("/api/wishes")
-def get_wishes(_: dict = Depends(current_user)):
-    return db.list_open_wishes()
+def get_wishes(user: dict = Depends(current_user)):
+    return db.list_open_wishes(user["circle_id"])
 
 
 @app.get("/api/stats")
-def get_stats(_: dict = Depends(current_user)):
-    return db.stats()
+def get_stats(user: dict = Depends(current_user)):
+    return db.stats(user["circle_id"])
 
 
 # ---------- 写入接口 ----------
@@ -338,11 +364,12 @@ def post_visit(req: VisitReq, user: dict = Depends(current_user)):
         value_label=db.compute_value_label(per_person, cost),
         wish_id=req.wish_id,
         recorded_by=user["username"],
+        circle_id=user["circle_id"],
     )
     db.add_visit(visit)
     if req.wish_id:
         db.mark_wish_visited(req.wish_id, visit.visit_id)
-    _invalidate_story_cache_for(req.date)
+    _invalidate_story_cache_for(req.date, user["circle_id"])
 
     return {
         "visit_id": visit.visit_id,
@@ -353,18 +380,22 @@ def post_visit(req: VisitReq, user: dict = Depends(current_user)):
 
 # ---------- 月度回忆录（in-memory cache） ----------
 
-_story_cache: dict[str, str] = {}
+_story_cache: dict[str, str] = {}  # key: f"{circle_id}:{yyyy-mm}"
 
 
-def _invalidate_story_cache_for(date_str: str) -> None:
-    """visit/wish 写入时调用，按 yyyy-mm 失效缓存。"""
+def _story_key(circle_id: int, year_month: str) -> str:
+    return f"{circle_id}:{year_month}"
+
+
+def _invalidate_story_cache_for(date_str: str, circle_id: int) -> None:
+    """visit/wish 写入时调用，按 圈子+yyyy-mm 失效缓存。"""
     if date_str and len(date_str) >= 7:
-        _story_cache.pop(date_str[:7], None)
+        _story_cache.pop(_story_key(circle_id, date_str[:7]), None)
 
 
-def _build_story_brief(year_month: str) -> Optional[str]:
+def _build_story_brief(year_month: str, circle_id: int) -> Optional[str]:
     """把当月数据整理成给 AI 看的 markdown 清单。没数据返回 None。"""
-    data = db.load_all()
+    data = db.load_all(circle_id)
     stores = {s["poi_id"]: s for s in data["stores"]}
     wishes_by_visit = {w["visit_id"]: w for w in data["wishes"] if w.get("visit_id")}
 
@@ -410,14 +441,17 @@ def _build_story_brief(year_month: str) -> Optional[str]:
 
 
 @app.get("/api/monthly-story")
-def get_monthly_story(year_month: Optional[str] = None, regenerate: bool = False, _: dict = Depends(current_user)):
+def get_monthly_story(year_month: Optional[str] = None, regenerate: bool = False, user: dict = Depends(current_user)):
     if not year_month:
         year_month = datetime.now().strftime("%Y-%m")
 
-    if not regenerate and year_month in _story_cache:
-        return {"story": _story_cache[year_month], "cached": True, "year_month": year_month}
+    circle_id = user["circle_id"]
+    key = _story_key(circle_id, year_month)
 
-    brief = _build_story_brief(year_month)
+    if not regenerate and key in _story_cache:
+        return {"story": _story_cache[key], "cached": True, "year_month": year_month}
+
+    brief = _build_story_brief(year_month, circle_id)
     if brief is None:
         return {"story": "", "empty": True, "year_month": year_month}
 
@@ -426,7 +460,7 @@ def get_monthly_story(year_month: Optional[str] = None, regenerate: bool = False
     except Exception as e:
         raise HTTPException(500, f"AI 生成失败：{e}")
 
-    _story_cache[year_month] = story
+    _story_cache[key] = story
     return {"story": story, "cached": False, "year_month": year_month}
 
 
@@ -449,6 +483,7 @@ def post_wish(req: WishReq, user: dict = Depends(current_user)):
         store_hint=req.store_hint, poi_id=req.poi_id,
         source=req.source, reason=req.reason,
         recorded_by=user["username"],
+        circle_id=user["circle_id"],
     )
     db.add_wish(wish)
     return {"wish_id": wish.wish_id}

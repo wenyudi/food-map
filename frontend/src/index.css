@@ -1454,3 +1454,128 @@ button.primary:disabled {
   object-fit: cover;
   border-radius: var(--r-sm);
 }
+
+/* ============================================
+   分享化改造 · 新增组件样式
+   ============================================ */
+
+/* AddView 内联错误条（替代 alert） */
+.add-error {
+  margin-top: 14px;
+  padding: 10px 14px;
+  border-radius: var(--r-sm);
+  background: #fdecea;
+  border: 1px solid #f5c6c0;
+  color: #c0392b;
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+/* 地图首次进入的空状态引导 */
+.map-empty {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;   /* 卡片以外不挡地图手势 */
+  z-index: 600;
+  padding: 24px;
+}
+.map-empty-card {
+  pointer-events: auto;
+  background: var(--bg-card);
+  border-radius: var(--r-lg);
+  box-shadow: var(--shadow-lg);
+  padding: 30px 26px;
+  text-align: center;
+  max-width: 280px;
+}
+.map-empty-emoji { font-size: 46px; line-height: 1; }
+.map-empty-title {
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--text);
+  margin-top: 10px;
+}
+.map-empty-sub {
+  font-size: 13px;
+  color: var(--text-soft);
+  line-height: 1.6;
+  margin-top: 6px;
+}
+.map-empty-btn {
+  margin-top: 18px;
+  padding: 12px 22px;
+  border-radius: var(--r-pill);
+  border: none;
+  background: var(--primary);
+  color: #fff;
+  font-size: 15px;
+  font-weight: 600;
+  box-shadow: var(--shadow-warm);
+  transition: transform 0.1s;
+}
+.map-empty-btn:active { transform: scale(0.97); }
+
+/* 登出二次确认（替代 confirm 弹窗） */
+.logout-confirm {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 20px;
+  padding: 12px 16px;
+  background: var(--bg-card);
+  border-radius: var(--r);
+  box-shadow: var(--shadow-sm);
+  font-size: 14px;
+  color: var(--text-soft);
+}
+.logout-confirm > span { flex: 1; }
+.lc-cancel, .lc-yes {
+  padding: 8px 16px;
+  border-radius: var(--r-sm);
+  font-size: 13px;
+  font-weight: 600;
+  border: 1px solid var(--border);
+}
+.lc-cancel { background: var(--bg); color: var(--text-soft); }
+.lc-yes { background: #d44d2f; color: #fff; border-color: #d44d2f; }
+
+/* 邀请码：两种生成按钮 + 圈子标签 */
+.invite-gen { display: flex; gap: 8px; }
+.invite-gen .primary, .invite-gen .ghost { margin-top: 0; flex: 1; }
+.acc-section-body button.ghost {
+  padding: 10px;
+  border-radius: var(--r-sm);
+  border: 1.5px solid var(--primary-light);
+  background: var(--bg);
+  color: var(--primary-deep);
+  font-size: 13px;
+  font-weight: 600;
+}
+.acc-section-body button.ghost:disabled { opacity: 0.5; }
+.invite-kind {
+  margin-right: auto;   /* 把后面的「复制/撤销」推到最右 */
+  font-size: 10px;
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: var(--r-pill);
+  background: var(--primary-soft);
+  color: var(--primary-deep);
+}
+.invite-kind.new { background: #e6f4ea; color: #2e7d4f; }
+
+/* 成员删除二次确认 */
+.user-del-confirm { display: inline-flex; gap: 6px; }
+.udc-cancel, .udc-yes {
+  font-size: 11px;
+  padding: 4px 10px;
+  border-radius: var(--r-sm);
+  border: 1px solid var(--border);
+}
+.udc-cancel { background: var(--bg); color: var(--text-soft); }
+.udc-yes { background: #d44d2f; color: #fff; border-color: #d44d2f; }
+
+/* 账户区错误提示 */
+.acc-msg.err { color: #c0392b; }

@@ -1,11 +1,11 @@
 {
-  "name": "饼饼の美食地图",
-  "short_name": "饼饼地图",
-  "description": "和饼饼一起的美食日记 · 想去 · 吃过 · 都在地图上",
+  "name": "馋图 · 美食地图",
+  "short_name": "馋图",
+  "description": "想去 · 吃过 · 都在地图上",
   "start_url": "/",
   "display": "standalone",
   "orientation": "portrait",
-  "theme_color": "#ffa502",
+  "theme_color": "#ef6c4f",
   "background_color": "#fafafa",
   "icons": [
     {

@@ -17,14 +17,19 @@ interface Props {
   onOpenAccount: () => void
 }
 
+// 记住上次填的城市 / 同行人，下次自动带出（去个人化：不再硬编码「重庆」「饼饼」）
+const LS_CITY = 'last_city'
+const LS_COMPANIONS = 'last_companions'
+
 export default function AddView({ onSubmitted, onOpenAccount }: Props) {
   const [step, setStep] = useState<'input' | 'pick' | 'confirm'>('input')
   const [text, setText] = useState('')
   const [busy, setBusy] = useState(false)
+  const [error, setError] = useState<string | null>(null)
   const [parsed, setParsed] = useState<ParsedSentence | null>(null)
   const [pois, setPois] = useState<any[]>([])
   const [selectedPoi, setSelectedPoi] = useState<any>(null)
-  const [city, setCity] = useState('重庆')
+  const [city, setCity] = useState(() => localStorage.getItem(LS_CITY) || '重庆')
 
   const [myLocation, setMyLocation] = useState<MyLocation | null>(null)
   const [photos, setPhotos] = useState<string[]>([])
@@ -35,7 +40,7 @@ export default function AddView({ onSubmitted, onOpenAccount }: Props) {
   const [emoji, setEmoji] = useState<'😋' | '🤤' | '😂' | '😐'>('🤤')
   const [wantAgain, setWantAgain] = useState(true)
   const [feeling, setFeeling] = useState('')
-  const [companions, setCompanions] = useState('饼饼')
+  const [companions, setCompanions] = useState(() => localStorage.getItem(LS_COMPANIONS) || '')
   const [source, setSource] = useState('小红书')
   const [reason, setReason] = useState('')
 
@@ -52,27 +57,29 @@ export default function AddView({ onSubmitted, onOpenAccount }: Props) {
   async function handleParse() {
     if (!text.trim()) return
     setBusy(true)
+    setError(null)
     try {
       const p = await parseText(text)
       setParsed(p)
+      if (city.trim()) localStorage.setItem(LS_CITY, city.trim())
       const locStr = myLocation ? `${myLocation.lng},${myLocation.lat}` : undefined
       const ps = await search(p.store_hint, city, locStr)
       setPois(ps)
       if (ps.length > 0) setSelectedPoi(ps[0])
 
-      // 用 AI 结果预填表单
+      // 用 AI 结果预填表单（同行人：AI 没识别就回退到上次填的）
       setAmount(p.amount?.toString() || '')
       setPeople(p.people_count?.toString() || '2')
       if (p.mood_emoji) setEmoji(p.mood_emoji)
       if (p.want_again !== null) setWantAgain(p.want_again)
       setFeeling(p.feeling || '')
-      setCompanions(p.companions || '饼饼')
+      setCompanions(p.companions || localStorage.getItem(LS_COMPANIONS) || '')
       setSource(p.source || '小红书')
       setReason(p.reason || '')
 
       setStep('pick')
     } catch (e: any) {
-      alert('解析失败：' + (e?.message || e))
+      setError('解析失败：' + (e?.response?.data?.detail || e?.message || e))
     } finally {
       setBusy(false)
     }
@@ -81,6 +88,7 @@ export default function AddView({ onSubmitted, onOpenAccount }: Props) {
   async function handleSubmit() {
     if (!selectedPoi || !parsed) return
     setBusy(true)
+    setError(null)
     try {
       const store = await upsertStore(selectedPoi)
       if (parsed.intent === 'wish') {
@@ -102,11 +110,13 @@ export default function AddView({ onSubmitted, onOpenAccount }: Props) {
           feeling, companions,
           my_photos: photos.join('|'),
         })
+        // 记住这次的同行人，下次自动带出
+        if (companions.trim()) localStorage.setItem(LS_COMPANIONS, companions.trim())
       }
       reset()
       onSubmitted()
     } catch (e: any) {
-      alert('提交失败：' + (e?.message || e))
+      setError('提交失败：' + (e?.response?.data?.detail || e?.message || e))
     } finally {
       setBusy(false)
     }
@@ -115,6 +125,7 @@ export default function AddView({ onSubmitted, onOpenAccount }: Props) {
   function reset() {
     setStep('input')
     setText('')
+    setError(null)
     setParsed(null)
     setPois([])
     setSelectedPoi(null)
@@ -133,8 +144,8 @@ export default function AddView({ onSubmitted, onOpenAccount }: Props) {
           {myLocation && <span className="geo-tip"> · 📍 已定位，优先搜附近</span>}
         </p>
         <div className="examples">
-          <button onClick={() => setText('昨晚和饼饼去格特士吃了200，菜偏甜')}>昨晚和饼饼去格特士吃了200，菜偏甜</button>
-          <button onClick={() => setText('小红书种草鼎泰丰，听说小笼包绝了')}>小红书种草鼎泰丰，听说小笼包绝了</button>
+          <button onClick={() => setText('昨晚和朋友去鼎泰丰吃了200，小笼包绝了')}>昨晚和朋友去鼎泰丰吃了200，小笼包绝了</button>
+          <button onClick={() => setText('小红书种草一家咖啡馆，听说手冲不错')}>小红书种草一家咖啡馆，听说手冲不错</button>
         </div>
         <textarea
           value={text}
@@ -144,8 +155,9 @@ export default function AddView({ onSubmitted, onOpenAccount }: Props) {
         />
         <div className="row">
           <label>城市</label>
-          <input value={city} onChange={e => setCity(e.target.value)} />
+          <input value={city} onChange={e => setCity(e.target.value)} placeholder="如：重庆" />
         </div>
+        {error && <div className="add-error">{error}</div>}
         <button className="primary" disabled={busy || !text.trim()} onClick={handleParse}>
           {busy ? 'AI 解析中…' : '🤖 让 AI 解析'}
         </button>
@@ -234,11 +246,11 @@ export default function AddView({ onSubmitted, onOpenAccount }: Props) {
           </div>
           <div className="form-row">
             <label>和谁</label>
-            <input value={companions} onChange={e => setCompanions(e.target.value)} />
+            <input value={companions} onChange={e => setCompanions(e.target.value)} placeholder="和谁一起？" />
           </div>
 
           <div className="form-block">
-            <label>📷 拍 3 张</label>
+            <label>📷 照片</label>
             <PhotoPicker photos={photos} onChange={setPhotos} max={5} />
           </div>
         </>
@@ -255,6 +267,7 @@ export default function AddView({ onSubmitted, onOpenAccount }: Props) {
         </>
       )}
 
+      {error && <div className="add-error">{error}</div>}
       <div className="row">
         <button onClick={() => setStep('pick')}>← 改店</button>
         <button className="primary" disabled={busy} onClick={handleSubmit}>

@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { login, register, setToken } from '../api'
 import type { MeInfo } from '../api'
+import { APP_NAME, APP_SLOGAN } from '../brand'
 
 interface Props {
   onLoggedIn: (me: MeInfo) => void
@@ -47,8 +48,8 @@ export default function Login({ onLoggedIn }: Props) {
     <div className="login-page">
       <div className="login-card">
         <div className="login-logo">🥘</div>
-        <h1 className="login-title">饼饼の美食地图</h1>
-        <p className="login-subtitle">和你一起的吃饭回忆</p>
+        <h1 className="login-title">{APP_NAME}</h1>
+        <p className="login-subtitle">{APP_SLOGAN}</p>
 
         <div className="login-tabs">
           <button

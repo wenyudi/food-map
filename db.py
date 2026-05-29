@@ -54,6 +54,7 @@ class Visit:
     value_label: str = ""
     wish_id: str = ""
     recorded_by: str = ""  # 谁录的（username）
+    circle_id: int = 0     # 属于哪个圈子（数据隔离边界）
     visit_id: str = field(default_factory=lambda: uuid.uuid4().hex[:8])
     created_at: str = field(default_factory=lambda: datetime.now().isoformat(timespec="seconds"))
 
@@ -72,6 +73,7 @@ class Wish:
     visited_at: str = ""
     visit_id: str = ""
     recorded_by: str = ""
+    circle_id: int = 0     # 属于哪个圈子（数据隔离边界）
     wish_id: str = field(default_factory=lambda: uuid.uuid4().hex[:8])
     created_at: str = field(default_factory=lambda: datetime.now().isoformat(timespec="seconds"))
 
@@ -88,6 +90,12 @@ class User:
 # ---------- 连接与建表 ----------
 
 SCHEMA = """
+CREATE TABLE IF NOT EXISTS circles (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    name TEXT,
+    created_at TEXT NOT NULL
+);
+
 CREATE TABLE IF NOT EXISTS stores (
     poi_id TEXT PRIMARY KEY,
     name TEXT, typecode TEXT, type_name TEXT, tag TEXT,
@@ -105,7 +113,7 @@ CREATE TABLE IF NOT EXISTS visits (
     amap_cost_ref TEXT, value_label TEXT,
     mood_emoji TEXT, want_again INTEGER,
     feeling TEXT, companions TEXT, my_photos TEXT,
-    wish_id TEXT, recorded_by TEXT, created_at TEXT,
+    wish_id TEXT, recorded_by TEXT, circle_id INTEGER, created_at TEXT,
     FOREIGN KEY (poi_id) REFERENCES stores(poi_id)
 );
 
@@ -115,7 +123,7 @@ CREATE TABLE IF NOT EXISTS wishes (
     store_hint TEXT, source TEXT, reason TEXT,
     status TEXT DEFAULT 'want',
     created_at TEXT, visited_at TEXT, visit_id TEXT,
-    recorded_by TEXT,
+    recorded_by TEXT, circle_id INTEGER,
     FOREIGN KEY (poi_id) REFERENCES stores(poi_id)
 );
 
@@ -124,12 +132,14 @@ CREATE TABLE IF NOT EXISTS users (
     username TEXT UNIQUE NOT NULL,
     password_hash TEXT NOT NULL,
     role TEXT NOT NULL DEFAULT 'user',
+    circle_id INTEGER,
     created_at TEXT NOT NULL
 );
 
 CREATE TABLE IF NOT EXISTS invite_codes (
     code TEXT PRIMARY KEY,
     created_by TEXT,
+    circle_id INTEGER,          -- NULL = 注册时新建独立圈子；否则加入该圈子
     created_at TEXT NOT NULL,
     used_by TEXT,
     used_at TEXT
@@ -139,14 +149,40 @@ CREATE INDEX IF NOT EXISTS idx_visits_poi ON visits(poi_id);
 CREATE INDEX IF NOT EXISTS idx_wishes_poi_status ON wishes(poi_id, status);
 CREATE INDEX IF NOT EXISTS idx_users_username ON users(username);
 """
+# 注：circle_id 的索引放在 _migrate() 里建——老库 executescript 时该列还不存在，
+# 直接写进 SCHEMA 会因「no such column: circle_id」报错。
 
 
 def _migrate(c: sqlite3.Connection) -> None:
-    """老库升级：补 recorded_by 列。"""
+    """老库升级：补 recorded_by / circle_id 列，并把存量数据归入默认圈子。"""
     for table in ("visits", "wishes"):
         cols = {r["name"] for r in c.execute(f"PRAGMA table_info({table})")}
         if "recorded_by" not in cols:
             c.execute(f"ALTER TABLE {table} ADD COLUMN recorded_by TEXT")
+
+    # 圈子隔离：补 circle_id 列
+    for table in ("users", "visits", "wishes", "invite_codes"):
+        cols = {r["name"] for r in c.execute(f"PRAGMA table_info({table})")}
+        if "circle_id" not in cols:
+            c.execute(f"ALTER TABLE {table} ADD COLUMN circle_id INTEGER")
+
+    # 存量数据（升级前的那对情侣）统一归入默认圈子 #1，避免变成孤儿数据
+    need_default = c.execute(
+        "SELECT COUNT(*) n FROM users WHERE circle_id IS NULL"
+    ).fetchone()["n"]
+    if need_default:
+        now = datetime.now().isoformat(timespec="seconds")
+        c.execute(
+            "INSERT OR IGNORE INTO circles (id, name, created_at) VALUES (1, '默认圈子', ?)",
+            (now,),
+        )
+        c.execute("UPDATE users  SET circle_id=1 WHERE circle_id IS NULL")
+        c.execute("UPDATE visits SET circle_id=1 WHERE circle_id IS NULL")
+        c.execute("UPDATE wishes SET circle_id=1 WHERE circle_id IS NULL")
+
+    # circle_id 列此时一定存在了，再建索引（放 SCHEMA 里会先于列创建而报错）
+    c.execute("CREATE INDEX IF NOT EXISTS idx_visits_circle ON visits(circle_id)")
+    c.execute("CREATE INDEX IF NOT EXISTS idx_wishes_circle ON wishes(circle_id)")
 
 
 @contextmanager
@@ -219,60 +255,92 @@ def mark_wish_visited(wish_id: str, visit_id: str) -> None:
         )
 
 
-def load_all() -> dict:
+def load_all(circle_id: Optional[int] = None) -> dict:
+    """stores 是全局 POI 缓存（公开数据，可共享）；visits / wishes 按圈子隔离。
+    circle_id 为 None 时不过滤（仅内部/迁移用，不要直接喂给接口）。"""
     with _conn() as c:
+        stores = [_row_to_dict(r) for r in c.execute("SELECT * FROM stores")]
+        if circle_id is None:
+            vrows = c.execute("SELECT * FROM visits ORDER BY date")
+            wrows = c.execute("SELECT * FROM wishes")
+        else:
+            vrows = c.execute("SELECT * FROM visits WHERE circle_id=? ORDER BY date", (circle_id,))
+            wrows = c.execute("SELECT * FROM wishes WHERE circle_id=?", (circle_id,))
         return {
-            "stores": [_row_to_dict(r) for r in c.execute("SELECT * FROM stores")],
-            "visits": [_row_to_dict(r) for r in c.execute("SELECT * FROM visits ORDER BY date")],
-            "wishes": [_row_to_dict(r) for r in c.execute("SELECT * FROM wishes")],
+            "stores": stores,
+            "visits": [_row_to_dict(r) for r in vrows],
+            "wishes": [_row_to_dict(r) for r in wrows],
         }
 
 
-def list_recent_visits(limit: int = 10) -> list[dict]:
+def list_recent_visits(limit: int = 10, circle_id: Optional[int] = None) -> list[dict]:
     """带 store 信息的最近访问（供前端列表页用）。"""
     with _conn() as c:
         rows = c.execute(
             """
             SELECT v.*, s.name AS store_name, s.tag AS store_tag, s.business_area
             FROM visits v JOIN stores s ON v.poi_id = s.poi_id
+            WHERE v.circle_id=?
             ORDER BY v.date DESC, v.created_at DESC LIMIT ?
             """,
-            (limit,),
+            (circle_id, limit),
         ).fetchall()
         return [_row_to_dict(r) for r in rows]
 
 
-def list_open_wishes() -> list[dict]:
+def list_open_wishes(circle_id: Optional[int] = None) -> list[dict]:
     with _conn() as c:
         rows = c.execute(
             """
             SELECT w.*, s.name AS store_name, s.tag AS store_tag, s.business_area, s.lng, s.lat
             FROM wishes w JOIN stores s ON w.poi_id = s.poi_id
-            WHERE w.status='want' ORDER BY w.created_at DESC
+            WHERE w.status='want' AND w.circle_id=? ORDER BY w.created_at DESC
             """,
+            (circle_id,),
         ).fetchall()
         return [_row_to_dict(r) for r in rows]
 
 
-def stats() -> dict:
+def stats(circle_id: Optional[int] = None) -> dict:
     with _conn() as c:
-        row = c.execute("SELECT COUNT(*) c, COALESCE(SUM(amount),0) total FROM visits").fetchone()
+        row = c.execute(
+            "SELECT COUNT(*) c, COALESCE(SUM(amount),0) total FROM visits WHERE circle_id=?",
+            (circle_id,),
+        ).fetchone()
         return {
             "total_visits": row["c"],
             "total_amount": row["total"],
-            "total_stores_visited": c.execute("SELECT COUNT(DISTINCT poi_id) c FROM visits").fetchone()["c"],
-            "total_wishes_open": c.execute("SELECT COUNT(*) c FROM wishes WHERE status='want'").fetchone()["c"],
+            "total_stores_visited": c.execute(
+                "SELECT COUNT(DISTINCT poi_id) c FROM visits WHERE circle_id=?", (circle_id,)
+            ).fetchone()["c"],
+            "total_wishes_open": c.execute(
+                "SELECT COUNT(*) c FROM wishes WHERE status='want' AND circle_id=?", (circle_id,)
+            ).fetchone()["c"],
         }
+
+
+# ---------- 圈子 CRUD ----------
+
+def create_circle(name: str = "") -> int:
+    with _conn() as c:
+        now = datetime.now().isoformat(timespec="seconds")
+        cur = c.execute(
+            "INSERT INTO circles (name, created_at) VALUES (?, ?)",
+            (name, now),
+        )
+        return int(cur.lastrowid or 0)
 
 
 # ---------- 用户 CRUD ----------
 
-def create_user(username: str, password_hash: str, role: str = "user") -> int:
+def create_user(username: str, password_hash: str, role: str = "user",
+                circle_id: Optional[int] = None) -> int:
     with _conn() as c:
         now = datetime.now().isoformat(timespec="seconds")
         cur = c.execute(
-            "INSERT INTO users (username, password_hash, role, created_at) VALUES (?, ?, ?, ?)",
-            (username, password_hash, role, now),
+            "INSERT INTO users (username, password_hash, role, circle_id, created_at) "
+            "VALUES (?, ?, ?, ?, ?)",
+            (username, password_hash, role, circle_id, now),
         )
         return int(cur.lastrowid or 0)
 
@@ -307,11 +375,12 @@ def count_users() -> int:
 
 # ---------- 邀请码 CRUD ----------
 
-def create_invite(code: str, created_by: str) -> None:
+def create_invite(code: str, created_by: str, circle_id: Optional[int] = None) -> None:
+    """circle_id 为 None 表示「注册时新建独立圈子」；否则注册者加入该圈子。"""
     with _conn() as c:
         c.execute(
-            "INSERT INTO invite_codes (code, created_by, created_at) VALUES (?, ?, ?)",
-            (code, created_by, datetime.now().isoformat(timespec="seconds")),
+            "INSERT INTO invite_codes (code, created_by, circle_id, created_at) VALUES (?, ?, ?, ?)",
+            (code, created_by, circle_id, datetime.now().isoformat(timespec="seconds")),
         )
 
 

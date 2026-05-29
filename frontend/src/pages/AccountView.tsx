@@ -9,6 +9,9 @@ interface Props {
 }
 
 export default function AccountView({ me, onLogout, onClose }: Props) {
+  const isAdmin = me.role === 'admin'
+  const [confirmLogout, setConfirmLogout] = useState(false)
+
   return (
     <div className="page account-page">
       <div className="acc-topbar">
@@ -19,21 +22,23 @@ export default function AccountView({ me, onLogout, onClose }: Props) {
       <div className="acc-card">
         <div className="acc-avatar">{me.username.slice(0, 1).toUpperCase()}</div>
         <div className="acc-name">{me.username}</div>
-        <div className="acc-role">{me.role === 'admin' ? '管理员' : '成员'}</div>
+        <div className="acc-role">{isAdmin ? '管理员' : '成员'}</div>
       </div>
 
       <ChangePasswordBlock />
 
-      {me.role === 'admin' && <InviteCodes />}
-      {me.role === 'admin' && <UserManagement currentUsername={me.username} />}
+      <InviteCodes isAdmin={isAdmin} />
+      {isAdmin && <UserManagement currentUsername={me.username} />}
 
-      <button className="logout-btn" onClick={() => {
-        if (!confirm('确认要登出吗？')) return
-        clearToken()
-        onLogout()
-      }}>
-        登出
-      </button>
+      {!confirmLogout ? (
+        <button className="logout-btn" onClick={() => setConfirmLogout(true)}>登出</button>
+      ) : (
+        <div className="logout-confirm">
+          <span>确认登出？</span>
+          <button className="lc-cancel" onClick={() => setConfirmLogout(false)}>取消</button>
+          <button className="lc-yes" onClick={() => { clearToken(); onLogout() }}>登出</button>
+        </div>
+      )}
     </div>
   )
 }
@@ -81,11 +86,13 @@ function ChangePasswordBlock() {
   )
 }
 
-function InviteCodes() {
+function InviteCodes({ isAdmin }: { isAdmin: boolean }) {
   const [invites, setInvites] = useState<InviteCode[]>([])
   const [loading, setLoading] = useState(true)
-  const [busy, setBusy] = useState(false)
+  const [busy, setBusy] = useState<'mine' | 'new' | null>(null)
   const [copied, setCopied] = useState<string | null>(null)
+  const [revoking, setRevoking] = useState<string | null>(null)
+  const [err, setErr] = useState<string | null>(null)
 
   async function refresh() {
     setLoading(true)
@@ -94,15 +101,16 @@ function InviteCodes() {
 
   useEffect(() => { refresh() }, [])
 
-  async function generate() {
-    setBusy(true)
+  async function generate(newCircle: boolean) {
+    setBusy(newCircle ? 'new' : 'mine')
+    setErr(null)
     try {
-      await genInvite()
+      await genInvite(newCircle)
       await refresh()
     } catch (e: any) {
-      alert(e?.response?.data?.detail || '生成失败')
+      setErr(e?.response?.data?.detail || '生成失败')
     } finally {
-      setBusy(false)
+      setBusy(null)
     }
   }
 
@@ -112,18 +120,18 @@ function InviteCodes() {
       setCopied(code)
       setTimeout(() => setCopied(null), 1500)
     } catch {
-      // 某些环境 clipboard 不可用，退而提示手动复制
-      alert(`邀请码：${code}`)
+      setErr(`复制失败，手动记下：${code}`)
     }
   }
 
   async function revoke(code: string) {
-    if (!confirm(`撤销邀请码 ${code}？`)) return
+    setErr(null)
     try {
       await revokeInvite(code)
+      setRevoking(null)
       refresh()
     } catch (e: any) {
-      alert(e?.response?.data?.detail || '撤销失败')
+      setErr(e?.response?.data?.detail || '撤销失败')
     }
   }
 
@@ -136,21 +144,44 @@ function InviteCodes() {
         <span>🎟️ 邀请码</span>
       </div>
       <div className="acc-section-body">
-        <button onClick={generate} disabled={busy} className="primary">
-          {busy ? '生成中…' : '+ 生成新邀请码'}
-        </button>
-        <div className="invite-hint">把邀请码发给对方 → TA 在登录页「注册」填码 + 自设密码</div>
+        <div className="invite-gen">
+          <button onClick={() => generate(false)} disabled={busy !== null} className="primary">
+            {busy === 'mine' ? '生成中…' : '👫 邀请进我的地图'}
+          </button>
+          {isAdmin && (
+            <button onClick={() => generate(true)} disabled={busy !== null} className="ghost">
+              {busy === 'new' ? '生成中…' : '🌱 给朋友建新地图'}
+            </button>
+          )}
+        </div>
+        <div className="invite-hint">
+          {isAdmin
+            ? '「进我的地图」= 和你共享同一张图（如另一半）；「新地图」= 朋友拥有独立的一张，互不可见。'
+            : '把邀请码发给另一半 → TA 注册后和你共享同一张地图。'}
+        </div>
 
+        {err && <div className="acc-msg err">{err}</div>}
         {loading && <div className="acc-msg">加载中…</div>}
 
         {unused.map(i => (
           <div className="invite-row" key={i.code}>
             <code className="invite-code" onClick={() => copy(i.code)}>{i.code}</code>
-            <span className="invite-status unused">未使用</span>
-            <button className="invite-copy" onClick={() => copy(i.code)}>
-              {copied === i.code ? '已复制 ✓' : '复制'}
-            </button>
-            <button className="invite-del" onClick={() => revoke(i.code)}>撤销</button>
+            <span className={'invite-kind' + (i.circle_id == null ? ' new' : '')}>
+              {i.circle_id == null ? '新地图' : '我的图'}
+            </span>
+            {revoking === i.code ? (
+              <>
+                <button className="invite-copy" onClick={() => setRevoking(null)}>取消</button>
+                <button className="invite-del" onClick={() => revoke(i.code)}>确认撤销</button>
+              </>
+            ) : (
+              <>
+                <button className="invite-copy" onClick={() => copy(i.code)}>
+                  {copied === i.code ? '已复制 ✓' : '复制'}
+                </button>
+                <button className="invite-del" onClick={() => setRevoking(i.code)}>撤销</button>
+              </>
+            )}
           </div>
         ))}
 
@@ -173,6 +204,8 @@ function InviteCodes() {
 function UserManagement({ currentUsername }: { currentUsername: string }) {
   const [users, setUsers] = useState<UserItem[]>([])
   const [loading, setLoading] = useState(true)
+  const [confirmDel, setConfirmDel] = useState<string | null>(null)
+  const [err, setErr] = useState<string | null>(null)
 
   async function refresh() {
     setLoading(true)
@@ -182,12 +215,13 @@ function UserManagement({ currentUsername }: { currentUsername: string }) {
   useEffect(() => { refresh() }, [])
 
   async function remove(username: string) {
-    if (!confirm(`确认要删除 ${username} 吗？TA 的数据会保留。`)) return
+    setErr(null)
     try {
       await deleteUserApi(username)
+      setConfirmDel(null)
       refresh()
     } catch (e: any) {
-      alert(e?.response?.data?.detail || '删除失败')
+      setErr(e?.response?.data?.detail || '删除失败')
     }
   }
 
@@ -197,13 +231,21 @@ function UserManagement({ currentUsername }: { currentUsername: string }) {
         <span>👥 成员（{users.length}）</span>
       </div>
       <div className="acc-section-body">
+        {err && <div className="acc-msg err">{err}</div>}
         {loading && <div className="acc-msg">加载中…</div>}
         {!loading && users.map(u => (
           <div className="user-row" key={u.id}>
             <span className="user-name">{u.username}</span>
             <span className="user-role">{u.role === 'admin' ? '管理员' : '成员'}</span>
             {u.username !== currentUsername && (
-              <button className="user-del" onClick={() => remove(u.username)}>删除</button>
+              confirmDel === u.username ? (
+                <span className="user-del-confirm">
+                  <button className="udc-cancel" onClick={() => setConfirmDel(null)}>取消</button>
+                  <button className="udc-yes" onClick={() => remove(u.username)}>确认删除</button>
+                </span>
+              ) : (
+                <button className="user-del" onClick={() => setConfirmDel(u.username)}>删除</button>
+              )
             )}
           </div>
         ))}

@@ -16,7 +16,7 @@ DEEPSEEK_KEY = os.environ.get("DEEPSEEK_KEY", "")
 API_URL = "https://api.deepseek.com/v1/chat/completions"
 MODEL = "deepseek-chat"
 
-SYSTEM_PROMPT = """你是「饼饼の美食地图」助手。用户会用一句话描述刚吃完的店或想种草的店。
+SYSTEM_PROMPT = """你是「馋图」美食记录助手。用户会用一句话描述刚吃完的店或想种草的店。
 只输出 JSON，按字段提取，不要解释。
 
 字段：
@@ -24,7 +24,7 @@ SYSTEM_PROMPT = """你是「饼饼の美食地图」助手。用户会用一句�
 - store_hint: 店名关键词
 - date: ISO 日期 YYYY-MM-DD（visit 必填；"昨晚"=昨天日期；"今天"=今天日期；没说就填今天）
 - meal_period: "早" | "中" | "晚" | null
-- companions: 同行人；没说就默认 "饼饼"
+- companions: 同行人；没说就填 null（不要瞎猜）
 - amount: 总花费数字；没说 null
 - people_count: 人数；没说 null
 - feeling: 复述用户的感受句子（用户原话）；没说 null
@@ -41,7 +41,7 @@ SYSTEM_PROMPT = """你是「饼饼の美食地图」助手。用户会用一句�
 只输出 JSON，不要任何 markdown、不要 ``` 包裹。"""
 
 
-STORY_SYSTEM_PROMPT = """你是「饼饼の美食地图」的回忆录助手。
+STORY_SYSTEM_PROMPT = """你是「馋图」的回忆录助手。
 
 用户会给你一份**本月吃过的店清单**和**想去清单**，请基于这份清单写一段 80-130 字的温暖小记，像日记里写的回忆。
 
@@ -52,7 +52,7 @@ STORY_SYSTEM_PROMPT = """你是「饼饼の美食地图」的回忆录助手。
 - 引用"感受"时只能用清单里那家店的原话（在引号里），不能改写也不能 mix
 
 写作要求：
-- 第二人称"你"或"你和饼饼"开头
+- 第二人称"你"开头；如果清单里出现了同行人，就自然带上（比如"你和 XX"），没有就只说"你"
 - 自然口语，不堆砌数据（次数/总花费已经在卡片上显示了，别重复）
 - 抓 1-2 个有故事感的细节，按优先级：
   1. 标记 ✨ 兑现 的店 → "种草 N 个月，终于去了"

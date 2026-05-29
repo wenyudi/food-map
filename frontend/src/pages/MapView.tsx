@@ -9,9 +9,10 @@ interface Props {
   refreshKey: number
   focusPoiId?: string | null
   onConsumeFocus?: () => void
+  onJumpToAdd?: () => void
 }
 
-export default function MapView({ refreshKey, focusPoiId, onConsumeFocus }: Props) {
+export default function MapView({ refreshKey, focusPoiId, onConsumeFocus, onJumpToAdd }: Props) {
   const [points, setPoints] = useState<Point[]>([])
   const [stats, setStats] = useState<Stats | null>(null)
   const [loading, setLoading] = useState(true)
@@ -79,6 +80,19 @@ export default function MapView({ refreshKey, focusPoiId, onConsumeFocus }: Prop
       )}
 
       {loading && <div className="loading">加载中…</div>}
+
+      {!loading && points.length === 0 && (
+        <div className="map-empty">
+          <div className="map-empty-card">
+            <div className="map-empty-emoji">🗺️</div>
+            <div className="map-empty-title">地图还空着</div>
+            <div className="map-empty-sub">记下第一顿，就会在这里亮起一个点</div>
+            {onJumpToAdd && (
+              <button className="map-empty-btn" onClick={onJumpToAdd}>✏️ 去记第一笔</button>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   )
 }
