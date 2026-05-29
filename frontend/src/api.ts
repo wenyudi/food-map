@@ -202,3 +202,22 @@ export const getMonthlyStory = (year_month?: string, regenerate = false) =>
     params: { year_month, regenerate: regenerate || undefined },
     timeout: 60000,  // AI 生成可能 2-5s
   }).then(r => r.data)
+
+// 今天吃啥 · 决策助手
+export interface SuggestPick {
+  poi_id: string
+  name: string
+  kind: 'wish' | 'fav'
+  reason: string
+  has_coords: boolean
+}
+export interface Suggestion {
+  note: string
+  picks: SuggestPick[]
+  empty?: boolean
+}
+export const getSuggest = (location?: string, craving?: string) =>
+  api.get<Suggestion>('/suggest', {
+    params: { location, craving },
+    timeout: 40000,
+  }).then(r => r.data)

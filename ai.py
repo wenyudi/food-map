@@ -88,6 +88,44 @@ def generate_monthly_story(brief: str, timeout: int = 60) -> str:
     return data["choices"][0]["message"]["content"].strip()
 
 
+SUGGEST_SYSTEM_PROMPT = """你是「吃了么」的"今天吃啥"助手。我会给你一份带编号的候选店清单（你们想去还没去的、和去过还想再来的），外加现在的时段、可能的口味偏好。
+
+请从清单里挑 1-2 家推荐，每家给一句走心、口语的理由。挑的时候综合考虑（按优先级）：
+- 种草很久还没兑现的，优先推（"惦记 XX 好久了，今天去？"）
+- 用户说的口味偏好（清淡/辣/汤水…）要尽量match
+- 离得近的优先（清单里有距离就参考）
+- 别老吃同一类，适当换换口味
+- 想再来的老店，结合上次的评价说
+
+只输出 JSON，格式：{"picks":[{"n":编号,"reason":"一句话理由"}],"note":"一句总的开场或收尾"}
+⚠️硬规则：n 只能是清单里出现过的编号；绝不许编清单外的店；理由只能用清单里给的信息，不许杜撰菜品或情节。"""
+
+
+def suggest_today(brief: str, timeout: int = 30) -> dict:
+    """传入带编号的候选店清单，返回 {"picks":[{"n","reason"}],"note"} 。"""
+    resp = requests.post(
+        API_URL,
+        headers={
+            "Authorization": f"Bearer {DEEPSEEK_KEY}",
+            "Content-Type": "application/json",
+        },
+        json={
+            "model": MODEL,
+            "messages": [
+                {"role": "system", "content": SUGGEST_SYSTEM_PROMPT},
+                {"role": "user", "content": brief},
+            ],
+            "temperature": 0.6,  # 稍高一点，换一批能有变化
+            "response_format": {"type": "json_object"},
+        },
+        timeout=timeout,
+    )
+    data = resp.json()
+    if "error" in data:
+        raise RuntimeError(f"DeepSeek 报错：{data['error']}")
+    return json.loads(data["choices"][0]["message"]["content"])
+
+
 def parse_one_liner(text: str, timeout: int = 30) -> dict:
     today = datetime.now().strftime("%Y-%m-%d")
     weekday = "一二三四五六日"[datetime.now().weekday()]

@@ -1,8 +1,8 @@
 import { useEffect, useRef, useState } from 'react'
 import { MapContainer, TileLayer, Marker, Popup, useMap } from 'react-leaflet'
 import L from 'leaflet'
-import { getPoints, getStats } from '../api'
-import type { Point, Stats } from '../api'
+import { getPoints, getStats, getSuggest } from '../api'
+import type { Point, Stats, Suggestion } from '../api'
 import { getMyLocation } from '../lib/geo'
 import { cleanTag } from '../lib/format'
 
@@ -18,6 +18,8 @@ export default function MapView({ refreshKey, focusPoiId, onConsumeFocus, onJump
   const [stats, setStats] = useState<Stats | null>(null)
   const [loading, setLoading] = useState(true)
   const [trayOpen, setTrayOpen] = useState(false)
+  const [suggestOpen, setSuggestOpen] = useState(false)
+  const [suggestFocus, setSuggestFocus] = useState<string | null>(null)
   const markerRefs = useRef<Record<string, L.Marker>>({})
 
   useEffect(() => {
@@ -54,6 +56,12 @@ export default function MapView({ refreshKey, focusPoiId, onConsumeFocus, onJump
           focusPoiId={focusPoiId || null}
           markerRefs={markerRefs}
           onDone={onConsumeFocus}
+        />
+        <FocusFlyer
+          points={located}
+          focusPoiId={suggestFocus}
+          markerRefs={markerRefs}
+          onDone={() => setSuggestFocus(null)}
         />
         {located.map(p => (
           <Marker
@@ -111,6 +119,79 @@ export default function MapView({ refreshKey, focusPoiId, onConsumeFocus, onJump
           </div>
         </div>
       )}
+
+      {!loading && points.length > 0 && (
+        <button className="suggest-btn" onClick={() => setSuggestOpen(true)}>🍽️ 今天吃啥</button>
+      )}
+
+      {suggestOpen && (
+        <SuggestSheet
+          onClose={() => setSuggestOpen(false)}
+          onFocus={(id) => { setSuggestFocus(id); setSuggestOpen(false) }}
+        />
+      )}
+    </div>
+  )
+}
+
+function SuggestSheet({ onClose, onFocus }: { onClose: () => void; onFocus: (poiId: string) => void }) {
+  const [loading, setLoading] = useState(true)
+  const [data, setData] = useState<Suggestion | null>(null)
+  const [craving, setCraving] = useState('')
+  const [err, setErr] = useState<string | null>(null)
+
+  async function ask() {
+    setLoading(true); setErr(null)
+    try {
+      const loc = await getMyLocation()
+      const locStr = loc ? `${loc.lng},${loc.lat}` : undefined
+      setData(await getSuggest(locStr, craving.trim() || undefined))
+    } catch (e: any) {
+      setErr(e?.response?.data?.detail || '没问出来，再试一次')
+    } finally { setLoading(false) }
+  }
+
+  useEffect(() => { ask() /* 打开就先问一次 */ }, [])  // eslint-disable-line react-hooks/exhaustive-deps
+
+  return (
+    <div className="sheet-backdrop" onClick={onClose}>
+      <div className="sheet" onClick={e => e.stopPropagation()}>
+        <div className="sheet-handle" />
+        <div className="sheet-title">🍽️ 今天吃啥</div>
+        <div className="suggest-craving">
+          <input value={craving} onChange={e => setCraving(e.target.value)}
+                 placeholder="想吃点啥？清淡 / 辣 / 汤水…（可不填）"
+                 onKeyDown={e => { if (e.key === 'Enter') ask() }} />
+          <button onClick={ask} disabled={loading}>{loading ? '想…' : '问问'}</button>
+        </div>
+
+        {loading && <div className="as-skeleton"><span></span><span></span><span></span></div>}
+        {err && <div className="add-error">{err}</div>}
+
+        {data && !loading && (
+          data.empty ? (
+            <div className="suggest-empty">{data.note}</div>
+          ) : (
+            <>
+              {data.note && <div className="suggest-note">{data.note}</div>}
+              {data.picks.map(p => (
+                <button key={p.poi_id} className="suggest-pick"
+                        onClick={() => { if (p.has_coords) onFocus(p.poi_id) }}>
+                  <div className="sp-head">
+                    <span className={'ex-tag ' + (p.kind === 'wish' ? 'wish' : 'eat')}>
+                      {p.kind === 'wish' ? '想去' : '想再来'}
+                    </span>
+                    <b>{p.name}</b>
+                    {p.has_coords && <span className="sp-go">地图上看 →</span>}
+                  </div>
+                  <div className="sp-reason">{p.reason}</div>
+                </button>
+              ))}
+              <button className="ghost-btn" onClick={ask} disabled={loading}>🎲 换一批</button>
+            </>
+          )
+        )}
+      </div>
     </div>
   )
 }

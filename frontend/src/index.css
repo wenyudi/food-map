@@ -1934,3 +1934,51 @@ button.primary:disabled {
   border-radius: var(--r-pill);
   margin-left: 6px;
 }
+
+/* 今天吃啥 · 地图浮动按钮 */
+.suggest-btn {
+  position: absolute;
+  left: 50%;
+  bottom: calc(env(safe-area-inset-bottom) + 14px);
+  transform: translateX(-50%);
+  z-index: 800;
+  padding: 12px 22px;
+  border: none;
+  border-radius: var(--r-pill);
+  background: var(--grad-warm);
+  color: #fff;
+  font-size: 15px;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  box-shadow: 0 6px 18px rgba(239, 108, 79, 0.45);
+  transition: transform 0.12s;
+}
+.suggest-btn:active { transform: translateX(-50%) scale(0.96); }
+
+/* 今天吃啥 · sheet 内容 */
+.suggest-craving { display: flex; gap: 8px; margin-bottom: 14px; }
+.suggest-craving input {
+  flex: 1; padding: 11px 14px; border-radius: var(--r-sm);
+  border: 1.5px solid var(--border); background: var(--bg-card);
+}
+.suggest-craving button {
+  flex-shrink: 0; padding: 0 18px; border-radius: var(--r-sm); border: none;
+  background: var(--grad-warm); color: #fff; font-weight: 700; font-size: 14px;
+}
+.suggest-craving button:disabled { background: var(--text-light); }
+.suggest-note {
+  font-size: 14px; color: var(--text); line-height: 1.6; margin-bottom: 12px;
+  font-family: "STKaiti", "KaiTi", "PingFang SC", serif;
+}
+.suggest-empty { font-size: 14px; color: var(--text-soft); text-align: center; padding: 20px 8px; line-height: 1.7; }
+.suggest-pick {
+  display: block; width: 100%; text-align: left;
+  background: var(--bg-soft); border: 1px solid var(--border);
+  border-radius: var(--r); padding: 13px 14px; margin-bottom: 10px;
+  transition: transform 0.1s, background 0.15s;
+}
+.suggest-pick:active { transform: scale(0.99); background: var(--primary-soft); }
+.sp-head { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.sp-head b { font-size: 15px; color: var(--text); font-weight: 700; }
+.sp-go { margin-left: auto; font-size: 12px; color: var(--primary); font-weight: 600; }
+.sp-reason { font-size: 13px; color: var(--text-soft); line-height: 1.55; margin-top: 6px; }

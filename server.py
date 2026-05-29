@@ -473,6 +473,128 @@ def get_monthly_story(year_month: Optional[str] = None, regenerate: bool = False
     return {"story": story, "cached": False, "year_month": year_month}
 
 
+# ---------- 今天吃啥 · 决策助手 ----------
+
+def _haversine_m(lng1: float, lat1: float, lng2: float, lat2: float) -> int:
+    from math import radians, sin, cos, asin, sqrt
+    dlat, dlng = radians(lat2 - lat1), radians(lng2 - lng1)
+    a = sin(dlat / 2) ** 2 + cos(radians(lat1)) * cos(radians(lat2)) * sin(dlng / 2) ** 2
+    return int(2 * 6371000 * asin(sqrt(a)))
+
+
+def _build_suggest_brief(circle_id: int, location: Optional[str], craving: Optional[str]):
+    """攒候选店（想去 + 想再来的老店），整理成带编号清单喂 AI。返回 (brief, candidates)。"""
+    data = db.load_all(circle_id)
+    stores = {s["poi_id"]: s for s in data["stores"]}
+    visits_by_poi: dict[str, list] = {}
+    for v in data["visits"]:
+        visits_by_poi.setdefault(v["poi_id"], []).append(v)
+
+    uloc = None
+    if location and "," in location:
+        try:
+            lng, lat = map(float, location.split(","))
+            uloc = (lng, lat)
+        except ValueError:
+            pass
+
+    today = datetime.now().date()
+    candidates: list[dict] = []
+
+    # 1) 想去还没去（最该被推）
+    for w in data["wishes"]:
+        if w["status"] != "want":
+            continue
+        s = stores.get(w["poi_id"])
+        if not s:
+            continue
+        candidates.append({
+            "poi_id": w["poi_id"], "name": s.get("name", ""), "kind": "wish",
+            "tag": (s.get("tag") or "").split("|")[0],
+            "reason": w.get("reason", ""), "source": w.get("source", ""),
+            "lng": s.get("lng"), "lat": s.get("lat"),
+        })
+
+    # 2) 去过还想再来的老店（最近 2 天去过的不推，免得腻）
+    seen = {c["poi_id"] for c in candidates}
+    for poi_id, vs in visits_by_poi.items():
+        if poi_id in seen:
+            continue
+        last = max(vs, key=lambda v: (v.get("date") or ""))
+        if not last.get("want_again"):
+            continue
+        try:
+            ld = datetime.strptime((last.get("date") or "")[:10], "%Y-%m-%d").date()
+            if (today - ld).days <= 2:
+                continue
+        except ValueError:
+            pass
+        s = stores.get(poi_id, {})
+        candidates.append({
+            "poi_id": poi_id, "name": s.get("name", ""), "kind": "fav",
+            "tag": (s.get("tag") or "").split("|")[0],
+            "feeling": last.get("feeling", ""), "times": len(vs),
+            "lng": s.get("lng"), "lat": s.get("lat"),
+        })
+
+    if not candidates:
+        return None, []
+
+    if uloc:
+        for c in candidates:
+            if c.get("lng") and c.get("lat"):
+                c["dist"] = _haversine_m(uloc[0], uloc[1], c["lng"], c["lat"])
+        candidates.sort(key=lambda c: c.get("dist", 9_999_999))
+    candidates = candidates[:12]
+
+    hour = datetime.now().hour
+    period = "早餐" if hour < 10 else "午餐" if hour < 15 else "晚餐" if hour < 21 else "夜宵"
+    lines = [f"现在大概是【{period}】时段。"]
+    if craving:
+        lines.append(f"今天的口味偏好：{craving}")
+    lines.append("\n候选店（只能从下面挑，按编号）：")
+    for i, c in enumerate(candidates, 1):
+        bits = [f"{i}. {c['name']}"]
+        if c.get("tag"):
+            bits.append(f"[{c['tag']}]")
+        if c["kind"] == "wish":
+            bits.append(f"——想去还没去（{c.get('source', '')}种草：{c.get('reason') or '没写理由'}）")
+        else:
+            bits.append(f"——去过{c.get('times', 1)}次还想再来（上次感受：{c.get('feeling') or '没写'}）")
+        if c.get("dist") is not None:
+            d = c["dist"]
+            bits.append(f"· 距你{round(d / 1000, 1)}km" if d >= 1000 else f"· 距你{d}m")
+        lines.append(" ".join(bits))
+    return "\n".join(lines), candidates
+
+
+@app.get("/api/suggest")
+def get_suggest(location: Optional[str] = None, craving: Optional[str] = None,
+                user: dict = Depends(current_user)):
+    brief, candidates = _build_suggest_brief(user["circle_id"], location, craving)
+    if not brief:
+        return {"empty": True, "note": "先去种草几家、或记几顿「想再来」的，我才好帮你挑 😋", "picks": []}
+    try:
+        result = ai.suggest_today(brief)
+    except Exception as e:
+        raise HTTPException(500, f"AI 建议失败：{e}")
+
+    picks = []
+    for p in (result.get("picks") or []):
+        try:
+            idx = int(p.get("n")) - 1
+        except (TypeError, ValueError):
+            continue
+        if 0 <= idx < len(candidates):
+            c = candidates[idx]
+            picks.append({
+                "poi_id": c["poi_id"], "name": c["name"], "kind": c["kind"],
+                "reason": p.get("reason", ""),
+                "has_coords": bool(c.get("lng") and c.get("lat")),
+            })
+    return {"note": result.get("note", ""), "picks": picks}
+
+
 @app.post("/api/upload")
 async def post_upload(file: UploadFile = File(...), _: dict = Depends(current_user)):
     """接收前端上传的图片（已在前端压缩），保存到 data/photos/ 并返回 URL。"""
