@@ -2024,3 +2024,80 @@ button.primary:disabled {
   letter-spacing: 0.3px;
   font-family: "STKaiti", "KaiTi", "PingFang SC", serif;
 }
+
+/* ============================================
+   地图首页 · 视觉升级（暖调瓦片 / 渐隐 / 活的图钉）
+   ============================================ */
+
+/* 1) 给高德灰底瓦片刷一层品牌暖调——整张地图从"工具灰"变"食欲暖"
+   （只染瓦片层，图钉 / 弹窗 / 控件都在更上层，不受影响） */
+.leaflet-tile-pane {
+  filter: sepia(0.18) saturate(1.16) hue-rotate(-10deg) brightness(1.04);
+}
+
+/* 2) 上下边缘往奶白渐隐——浮层卡片更"跳"，整屏更像精修过的成片 */
+.map-scrim {
+  position: absolute;
+  left: 0; right: 0;
+  pointer-events: none;     /* 不挡地图拖拽 / 缩放 */
+  z-index: 350;             /* 高于瓦片(200)、低于图钉(600)：只压地图、不压点 */
+}
+.map-scrim-top {
+  top: 0; height: 124px;
+  background: linear-gradient(to bottom, rgba(252, 246, 237, 0.55) 0%, rgba(252, 246, 237, 0) 100%);
+}
+.map-scrim-bottom {
+  bottom: 0; height: 168px;
+  background: linear-gradient(to top, rgba(252, 246, 237, 0.5) 0%, rgba(252, 246, 237, 0) 100%);
+}
+
+/* 3) 顶部统计：数字用品牌渐变描金，更有"仪表盘"质感 */
+.map-stat-bar b {
+  background: var(--grad-warm);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  font-variant-numeric: tabular-nums;
+}
+
+/* 4) 图钉落地动画——进地图时一个个"啪"地砸下来，比静态铺点有生命力 */
+@keyframes marker-in {
+  0%   { opacity: 0; transform: rotate(-45deg) translateY(-34px) scale(0.6); }
+  55%  { opacity: 1; transform: rotate(-45deg) translateY(3px) scale(1.04); }
+  100% { transform: rotate(-45deg) translateY(0) scale(1); }
+}
+.marker-dot {
+  animation: marker-in 0.5s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+/* "想去"的钉子轻轻呼吸——像在召唤你去打卡 */
+.marker-dot.want {
+  animation:
+    marker-in 0.5s cubic-bezier(0.22, 1, 0.36, 1) both,
+    want-breathe 2.8s ease-in-out 0.6s infinite;
+}
+@keyframes want-breathe {
+  0%, 100% { box-shadow: 0 5px 14px rgba(120, 70, 30, 0.30); }
+  50%      { box-shadow: 0 5px 14px rgba(120, 70, 30, 0.30), 0 0 0 7px rgba(249, 200, 192, 0.32); }
+}
+
+/* 5) "今天吃啥" CTA 缓缓发光——把主行动点亮出来 */
+.suggest-btn { animation: cta-glow 3s ease-in-out infinite; }
+@keyframes cta-glow {
+  0%, 100% { box-shadow: 0 6px 18px rgba(239, 108, 79, 0.45); }
+  50%      { box-shadow: 0 9px 28px rgba(239, 108, 79, 0.62); }
+}
+
+/* 尊重"减少动态"系统偏好：地图上的循环动画全部关掉 */
+@media (prefers-reduced-motion: reduce) {
+  .marker-dot, .marker-dot.want, .suggest-btn { animation: none !important; }
+}
+
+/* 5 档评分 · 动态表情图（Noto 动画 emoji）
+   录入选择器 / 列表时间线 / 弹窗时间线共用，居中对齐 */
+.mood-emoji {
+  display: inline-block;
+  vertical-align: middle;
+  object-fit: contain;
+}
+/* 录入选择器里：让动图替代原来的字号 emoji，间距更稳 */
+.emoji-picker button .mood-emoji { margin-bottom: 1px; }

@@ -3,6 +3,7 @@ import { getPoints, getMonthlyStory, askMap } from '../api'
 import type { Point, Wish, Visit } from '../api'
 import { cleanTag } from '../lib/format'
 import EditRecordSheet from '../components/EditRecordSheet'
+import MoodEmoji from '../components/MoodEmoji'
 
 type EditTarget = { kind: 'visit' | 'wish'; data: any; storeName: string }
 
@@ -301,7 +302,7 @@ function TimelineRow({ event, isLast, onEdit }: { event: TimelineEvent; isLast: 
   return (
     <div className="tl-row">
       <div className="tl-axis">
-        <div className="tl-dot visit">{v.mood_emoji}</div>
+        <div className="tl-dot visit"><MoodEmoji emoji={v.mood_emoji} size={22} /></div>
         {!isLast && <div className="tl-line" />}
       </div>
       <div className="tl-body">

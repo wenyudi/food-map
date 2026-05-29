@@ -5,6 +5,7 @@ import { getPoints, getStats, getSuggest } from '../api'
 import type { Point, Stats, Suggestion } from '../api'
 import { getMyLocation } from '../lib/geo'
 import { cleanTag } from '../lib/format'
+import MoodEmoji from '../components/MoodEmoji'
 
 interface Props {
   refreshKey: number
@@ -37,7 +38,7 @@ export default function MapView({ refreshKey, focusPoiId, onConsumeFocus, onJump
     : [29.56, 106.55]
 
   return (
-    <div style={{ height: '100%', position: 'relative' }}>
+    <div className="map-view" style={{ height: '100%', position: 'relative' }}>
       <MapContainer
         center={center}
         zoom={13}
@@ -82,6 +83,10 @@ export default function MapView({ refreshKey, focusPoiId, onConsumeFocus, onJump
         ))}
         <HereButton />
       </MapContainer>
+
+      {/* 边缘渐隐：让浮层更跳、整体更有"剧场感"（不挡手势） */}
+      <div className="map-scrim map-scrim-top" />
+      <div className="map-scrim map-scrim-bottom" />
 
       {stats && (
         <div className="map-stat-bar">
@@ -321,7 +326,7 @@ function PopupContent({ point: p }: { point: Point }) {
           </div>
         ) : (
           <div className="pt-row" key={i}>
-            <span className="pt-emoji">{e.data.mood_emoji}</span>
+            <span className="pt-emoji"><MoodEmoji emoji={e.data.mood_emoji} size={20} /></span>
             <div className="pt-text-wrap">
               <div className="pt-line">
                 <span className="pt-date">{e.date.slice(5).replace('-', '/')}</span>
