@@ -5,7 +5,6 @@ import { getMyLocation } from '../lib/geo'
 import type { MyLocation } from '../lib/geo'
 import { cleanTag, fmtDist } from '../lib/format'
 import PhotoPicker from '../components/PhotoPicker'
-import MoodEmoji from '../components/MoodEmoji'
 
 type Mood = '😋' | '🤤' | '😂' | '😐' | '🤮'
 const EMOJI_OPTIONS: Array<{ emoji: Mood, label: string }> = [
@@ -363,8 +362,7 @@ export default function AddView({ onSubmitted, onOpenAccount }: Props) {
                   className={emoji === o.emoji ? 'selected' : ''}
                   onClick={() => setEmoji(o.emoji)}
                 >
-                  {emoji === o.emoji ? <MoodEmoji emoji={o.emoji} size={34} /> : o.emoji}
-                  <span>{o.label}</span>
+                  {o.emoji}<span>{o.label}</span>
                 </button>
               ))}
             </div>

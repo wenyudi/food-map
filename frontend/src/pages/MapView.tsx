@@ -5,7 +5,6 @@ import { getPoints, getStats, getSuggest } from '../api'
 import type { Point, Stats, Suggestion } from '../api'
 import { getMyLocation } from '../lib/geo'
 import { cleanTag } from '../lib/format'
-import MoodEmoji from '../components/MoodEmoji'
 
 interface Props {
   refreshKey: number
@@ -70,10 +69,10 @@ export default function MapView({ refreshKey, focusPoiId, onConsumeFocus, onJump
             position={[p.lat, p.lng]}
             ref={(ref) => { if (ref) markerRefs.current[p.poi_id] = ref }}
             icon={L.divIcon({
-              html: `<div class="marker-dot${p.status === 'want' ? ' want' : ''}${String(p.poi_id).startsWith('m_') ? ' manual' : ''}" style="background:${p.status === 'visited' ? p.color : '#fff'}">${p.emoji}</div>`,
+              html: `<div class="marker-dot${p.status === 'want' ? ' want' : ''}${String(p.poi_id).startsWith('m_') ? ' manual' : ''}" style="--ring:${p.status === 'visited' ? p.color : 'var(--pink)'}">${p.emoji}</div>`,
               className: '',
-              iconSize: [36, 36],
-              iconAnchor: [18, 18],
+              iconSize: [38, 38],
+              iconAnchor: [19, 19],
             })}
           >
             <Popup maxWidth={280}>
@@ -83,10 +82,6 @@ export default function MapView({ refreshKey, focusPoiId, onConsumeFocus, onJump
         ))}
         <HereButton />
       </MapContainer>
-
-      {/* 边缘渐隐：让浮层更跳、整体更有"剧场感"（不挡手势） */}
-      <div className="map-scrim map-scrim-top" />
-      <div className="map-scrim map-scrim-bottom" />
 
       {stats && (
         <div className="map-stat-bar">
@@ -326,7 +321,7 @@ function PopupContent({ point: p }: { point: Point }) {
           </div>
         ) : (
           <div className="pt-row" key={i}>
-            <span className="pt-emoji"><MoodEmoji emoji={e.data.mood_emoji} size={20} /></span>
+            <span className="pt-emoji">{e.data.mood_emoji}</span>
             <div className="pt-text-wrap">
               <div className="pt-line">
                 <span className="pt-date">{e.date.slice(5).replace('-', '/')}</span>
