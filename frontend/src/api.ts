@@ -168,6 +168,10 @@ export const getStats = () => api.get<Stats>('/stats').then(r => r.data)
 export const search = (keywords: string, region = '重庆', location?: string) =>
   api.post<any[]>('/search', { keywords, region, location }).then(r => r.data)
 
+// 反向地理编码：lng,lat → 城市（录入页按定位自动填城市）
+export const regeo = (location: string) =>
+  api.get<{ city: string; district: string; province: string }>('/regeo', { params: { location } }).then(r => r.data)
+
 export const parseText = (text: string) =>
   api.post<ParsedSentence>('/parse', { text }).then(r => r.data)
 

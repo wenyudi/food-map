@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { listUsers, deleteUserApi, changePassword, clearToken, genInvite, listInvites, revokeInvite } from '../api'
 import type { MeInfo, UserItem, InviteCode } from '../api'
+import { APP_NAME, APP_SLOGAN } from '../brand'
 
 interface Props {
   me: MeInfo
@@ -37,6 +38,12 @@ export default function AccountView({ me, onLogout }: Props) {
           <button className="lc-yes" onClick={() => { clearToken(); onLogout() }}>登出</button>
         </div>
       )}
+
+      <div className="acc-brand">
+        <img src="/icon.png" alt={APP_NAME} width={40} height={40} />
+        <div className="acc-brand-name">{APP_NAME}</div>
+        <div className="acc-brand-slogan">{APP_SLOGAN}</div>
+      </div>
     </div>
   )
 }

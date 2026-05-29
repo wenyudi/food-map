@@ -17,6 +17,7 @@ AMAP_KEY = os.environ.get("AMAP_KEY", "")
 
 SEARCH_URL = "https://restapi.amap.com/v5/place/text"
 AROUND_URL = "https://restapi.amap.com/v5/place/around"
+REGEO_URL = "https://restapi.amap.com/v3/geocode/regeo"
 SHOW_FIELDS = "business,photos,children,navi"
 
 
@@ -51,6 +52,28 @@ def search_poi(keywords: str, region: Optional[str] = None, location: Optional[s
 
     # 3. 全国搜
     return _call(SEARCH_URL, common)
+
+
+def regeo(location: str) -> dict:
+    """反向地理编码：'lng,lat' → {city, district, province}。失败抛 RuntimeError。
+
+    注意：直辖市（北京/上海/重庆/天津）的 city 字段返回空数组 []，此时回退到 province。
+    """
+    resp = requests.get(REGEO_URL, params={"key": AMAP_KEY, "location": location}, timeout=10)
+    data = resp.json()
+    if data.get("status") != "1":
+        raise RuntimeError(f"高德 regeo 报错：{data.get('info')} (code={data.get('infocode')})")
+    comp = (data.get("regeocode") or {}).get("addressComponent") or {}
+
+    def _s(v):  # 高德空值常是 []，统一成字符串
+        return v if isinstance(v, str) else ""
+
+    province = _s(comp.get("province"))
+    city = _s(comp.get("city")) or province          # 直辖市 city 为空 → 用 province
+    district = _s(comp.get("district"))
+    if city.endswith("市"):                            # "成都市" → "成都"，贴合用户心智
+        city = city[:-1]
+    return {"city": city, "district": district, "province": province}
 
 
 def poi_to_store(poi: dict) -> Store:

@@ -1,5 +1,5 @@
-import { useEffect, useState } from 'react'
-import { parseText, search, upsertStore, addVisit, addWish } from '../api'
+import { useEffect, useRef, useState } from 'react'
+import { parseText, search, upsertStore, addVisit, addWish, regeo } from '../api'
 import type { ParsedSentence } from '../api'
 import { getMyLocation } from '../lib/geo'
 import type { MyLocation } from '../lib/geo'
@@ -44,6 +44,8 @@ export default function AddView({ onSubmitted }: Props) {
   const [pois, setPois] = useState<any[]>([])
   const [selectedPoi, setSelectedPoi] = useState<any>(null)
   const [city, setCity] = useState(() => localStorage.getItem(LS_CITY) || '重庆')
+  // 用户是否手动设过城市（设过/曾保存过就不再用定位覆盖）
+  const cityTouched = useRef<boolean>(!!localStorage.getItem(LS_CITY))
 
   const [myLocation, setMyLocation] = useState<MyLocation | null>(null)
   const [photos, setPhotos] = useState<string[]>([])
@@ -65,7 +67,12 @@ export default function AddView({ onSubmitted }: Props) {
     getMyLocation().then(loc => {
       if (loc) {
         setMyLocation(loc)
-        console.log('[geo] 当前位置', loc)
+        // 没手动设过城市 → 用定位反查城市，自动填一次（出差/外地朋友友好）
+        if (!cityTouched.current) {
+          regeo(`${loc.lng},${loc.lat}`)
+            .then(r => { if (r.city && !cityTouched.current) setCity(r.city) })
+            .catch(() => {})
+        }
       }
     })
   }, [])
@@ -227,7 +234,11 @@ export default function AddView({ onSubmitted }: Props) {
         </div>
         <div className="row">
           <label>城市</label>
-          <input value={city} onChange={e => setCity(e.target.value)} placeholder="如：重庆" />
+          <input
+            value={city}
+            onChange={e => { cityTouched.current = true; setCity(e.target.value) }}
+            placeholder="如：重庆"
+          />
         </div>
         {error && <div className="add-error">{error}</div>}
         <button className="primary" disabled={busy || !text.trim()} onClick={handleParse}>

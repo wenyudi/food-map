@@ -290,8 +290,9 @@ input, textarea, select {
 }
 
 .acc-card {
-  background: var(--bg-card);
-  border-radius: var(--r);
+  background: var(--grad-warm-soft);
+  border: 1px solid var(--border);
+  border-radius: var(--r-lg);
   padding: 28px 20px 24px;
   margin-bottom: 16px;
   box-shadow: var(--shadow-sm);
@@ -301,7 +302,7 @@ input, textarea, select {
   width: 64px;
   height: 64px;
   border-radius: 50%;
-  background: var(--primary);
+  background: var(--grad-warm);
   color: #fff;
   font-size: 28px;
   font-weight: 700;
@@ -2165,4 +2166,28 @@ button.primary:disabled {
 }
 .meal-toggle button.selected {
   background: var(--primary); color: #fff; border-color: var(--primary);
+}
+
+/* 账户页底部品牌落款（暖化、强化品牌） */
+.acc-brand {
+  text-align: center;
+  margin: 28px 0 8px;
+  opacity: 0.8;
+}
+.acc-brand img {
+  border-radius: 11px;
+  box-shadow: var(--shadow-sm);
+}
+.acc-brand-name {
+  margin-top: 8px;
+  font-size: 14px;
+  font-weight: 800;
+  color: var(--text);
+  letter-spacing: 0.5px;
+}
+.acc-brand-slogan {
+  margin-top: 2px;
+  font-size: 11px;
+  color: var(--text-light);
+  letter-spacing: 1px;
 }

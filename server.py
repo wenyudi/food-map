@@ -328,6 +328,15 @@ def post_search(req: SearchReq, _: dict = Depends(current_user)):
         raise HTTPException(500, str(e))
 
 
+@app.get("/api/regeo")
+def get_regeo(location: str, _: dict = Depends(current_user)):
+    """反向地理编码：lng,lat → 城市，用于录入页按定位自动填城市。"""
+    try:
+        return amap.regeo(location)
+    except RuntimeError as e:
+        raise HTTPException(500, str(e))
+
+
 @app.post("/api/parse")
 def post_parse(req: ParseReq, _: dict = Depends(current_user)):
     try:
