@@ -7,7 +7,7 @@ import Login from './pages/Login'
 import { getMe, getToken, clearToken } from './api'
 import type { MeInfo } from './api'
 
-type Tab = 'map' | 'add' | 'list' | 'me'
+type Tab = 'map' | 'add' | 'list'
 
 export default function App() {
   const [authState, setAuthState] = useState<'loading' | 'login' | 'app'>('loading')
@@ -15,6 +15,7 @@ export default function App() {
   const [tab, setTab] = useState<Tab>('map')
   const [refreshKey, setRefreshKey] = useState(0)
   const [focusPoiId, setFocusPoiId] = useState<string | null>(null)
+  const [showAccount, setShowAccount] = useState(false)
 
   // 启动时校验 token
   useEffect(() => {
@@ -33,6 +34,7 @@ export default function App() {
   }
 
   function handleLogout() {
+    setShowAccount(false)
     setMe(null)
     setAuthState('login')
     setTab('map')
@@ -66,7 +68,12 @@ export default function App() {
             onConsumeFocus={() => setFocusPoiId(null)}
           />
         )}
-        {tab === 'add' && <AddView onSubmitted={handleSubmitted} />}
+        {tab === 'add' && (
+          <AddView
+            onSubmitted={handleSubmitted}
+            onOpenAccount={() => setShowAccount(true)}
+          />
+        )}
         {tab === 'list' && (
           <ListView
             refreshKey={refreshKey}
@@ -74,7 +81,6 @@ export default function App() {
             onPickStore={(id) => jumpTo('map', id)}
           />
         )}
-        {tab === 'me' && <AccountView me={me} onLogout={handleLogout} />}
       </div>
       <nav className="tabs">
         <button onClick={() => setTab('map')} className={tab === 'map' ? 'active' : ''}>
@@ -86,10 +92,13 @@ export default function App() {
         <button onClick={() => setTab('list')} className={tab === 'list' ? 'active' : ''}>
           📋<span>列表</span>
         </button>
-        <button onClick={() => setTab('me')} className={tab === 'me' ? 'active' : ''}>
-          👤<span>我</span>
-        </button>
       </nav>
+
+      {showAccount && (
+        <div className="account-overlay">
+          <AccountView me={me} onLogout={handleLogout} onClose={() => setShowAccount(false)} />
+        </div>
+      )}
     </div>
   )
 }

@@ -12,9 +12,12 @@ const EMOJI_OPTIONS: Array<{ emoji: '😋' | '🤤' | '😂' | '😐', label: st
   { emoji: '😐', label: '不咋地' },
 ]
 
-interface Props { onSubmitted: () => void }
+interface Props {
+  onSubmitted: () => void
+  onOpenAccount: () => void
+}
 
-export default function AddView({ onSubmitted }: Props) {
+export default function AddView({ onSubmitted, onOpenAccount }: Props) {
   const [step, setStep] = useState<'input' | 'pick' | 'confirm'>('input')
   const [text, setText] = useState('')
   const [busy, setBusy] = useState(false)
@@ -121,6 +124,9 @@ export default function AddView({ onSubmitted }: Props) {
   if (step === 'input') {
     return (
       <div className="page add-input">
+        <button className="account-btn" onClick={onOpenAccount} title="账户" aria-label="账户">
+          👤
+        </button>
         <h2>一句话记一笔</h2>
         <p className="hint">
           支持自动识别 "吃过" 和 "种草"。

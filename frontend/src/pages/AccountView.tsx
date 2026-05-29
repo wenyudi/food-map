@@ -5,11 +5,17 @@ import type { MeInfo, UserItem, InviteCode } from '../api'
 interface Props {
   me: MeInfo
   onLogout: () => void
+  onClose: () => void
 }
 
-export default function AccountView({ me, onLogout }: Props) {
+export default function AccountView({ me, onLogout, onClose }: Props) {
   return (
     <div className="page account-page">
+      <div className="acc-topbar">
+        <button className="acc-back" onClick={onClose} aria-label="返回">←</button>
+        <span className="acc-topbar-title">账户</span>
+      </div>
+
       <div className="acc-card">
         <div className="acc-avatar">{me.username.slice(0, 1).toUpperCase()}</div>
         <div className="acc-name">{me.username}</div>

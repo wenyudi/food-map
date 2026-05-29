@@ -61,11 +61,11 @@ export default function PhotoPicker({ photos, onChange, max = 5 }: Props) {
           </button>
         )}
       </div>
+      {/* 不加 capture：手机会弹原生选择菜单（拍照 / 相册 / 浏览），两者都能用 */}
       <input
         ref={inputRef}
         type="file"
         accept="image/*"
-        capture="environment"
         multiple
         onChange={handlePick}
         style={{ display: 'none' }}
