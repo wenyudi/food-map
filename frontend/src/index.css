@@ -1845,3 +1845,92 @@ button.primary:disabled {
   background: var(--bg-card); color: var(--text-soft); font-weight: 600;
 }
 .sheet-confirm .sheet-del { padding: 10px 16px; font-size: 14px; }
+
+/* 输入页次要按钮：自己填 */
+.ghost-btn {
+  display: block; width: 100%; margin-top: 12px;
+  padding: 13px; border-radius: var(--r);
+  border: 1.5px solid var(--border); background: var(--bg-card);
+  color: var(--text-soft); font-size: 14px; font-weight: 600;
+  transition: transform 0.1s;
+}
+.ghost-btn:active { transform: scale(0.99); }
+.ghost-btn:disabled { opacity: 0.5; }
+
+/* 空结果里的「自己加」主按钮 */
+.manual-add-btn { display: inline-block; width: auto; margin: 12px auto 0; padding: 12px 24px; }
+
+/* 确认页：吃过 / 种草 切换 */
+.intent-toggle { display: flex; gap: 8px; margin-bottom: 18px; }
+.intent-toggle button {
+  flex: 1; padding: 12px; border-radius: var(--r);
+  border: 2px solid var(--border); background: var(--bg-card);
+  font-size: 15px; font-weight: 600; color: var(--text-soft);
+  transition: all 0.15s;
+}
+.intent-toggle button.selected {
+  border-color: var(--primary); background: var(--primary-soft); color: var(--primary-deep);
+}
+
+/* 手动店：可编辑店名 + 提示 */
+.confirm-store-edit {
+  margin-top: 6px; width: 100%;
+  padding: 8px 12px; border-radius: var(--r-sm);
+  border: 1.5px solid var(--primary-light); background: var(--bg-card);
+  font-size: 15px; font-weight: 700; color: var(--text);
+}
+.manual-note {
+  font-size: 12px; color: var(--text-soft); background: var(--bg-soft);
+  padding: 8px 12px; border-radius: var(--r-sm); margin-bottom: 14px;
+}
+
+/* 手动店的地图大头钉：虚线描边、白底，区别于高德店 */
+.marker-dot.manual {
+  background: #fff !important;
+  border-style: dashed;
+  border-color: var(--primary);
+}
+
+/* 地图「未定位」入口 */
+.unlocated-tray {
+  position: absolute;
+  left: 12px;
+  bottom: 14px;
+  z-index: 800;
+  max-width: 60%;
+}
+.unlocated-btn {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--r-pill);
+  box-shadow: var(--shadow-md);
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-soft);
+  padding: 8px 14px;
+}
+.unlocated-list {
+  margin-top: 8px;
+  background: var(--bg-card);
+  border-radius: var(--r);
+  box-shadow: var(--shadow-md);
+  padding: 8px 12px;
+  font-size: 13px;
+  color: var(--text);
+  max-height: 40vh;
+  overflow-y: auto;
+}
+.unlocated-list div { padding: 5px 0; border-bottom: 1px solid var(--border); }
+.unlocated-list div:last-child { border-bottom: none; }
+
+/* 列表里手动店的小标记 */
+.manual-flag {
+  display: inline-block;
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--primary-deep);
+  background: var(--primary-soft);
+  padding: 1px 7px;
+  border-radius: var(--r-pill);
+  margin-left: 6px;
+}

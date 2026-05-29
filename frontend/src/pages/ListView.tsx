@@ -167,18 +167,20 @@ function StoreCard({ point, status, flashing, cardRef, onClick, onEdit }: {
 }) {
   const timeline = buildTimeline(point)
   const headEmoji = point.visit_count > 0 ? point.emoji : '🤍'
+  const isManual = String(point.poi_id).startsWith('m_')
+  const hasCoords = !!(point.lng && point.lat)
 
   return (
     <div
       ref={cardRef}
       className={`store-card status-${status.key}` + (flashing ? ' flashing' : '')}
-      onClick={onClick}
+      onClick={hasCoords ? onClick : undefined}
       role="button"
     >
       <div className="store-card-head">
         <div className="store-head-emoji">{headEmoji}</div>
         <div className="store-head-text">
-          <div className="store-name">{point.name}</div>
+          <div className="store-name">{point.name}{isManual && <span className="manual-flag">手动</span>}</div>
           <div className="store-meta">
             {[
               point.business_area,
@@ -205,7 +207,7 @@ function StoreCard({ point, status, flashing, cardRef, onClick, onEdit }: {
         ))}
       </div>
 
-      <div className="store-card-foot">看在地图上 →</div>
+      <div className="store-card-foot">{hasCoords ? '看在地图上 →' : '📍 未定位'}</div>
     </div>
   )
 }

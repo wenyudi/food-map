@@ -35,6 +35,7 @@ export default function AddView({ onSubmitted, onOpenAccount }: Props) {
   const [error, setError] = useState<string | null>(null)
   const [celebrate, setCelebrate] = useState<string | null>(null)  // 兑现种草时显示店名
   const [parsed, setParsed] = useState<ParsedSentence | null>(null)
+  const [intent, setIntent] = useState<'visit' | 'wish'>('visit')  // 确认页可改；手动录入靠它
   const [pois, setPois] = useState<any[]>([])
   const [selectedPoi, setSelectedPoi] = useState<any>(null)
   const [city, setCity] = useState(() => localStorage.getItem(LS_CITY) || '重庆')
@@ -69,6 +70,7 @@ export default function AddView({ onSubmitted, onOpenAccount }: Props) {
     try {
       const p = await parseText(text)
       setParsed(p)
+      setIntent(p.intent)
       if (city.trim()) localStorage.setItem(LS_CITY, city.trim())
       const locStr = myLocation ? `${myLocation.lng},${myLocation.lat}` : undefined
       const ps = await search(p.store_hint, city, locStr)
@@ -93,13 +95,56 @@ export default function AddView({ onSubmitted, onOpenAccount }: Props) {
     }
   }
 
+  // 「自己填」：跳过 AI，直接拿输入框文字当店名去高德搜
+  async function handleManual() {
+    const kw = text.trim()
+    if (!kw) { setError('先写下店名，再点「自己填」'); return }
+    setBusy(true)
+    setError(null)
+    try {
+      if (city.trim()) localStorage.setItem(LS_CITY, city.trim())
+      const locStr = myLocation ? `${myLocation.lng},${myLocation.lat}` : undefined
+      const ps = await search(kw, city, locStr)
+      setPois(ps)
+      if (ps.length > 0) setSelectedPoi(ps[0])
+      // 合成一个最简 parsed，剩下的字段确认页手动填
+      setParsed({ intent: 'visit', store_hint: kw, date: null, meal_period: null,
+        companions: null, amount: null, people_count: null, feeling: null,
+        mood_emoji: null, want_again: null, source: null, reason: null })
+      setIntent('visit')
+      setAmount(''); setPeople('2'); setEmoji('🤤'); setWantAgain(true)
+      setFeeling(''); setCompanions(localStorage.getItem(LS_COMPANIONS) || '')
+      setSource('小红书'); setReason('')
+      setStep('pick')
+    } catch (e: any) {
+      setError('搜索失败：' + (e?.response?.data?.detail || e?.message || e))
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  // 高德查无此店 → 用当前定位建一个「手动店」（poi_id 以 m_ 开头）
+  function addManualStore() {
+    const name = (parsed?.store_hint || text || '').trim() || '未命名小店'
+    const loc = myLocation ? `${myLocation.lng},${myLocation.lat}` : ''
+    setSelectedPoi({
+      id: 'm_' + Math.random().toString(36).slice(2, 10),
+      name,
+      location: loc,
+      business: {},
+      pname: '', cityname: city, adname: '',
+      address: loc ? '手动添加 · 当前位置' : '手动添加 · 未定位',
+    })
+    setStep('confirm')
+  }
+
   async function handleSubmit() {
     if (!selectedPoi || !parsed) return
     setBusy(true)
     setError(null)
     try {
       const store = await upsertStore(selectedPoi)
-      if (parsed.intent === 'wish') {
+      if (intent === 'wish') {
         await addWish({
           poi_id: store.poi_id,
           store_hint: store.name,
@@ -141,6 +186,7 @@ export default function AddView({ onSubmitted, onOpenAccount }: Props) {
     setText('')
     setError(null)
     setParsed(null)
+    setIntent('visit')
     setPois([])
     setSelectedPoi(null)
     setPhotos([])
@@ -180,6 +226,9 @@ export default function AddView({ onSubmitted, onOpenAccount }: Props) {
         <button className="primary" disabled={busy || !text.trim()} onClick={handleParse}>
           {busy ? 'AI 解析中…' : '🤖 让 AI 解析'}
         </button>
+        <button className="ghost-btn" disabled={busy || !text.trim()} onClick={handleManual}>
+          ✍️ 不想打字？直接按店名搜，自己填
+        </button>
       </div>
     )
   }
@@ -202,8 +251,9 @@ export default function AddView({ onSubmitted, onOpenAccount }: Props) {
 
         {pois.length === 0 ? (
           <div className="empty">
-            没搜到「{parsed?.store_hint}」<br />换个店名或说法再试试<br />
-            <button className="link-btn" onClick={reset}>← 重新输入</button>
+            高德没搜到「{parsed?.store_hint}」<br />路边摊 / 家里做的店本来就查不到<br />
+            <button className="primary manual-add-btn" onClick={addManualStore}>✍️ 自己加这家</button>
+            <button className="link-btn" onClick={reset}>← 换个店名重搜</button>
           </div>
         ) : (
           <div className="poi-list">
@@ -238,6 +288,7 @@ export default function AddView({ onSubmitted, onOpenAccount }: Props) {
             <button className="primary" disabled={!selectedPoi} onClick={() => setStep('confirm')}>
               就是这家 →
             </button>
+            <button className="link-btn" onClick={addManualStore}>都不是？✍️ 自己加「{parsed?.store_hint}」</button>
           </div>
         )}
       </div>
@@ -245,7 +296,8 @@ export default function AddView({ onSubmitted, onOpenAccount }: Props) {
   }
 
   // confirm
-  const isVisit = parsed?.intent === 'visit'
+  const isVisit = intent === 'visit'
+  const isManual = !!(selectedPoi?.id && String(selectedPoi.id).startsWith('m_'))
   return (
     <div className="page add-confirm">
       {celebrate && (
@@ -261,8 +313,28 @@ export default function AddView({ onSubmitted, onOpenAccount }: Props) {
         <button className="step-back" onClick={() => setStep('pick')} aria-label="改店">←</button>
         <div className="step-head-text">
           <div className="step-title">{isVisit ? '记下这一顿' : '加进想去清单'}</div>
-          <div className="step-sub"><span className="confirm-store">🍴 {selectedPoi?.name}</span></div>
+          {isManual ? (
+            <input
+              className="confirm-store-edit"
+              value={selectedPoi?.name || ''}
+              onChange={e => setSelectedPoi({ ...selectedPoi, name: e.target.value })}
+              placeholder="店名"
+            />
+          ) : (
+            <div className="step-sub"><span className="confirm-store">🍴 {selectedPoi?.name}</span></div>
+          )}
         </div>
+      </div>
+
+      {isManual && (
+        <div className="manual-note">
+          ✍️ 手动添加 · {selectedPoi?.location ? '已用当前定位，会显示在地图上' : '未定位，先只进列表'}
+        </div>
+      )}
+
+      <div className="intent-toggle">
+        <button className={isVisit ? 'selected' : ''} onClick={() => setIntent('visit')}>🍴 吃过</button>
+        <button className={!isVisit ? 'selected' : ''} onClick={() => setIntent('wish')}>🌱 种草</button>
       </div>
 
       {isVisit ? (

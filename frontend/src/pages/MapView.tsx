@@ -17,6 +17,7 @@ export default function MapView({ refreshKey, focusPoiId, onConsumeFocus, onJump
   const [points, setPoints] = useState<Point[]>([])
   const [stats, setStats] = useState<Stats | null>(null)
   const [loading, setLoading] = useState(true)
+  const [trayOpen, setTrayOpen] = useState(false)
   const markerRefs = useRef<Record<string, L.Marker>>({})
 
   useEffect(() => {
@@ -26,8 +27,11 @@ export default function MapView({ refreshKey, focusPoiId, onConsumeFocus, onJump
       .finally(() => setLoading(false))
   }, [refreshKey])
 
-  const center: [number, number] = points.length
-    ? [points[0].lat, points[0].lng]
+  // 手动店可能没坐标（未定位）——地图只画有坐标的，无坐标的收进左下角入口
+  const located = points.filter(p => p.lng && p.lat)
+  const unlocated = points.filter(p => !p.lng || !p.lat)
+  const center: [number, number] = located.length
+    ? [located[0].lat, located[0].lng]
     : [29.56, 106.55]
 
   return (
@@ -44,20 +48,20 @@ export default function MapView({ refreshKey, focusPoiId, onConsumeFocus, onJump
           maxZoom={18}
           attribution="© 高德"
         />
-        <FitBounds points={points} disabled={!!focusPoiId} />
+        <FitBounds points={located} disabled={!!focusPoiId} />
         <FocusFlyer
-          points={points}
+          points={located}
           focusPoiId={focusPoiId || null}
           markerRefs={markerRefs}
           onDone={onConsumeFocus}
         />
-        {points.map(p => (
+        {located.map(p => (
           <Marker
             key={p.poi_id}
             position={[p.lat, p.lng]}
             ref={(ref) => { if (ref) markerRefs.current[p.poi_id] = ref }}
             icon={L.divIcon({
-              html: `<div class="marker-dot${p.status === 'want' ? ' want' : ''}" style="background:${p.status === 'visited' ? p.color : '#fff'}">${p.emoji}</div>`,
+              html: `<div class="marker-dot${p.status === 'want' ? ' want' : ''}${String(p.poi_id).startsWith('m_') ? ' manual' : ''}" style="background:${p.status === 'visited' ? p.color : '#fff'}">${p.emoji}</div>`,
               className: '',
               iconSize: [36, 36],
               iconAnchor: [18, 18],
@@ -81,6 +85,19 @@ export default function MapView({ refreshKey, focusPoiId, onConsumeFocus, onJump
       )}
 
       {loading && <div className="loading">加载中…</div>}
+
+      {!loading && unlocated.length > 0 && (
+        <div className="unlocated-tray">
+          <button className="unlocated-btn" onClick={() => setTrayOpen(o => !o)}>
+            📍 未定位 {unlocated.length} 家 {trayOpen ? '▾' : '▸'}
+          </button>
+          {trayOpen && (
+            <div className="unlocated-list">
+              {unlocated.map(p => <div key={p.poi_id}>{p.emoji} {p.name}</div>)}
+            </div>
+          )}
+        </div>
+      )}
 
       {!loading && points.length === 0 && (
         <div className="map-empty">

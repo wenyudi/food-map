@@ -282,13 +282,13 @@ def get_points(user: dict = Depends(current_user)):
 
     points = []
     for poi_id, store in stores.items():
-        if not store.get("lng") or not store.get("lat"):
-            continue
         my_visits = visits_by_poi.get(poi_id, [])
         wish = wishes_by_poi.get(poi_id)
-        # stores 表是全局 POI 缓存——本圈子既没去过也没种草的店，不该出现在地图上
+        # stores 表是全局 POI 缓存——本圈子既没去过也没种草的店，不返回
         if not my_visits and not wish:
             continue
+        # 注意：不再因为没坐标就跳过——手动店可能没经纬度（未定位），
+        # 它们仍要进列表；地图前端自己过滤掉无坐标的点（收进"未定位"入口）。
         latest = my_visits[-1] if my_visits else None
         emoji = (latest or {}).get("mood_emoji", "")
         points.append({
