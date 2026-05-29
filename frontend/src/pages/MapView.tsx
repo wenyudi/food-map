@@ -4,6 +4,7 @@ import L from 'leaflet'
 import { getPoints, getStats } from '../api'
 import type { Point, Stats } from '../api'
 import { getMyLocation } from '../lib/geo'
+import { cleanTag } from '../lib/format'
 
 interface Props {
   refreshKey: number
@@ -176,7 +177,7 @@ function HereButton() {
 }
 
 function PopupContent({ point: p }: { point: Point }) {
-  const tagShort = p.tag && p.tag.length > 30 ? p.tag.slice(0, 30) + '…' : p.tag
+  const tagShort = cleanTag(p.tag)
   const photos = (p.amap_photos || '').split('|').filter(Boolean).slice(0, 3)
 
   type Ev = { type: 'wish' | 'visit'; date: string; data: any }

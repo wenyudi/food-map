@@ -3,6 +3,7 @@ import { parseText, search, upsertStore, addVisit, addWish } from '../api'
 import type { ParsedSentence } from '../api'
 import { getMyLocation } from '../lib/geo'
 import type { MyLocation } from '../lib/geo'
+import { cleanTag, fmtDist } from '../lib/format'
 import PhotoPicker from '../components/PhotoPicker'
 
 const EMOJI_OPTIONS: Array<{ emoji: '😋' | '🤤' | '😂' | '😐', label: string }> = [
@@ -321,17 +322,4 @@ function guessMealPeriod() {
   if (h < 10) return '早'
   if (h < 16) return '中'
   return '晚'
-}
-
-// 高德 tag 形如「小吃|煎包|快餐」，清成「小吃 · 煎包」最多两段
-function cleanTag(tag?: string): string {
-  if (!tag) return ''
-  return tag.split('|').map(s => s.trim()).filter(Boolean).slice(0, 2).join(' · ')
-}
-
-// 距离：320 → 320m；1500 → 1.5km
-function fmtDist(d?: string | number): string {
-  const m = Number(d)
-  if (!m || m <= 0) return ''
-  return m >= 1000 ? (m / 1000).toFixed(1) + 'km' : Math.round(m) + 'm'
 }

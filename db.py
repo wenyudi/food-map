@@ -236,14 +236,20 @@ def add_wish(w: Wish) -> None:
         c.execute(f"INSERT INTO wishes ({','.join(cols)}) VALUES ({placeholders})", asdict(w))
 
 
-def find_open_wish_by_poi(poi_id: str) -> Optional[dict]:
+def find_open_wish_by_poi(poi_id: str, circle_id: Optional[int] = None) -> Optional[dict]:
     if not poi_id:
         return None
     with _conn() as c:
-        row = c.execute(
-            "SELECT * FROM wishes WHERE poi_id=? AND status='want' LIMIT 1",
-            (poi_id,),
-        ).fetchone()
+        if circle_id is None:
+            row = c.execute(
+                "SELECT * FROM wishes WHERE poi_id=? AND status='want' LIMIT 1",
+                (poi_id,),
+            ).fetchone()
+        else:
+            row = c.execute(
+                "SELECT * FROM wishes WHERE poi_id=? AND status='want' AND circle_id=? LIMIT 1",
+                (poi_id, circle_id),
+            ).fetchone()
         return _row_to_dict(row) if row else None
 
 

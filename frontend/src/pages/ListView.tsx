@@ -1,6 +1,7 @@
 import { useEffect, useState, useMemo, useRef } from 'react'
 import { getPoints, getMonthlyStory } from '../api'
 import type { Point, Wish, Visit } from '../api'
+import { cleanTag } from '../lib/format'
 
 type FilterKey = 'all' | 'want' | 'fulfilled' | 'repeat'
 
@@ -163,7 +164,7 @@ function StoreCard({ point, status, flashing, cardRef, onClick }: {
           <div className="store-meta">
             {[
               point.business_area,
-              point.tag && (point.tag.length > 15 ? point.tag.slice(0, 15) + '…' : point.tag),
+              cleanTag(point.tag),
               point.rating && `⭐ ${point.rating}`,
               point.cost && `¥${point.cost}/人`,
             ].filter(Boolean).join(' · ')}
@@ -255,7 +256,7 @@ function MonthlySummary({ points, refreshKey }: { points: Point[]; refreshKey: n
 
     const tagCount: Record<string, number> = {}
     thisVisits.forEach(v => {
-      const t = (v.tag || '').split(',')[0].trim()
+      const t = cleanTag(v.tag, 1)  // 只取主类目，且清掉高德的 | 分隔
       if (t) tagCount[t] = (tagCount[t] || 0) + 1
     })
     const topTag = Object.entries(tagCount).sort((a, b) => b[1] - a[1])[0]

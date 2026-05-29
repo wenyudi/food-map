@@ -353,6 +353,14 @@ def post_visit(req: VisitReq, user: dict = Depends(current_user)):
     cost = store_row.get("cost", "")
     per_person = req.amount / req.people_count if req.people_count else 0
 
+    # 核心联动：这家店本圈子之前种过草（status=want）→ 这次"吃过"自动兑现它，
+    # 把"想去"翻成"已兑现"。前端没显式传 wish_id 时也能自动接上（一句话录入就是这种情况）。
+    wish_id = req.wish_id
+    if not wish_id:
+        open_wish = db.find_open_wish_by_poi(req.poi_id, user["circle_id"])
+        if open_wish:
+            wish_id = open_wish["wish_id"]
+
     visit = db.Visit(
         poi_id=req.poi_id,
         date=req.date, meal_period=req.meal_period,
@@ -362,19 +370,20 @@ def post_visit(req: VisitReq, user: dict = Depends(current_user)):
         my_photos=req.my_photos,
         amap_cost_ref=cost,
         value_label=db.compute_value_label(per_person, cost),
-        wish_id=req.wish_id,
+        wish_id=wish_id,
         recorded_by=user["username"],
         circle_id=user["circle_id"],
     )
     db.add_visit(visit)
-    if req.wish_id:
-        db.mark_wish_visited(req.wish_id, visit.visit_id)
+    if wish_id:
+        db.mark_wish_visited(wish_id, visit.visit_id)
     _invalidate_story_cache_for(req.date, user["circle_id"])
 
     return {
         "visit_id": visit.visit_id,
         "per_person": visit.per_person,
         "value_label": visit.value_label,
+        "fulfilled_wish": bool(wish_id),  # 前端可据此提示"种草已兑现 ✨"
     }
 
 
