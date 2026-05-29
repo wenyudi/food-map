@@ -858,31 +858,95 @@ button.primary:disabled {
   font-size: 12px;
 }
 
-/* POI 候选卡片 */
+/* 步骤头部（pick / confirm 共用）：返回 + 标题 + 副标题 */
+.step-head {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 18px;
+}
+.step-back {
+  flex-shrink: 0;
+  width: 38px; height: 38px;
+  border-radius: 50%;
+  border: none;
+  background: var(--bg-card);
+  box-shadow: var(--shadow-sm);
+  font-size: 18px;
+  color: var(--text-soft);
+  display: flex; align-items: center; justify-content: center;
+}
+.step-back:active { transform: scale(0.92); }
+.step-head-text { flex: 1; min-width: 0; }
+.step-title { font-size: 21px; font-weight: 800; color: var(--text); letter-spacing: -0.5px; }
+.step-sub {
+  display: flex; align-items: center; gap: 6px; flex-wrap: wrap;
+  margin-top: 5px;
+  font-size: 13px; color: var(--text-soft);
+}
+.step-sub b { color: var(--text); font-weight: 700; }
+.step-sub-dim { color: var(--text-light); }
+
+/* POI 候选卡片 —— 单选风格，选中打勾 */
+.poi-list { display: flex; flex-direction: column; gap: 10px; }
 .poi-card {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  text-align: left;
   background: var(--bg-card);
   border-radius: var(--r);
-  padding: 14px 16px;
-  margin-bottom: 10px;
+  padding: 13px 14px;
   border: 2px solid transparent;
   font-size: 13px;
   box-shadow: var(--shadow-sm);
-  transition: all 0.2s;
+  transition: border-color 0.18s, background 0.18s, transform 0.1s;
 }
+.poi-card:active { transform: scale(0.99); }
 .poi-card.selected {
   border-color: var(--primary);
   background: var(--primary-soft);
   box-shadow: var(--shadow-warm);
 }
-.poi-name { font-weight: 600; color: var(--text); margin-bottom: 6px; font-size: 15px; }
-.poi-meta { display: flex; gap: 10px; color: var(--text-soft); font-size: 12px; margin-bottom: 6px; }
+.poi-main { flex: 1; min-width: 0; }
+.poi-name { font-weight: 700; color: var(--text); margin-bottom: 6px; font-size: 15px; }
+.poi-meta { display: flex; flex-wrap: wrap; gap: 6px; color: var(--text-soft); font-size: 12px; margin-bottom: 6px; }
 .poi-meta span {
   background: var(--bg-soft);
   padding: 2px 8px;
   border-radius: var(--r-pill);
 }
 .poi-card.selected .poi-meta span { background: #fff; }
-.poi-addr { color: var(--text-light); font-size: 12px; line-height: 1.5; }
+.poi-addr { color: var(--text-light); font-size: 12px; line-height: 1.4; }
+.poi-check {
+  flex-shrink: 0;
+  width: 26px; height: 26px;
+  border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 14px; font-weight: 700;
+  color: #fff;
+  border: 2px solid var(--border);
+  transition: background 0.18s, border-color 0.18s;
+}
+.poi-card.selected .poi-check { background: var(--primary); border-color: var(--primary); }
+
+/* 步骤底部主按钮 */
+.step-actions { margin-top: 20px; }
+.step-actions .primary { margin-top: 0; }
+
+/* confirm 顶部店名 */
+.confirm-store { font-weight: 700; color: var(--primary-deep); }
+
+/* 文字链接按钮（空状态） */
+.link-btn {
+  margin-top: 12px;
+  background: none;
+  border: none;
+  color: var(--primary);
+  font-size: 14px;
+  font-weight: 600;
+}
 
 /* 表单行 */
 .form-row {

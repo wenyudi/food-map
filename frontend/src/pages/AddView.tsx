@@ -177,50 +177,78 @@ export default function AddView({ onSubmitted, onOpenAccount }: Props) {
   }
 
   if (step === 'pick') {
+    const isVisit = parsed?.intent === 'visit'
     return (
       <div className="page add-pick">
-        <div className="parsed-summary">
-          <div>🤖 识别为 {parsed?.intent === 'visit' ? '已吃过' : '种草想去'}</div>
-          <div className="hint">
-            店名：{parsed?.store_hint}
-            {myLocation && ' · 已按距离排序'}
+        <div className="step-head">
+          <button className="step-back" onClick={reset} aria-label="返回">←</button>
+          <div className="step-head-text">
+            <div className="step-title">是哪一家？</div>
+            <div className="step-sub">
+              <span className={'ex-tag ' + (isVisit ? 'eat' : 'wish')}>{isVisit ? '吃过' : '种草'}</span>
+              <b>{parsed?.store_hint}</b>
+              {myLocation && <span className="step-sub-dim">· 已按距离排序</span>}
+            </div>
           </div>
         </div>
 
-        <h3>挑一家高德 POI</h3>
-        {pois.length === 0 && <div className="empty">没搜到结果，换关键词试试 <button onClick={reset}>返回</button></div>}
-        {pois.map((p, i) => (
-          <div
-            key={p.id}
-            className={'poi-card' + (selectedPoi?.id === p.id ? ' selected' : '')}
-            onClick={() => setSelectedPoi(p)}
-          >
-            <div className="poi-name">{i + 1}. {p.name}</div>
-            <div className="poi-meta">
-              {p.business?.tag && <span>{p.business.tag}</span>}
-              {p.business?.rating && <span>⭐ {p.business.rating}</span>}
-              {p.business?.cost && <span>¥{p.business.cost}/人</span>}
-              {p.distance && <span>{Math.round(Number(p.distance))}m</span>}
-            </div>
-            <div className="poi-addr">{p.pname}{p.cityname}{p.adname} · {p.address}</div>
+        {pois.length === 0 ? (
+          <div className="empty">
+            没搜到「{parsed?.store_hint}」<br />换个店名或说法再试试<br />
+            <button className="link-btn" onClick={reset}>← 重新输入</button>
           </div>
-        ))}
-        <div className="row">
-          <button onClick={reset}>返回</button>
-          <button className="primary" disabled={!selectedPoi} onClick={() => setStep('confirm')}>下一步 →</button>
-        </div>
+        ) : (
+          <div className="poi-list">
+            {pois.map((p) => {
+              const sel = selectedPoi?.id === p.id
+              const tag = cleanTag(p.business?.tag)
+              return (
+                <button
+                  key={p.id}
+                  className={'poi-card' + (sel ? ' selected' : '')}
+                  onClick={() => setSelectedPoi(p)}
+                >
+                  <div className="poi-main">
+                    <div className="poi-name">{p.name}</div>
+                    <div className="poi-meta">
+                      {tag && <span>{tag}</span>}
+                      {p.business?.rating && <span>⭐ {p.business.rating}</span>}
+                      {p.business?.cost && <span>¥{p.business.cost}/人</span>}
+                      {p.distance && <span>📍 {fmtDist(p.distance)}</span>}
+                    </div>
+                    <div className="poi-addr">{p.adname} · {p.address}</div>
+                  </div>
+                  <span className="poi-check">{sel ? '✓' : ''}</span>
+                </button>
+              )
+            })}
+          </div>
+        )}
+
+        {pois.length > 0 && (
+          <div className="step-actions">
+            <button className="primary" disabled={!selectedPoi} onClick={() => setStep('confirm')}>
+              就是这家 →
+            </button>
+          </div>
+        )}
       </div>
     )
   }
 
   // confirm
+  const isVisit = parsed?.intent === 'visit'
   return (
     <div className="page add-confirm">
-      <div className="parsed-summary">
-        <div>🏠 <b>{selectedPoi?.name}</b></div>
+      <div className="step-head">
+        <button className="step-back" onClick={() => setStep('pick')} aria-label="改店">←</button>
+        <div className="step-head-text">
+          <div className="step-title">{isVisit ? '记下这一顿' : '加进想去清单'}</div>
+          <div className="step-sub"><span className="confirm-store">🍴 {selectedPoi?.name}</span></div>
+        </div>
       </div>
 
-      {parsed?.intent === 'visit' ? (
+      {isVisit ? (
         <>
           <div className="form-row">
             <label>金额 ¥</label>
@@ -232,7 +260,7 @@ export default function AddView({ onSubmitted, onOpenAccount }: Props) {
           </div>
           <div className="form-row">
             <label>感受</label>
-            <input value={feeling} onChange={e => setFeeling(e.target.value)} placeholder="一句话" />
+            <input value={feeling} onChange={e => setFeeling(e.target.value)} placeholder="好吃在哪？一句话" />
           </div>
           <div className="form-row">
             <label>评分</label>
@@ -269,20 +297,19 @@ export default function AddView({ onSubmitted, onOpenAccount }: Props) {
         <>
           <div className="form-row">
             <label>来源</label>
-            <input value={source} onChange={e => setSource(e.target.value)} />
+            <input value={source} onChange={e => setSource(e.target.value)} placeholder="小红书 / 抖音 / 朋友推荐" />
           </div>
           <div className="form-row">
             <label>理由</label>
-            <input value={reason} onChange={e => setReason(e.target.value)} placeholder="一句话" />
+            <input value={reason} onChange={e => setReason(e.target.value)} placeholder="为什么想去？一句话" />
           </div>
         </>
       )}
 
       {error && <div className="add-error">{error}</div>}
-      <div className="row">
-        <button onClick={() => setStep('pick')}>← 改店</button>
+      <div className="step-actions">
         <button className="primary" disabled={busy} onClick={handleSubmit}>
-          {busy ? '提交中…' : '✓ 提交'}
+          {busy ? '提交中…' : isVisit ? '✓ 存进地图' : '✓ 收藏想去'}
         </button>
       </div>
     </div>
@@ -294,4 +321,17 @@ function guessMealPeriod() {
   if (h < 10) return '早'
   if (h < 16) return '中'
   return '晚'
+}
+
+// 高德 tag 形如「小吃|煎包|快餐」，清成「小吃 · 煎包」最多两段
+function cleanTag(tag?: string): string {
+  if (!tag) return ''
+  return tag.split('|').map(s => s.trim()).filter(Boolean).slice(0, 2).join(' · ')
+}
+
+// 距离：320 → 320m；1500 → 1.5km
+function fmtDist(d?: string | number): string {
+  const m = Number(d)
+  if (!m || m <= 0) return ''
+  return m >= 1000 ? (m / 1000).toFixed(1) + 'km' : Math.round(m) + 'm'
 }
