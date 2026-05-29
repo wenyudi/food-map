@@ -2055,3 +2055,50 @@ button.primary:disabled {
 @media (prefers-reduced-motion: reduce) {
   .marker-dot.want, .suggest-btn { animation: none !important; }
 }
+
+/* ============================================
+   评分选择器 · 选中的心情"动起来"
+   原生苹果表情 + CSS 整体动作（零素材、系统风格一致）
+   只有 .selected 那颗在动，其余安静
+   ============================================ */
+.emoji-picker button .mood-glyph {
+  font-size: 26px;          /* 盖掉 .emoji-picker button span 的 11px */
+  line-height: 1;
+  display: inline-block;    /* 允许 transform */
+  transform-origin: center 70%;
+}
+.emoji-picker button.selected .mood-glyph.m-yum   { animation: m-yum   1.4s ease-in-out infinite; }
+.emoji-picker button.selected .mood-glyph.m-drool { animation: m-drool 1.8s ease-in-out infinite; }
+.emoji-picker button.selected .mood-glyph.m-laugh { animation: m-laugh 1.1s ease-in-out infinite; }
+.emoji-picker button.selected .mood-glyph.m-meh   { animation: m-meh   2.6s ease-in-out infinite; }
+.emoji-picker button.selected .mood-glyph.m-vomit { animation: m-vomit 1.8s ease-in-out infinite; }
+
+@keyframes m-yum {        /* 太好吃：上下蹭 + 微歪（像舔嘴） */
+  0%, 55%, 100% { transform: translateY(0) rotate(0); }
+  22%           { transform: translateY(-3px) rotate(-7deg); }
+  40%           { transform: translateY(1px) rotate(5deg); }
+}
+@keyframes m-drool {      /* 好吃：轻轻摇晃 */
+  0%, 100% { transform: rotate(-6deg); }
+  50%      { transform: rotate(6deg); }
+}
+@keyframes m-laugh {      /* 一般→大笑：前半抖、后半歇 */
+  0%, 50%, 100% { transform: translateX(0) rotate(0); }
+  10% { transform: translateX(-2px) rotate(-9deg); }
+  20% { transform: translateX(2px)  rotate(9deg); }
+  30% { transform: translateX(-2px) rotate(-7deg); }
+  40% { transform: translateX(2px)  rotate(7deg); }
+}
+@keyframes m-meh {        /* 不咋地：几乎不动，轻点头 */
+  0%, 100% { transform: translateY(0); }
+  50%      { transform: translateY(2px); }
+}
+@keyframes m-vomit {      /* 踩雷：前倾干呕一下再歇 */
+  0%, 45%, 100% { transform: translateY(0) rotate(0) scale(1); }
+  15% { transform: translateY(-1px) rotate(-4deg) scale(0.98); }
+  30% { transform: translateY(3px)  rotate(7deg)  scale(1.06); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .emoji-picker button .mood-glyph { animation: none !important; }
+}

@@ -14,6 +14,10 @@ const EMOJI_OPTIONS: Array<{ emoji: Mood, label: string }> = [
   { emoji: '😐', label: '不咋地' },
   { emoji: '🤮', label: '踩雷' },
 ]
+// 每档心情对应的 CSS 动效类（只在"选中"时播放，让原生苹果表情动起来）
+const MOOD_ANIM: Record<Mood, string> = {
+  '😋': 'm-yum', '🤤': 'm-drool', '😂': 'm-laugh', '😐': 'm-meh', '🤮': 'm-vomit',
+}
 
 interface Props {
   onSubmitted: () => void
@@ -362,7 +366,8 @@ export default function AddView({ onSubmitted, onOpenAccount }: Props) {
                   className={emoji === o.emoji ? 'selected' : ''}
                   onClick={() => setEmoji(o.emoji)}
                 >
-                  {o.emoji}<span>{o.label}</span>
+                  <span className={'mood-glyph ' + MOOD_ANIM[o.emoji]}>{o.emoji}</span>
+                  <span>{o.label}</span>
                 </button>
               ))}
             </div>
