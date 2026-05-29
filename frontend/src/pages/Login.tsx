@@ -47,7 +47,7 @@ export default function Login({ onLoggedIn }: Props) {
   return (
     <div className="login-page">
       <div className="login-card">
-        <div className="brand-badge" aria-hidden="true">🥘</div>
+        <img className="brand-badge" src="/icon.png" alt={APP_NAME} width={80} height={80} />
         <h1 className="login-title">{APP_NAME}</h1>
         <p className="login-subtitle">{APP_SLOGAN}</p>
 
