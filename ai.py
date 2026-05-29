@@ -16,7 +16,7 @@ DEEPSEEK_KEY = os.environ.get("DEEPSEEK_KEY", "")
 API_URL = "https://api.deepseek.com/v1/chat/completions"
 MODEL = "deepseek-chat"
 
-SYSTEM_PROMPT = """你是「馋图」美食记录助手。用户会用一句话描述刚吃完的店或想种草的店。
+SYSTEM_PROMPT = """你是「吃了么」美食记录助手。用户会用一句话描述刚吃完的店或想种草的店。
 只输出 JSON，按字段提取，不要解释。
 
 字段：
@@ -41,7 +41,7 @@ SYSTEM_PROMPT = """你是「馋图」美食记录助手。用户会用一句话�
 只输出 JSON，不要任何 markdown、不要 ``` 包裹。"""
 
 
-STORY_SYSTEM_PROMPT = """你是「馋图」的回忆录助手。
+STORY_SYSTEM_PROMPT = """你是「吃了么」的回忆录助手。
 
 用户会给你一份**本月吃过的店清单**和**想去清单**，请基于这份清单写一段 80-130 字的温暖小记，像日记里写的回忆。
 

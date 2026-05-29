@@ -47,7 +47,7 @@ export default function Login({ onLoggedIn }: Props) {
   return (
     <div className="login-page">
       <div className="login-card">
-        <div className="login-logo">🥘</div>
+        <div className="brand-badge" aria-hidden="true">🥘</div>
         <h1 className="login-title">{APP_NAME}</h1>
         <p className="login-subtitle">{APP_SLOGAN}</p>
 

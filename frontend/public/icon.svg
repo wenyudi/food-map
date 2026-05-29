@@ -1,4 +1,29 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
-  <rect width="512" height="512" rx="96" fill="#ffa502"/>
-  <text x="256" y="358" text-anchor="middle" font-size="320" font-family="system-ui">🥘</text>
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="0.4" y2="1">
+      <stop offset="0" stop-color="#ff9a62"/>
+      <stop offset="0.55" stop-color="#ef6c4f"/>
+      <stop offset="1" stop-color="#d8492c"/>
+    </linearGradient>
+    <linearGradient id="pin" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#ffffff"/>
+      <stop offset="1" stop-color="#fff2ea"/>
+    </linearGradient>
+  </defs>
+  <rect width="512" height="512" rx="116" fill="url(#bg)"/>
+  <!-- top sheen -->
+  <path d="M0 116C0 52 52 0 116 0h280c64 0 116 52 116 116v70C360 150 150 150 0 186z" fill="#ffffff" opacity="0.10"/>
+  <!-- map pin -->
+  <path d="M256 86c-83 0-150 65-150 146 0 97 116 173 144 190a11 11 0 0 0 12 0c28-17 144-93 144-190 0-81-67-146-150-146z" fill="url(#pin)"/>
+  <!-- fork -->
+  <g fill="#ef6c4f">
+    <rect x="206" y="186" width="11" height="50" rx="5.5"/>
+    <rect x="224" y="186" width="11" height="50" rx="5.5"/>
+    <rect x="213" y="186" width="15" height="124" rx="7.5"/>
+  </g>
+  <!-- spoon -->
+  <g fill="#ef6c4f">
+    <ellipse cx="296" cy="212" rx="24" ry="32"/>
+    <rect x="288" y="236" width="16" height="74" rx="8"/>
+  </g>
 </svg>

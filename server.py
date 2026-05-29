@@ -55,7 +55,7 @@ async def lifespan(app: FastAPI):
     yield
 
 
-app = FastAPI(title="馋图 API", lifespan=lifespan)
+app = FastAPI(title="吃了么 API", lifespan=lifespan)
 
 PHOTOS_DIR = Path(os.environ.get("PHOTOS_DIR") or (Path(__file__).parent / "data" / "photos"))
 PHOTOS_DIR.mkdir(parents=True, exist_ok=True)

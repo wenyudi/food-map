@@ -1,6 +1,6 @@
 {
-  "name": "馋图 · 美食地图",
-  "short_name": "馋图",
+  "name": "吃了么 · 美食地图",
+  "short_name": "吃了么",
   "description": "想去 · 吃过 · 都在地图上",
   "start_url": "/",
   "display": "standalone",
