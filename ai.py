@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import json
 import os
-from datetime import datetime
+from datetime import datetime, timedelta
 
 import requests
 
@@ -16,29 +16,26 @@ DEEPSEEK_KEY = os.environ.get("DEEPSEEK_KEY", "")
 API_URL = "https://api.deepseek.com/v1/chat/completions"
 MODEL = "deepseek-chat"
 
-SYSTEM_PROMPT = """你是「吃了么」美食记录助手。用户会用一句话描述刚吃完的店或想种草的店。
-只输出 JSON，按字段提取，不要解释。
+SYSTEM_PROMPT = """你是「吃了么」美食记录助手。用户用一句话描述"刚吃过的店"或"想去种草的店"，你把它拆成结构化字段。只输出 JSON，不解释、不加 markdown、不加 ``` 包裹。
 
-字段：
-- intent: "visit"(已经吃过) | "wish"(想去/种草)
-- store_hint: 店名关键词
-- date: ISO 日期 YYYY-MM-DD（visit 必填；"昨晚"=昨天日期；"今天"=今天日期；没说就填今天）
-- meal_period: "早" | "中" | "晚" | null
-- companions: 同行人；没说就填 null（不要瞎猜）
-- amount: 总花费数字；没说 null
-- people_count: 人数；没说 null
-- feeling: 复述用户的感受句子（用户原话）；没说 null
-- mood_emoji: 从语气推断
-   "太香/绝了/yyds/巨好吃" → "😋"
-   "好吃/不错/推荐" → "🤤"
-   "一般/凑合/还行/偏甜偏咸偏腻" → "😂"
-   "踩雷/难吃/不喜欢/不会再来" → "😐"
-   不确定 → null
-- want_again: true/false；"想再来"=true；"不会再来/雷"=false；不确定 null
-- source: "小红书"|"抖音"|"朋友"|"路过"|"手填"；visit 时填 null
-- reason: 种草理由（用户原话）；visit 时填 null
+字段与规则：
+- intent: "visit"=已经吃过（去了/吃了/打卡了/尝了/撸了串/复购）；"wish"=还没去想去（想去/种草/收藏/听说/据说/刷到/看到/改天去/打算去）。判不准时：带过去时/给了金额或评价 → visit；只表达意向 → wish。
+- store_hint: 店名或最能搜到这家店的关键词。去掉"那家/一家/店/餐厅"等噪音词；没有具体店名就用招牌菜或菜系当关键词（如"云南菜""日料"）。
+- date: ISO 日期 YYYY-MM-DD。"昨天/昨晚"=昨天；"前天"=前天；"今天/今晚/刚"或没提时间=今天。wish 也填今天。
+- meal_period: 早饭/早上→"早"；午饭/中午→"中"；晚饭/晚上/夜宵→"晚"；没提→null。
+- amount: **总花费**数字（人民币）。
+   ⚠️关键：分清"人均"和"总价"——
+   · 说"一共/总共/花了X/X块"→ amount=X（总价）。
+   · 说"人均X/每人X/AAX"→ 这是单人价：知道人数N就 amount=X×N；**不知道人数就按 2 人算**（amount=X×2, people_count=2）——这样人均显示仍是 X。
+- people_count: "和某人/跟某人"→ 至少 2（你 + 对方）；"俩/两个人/两人"→2；"仨/三人"→3；"一个人/自己/独自"→1；没线索→null（但若给了人均，按上面规则补 2）。
+- companions: 同行人名字或称呼（如"饼饼""同事""朋友"）；没提→null（别瞎猜）。
+- feeling: 用户对味道/体验的原话短句（如"皮薄馅大""锅底够香""偏甜"）；没提→null。
+- mood_emoji: "太香/绝了/yyds/巨好吃/封神"→"😋"；"好吃/不错/推荐/可以"→"🤤"；"一般/凑合/还行/偏甜偏咸偏腻"→"😂"；"踩雷/难吃/不喜欢/雷"→"😐"；不确定→null。
+- want_again: "想再来/还会去/下次还来"→true；"不会再来/踩雷/不去了"→false；没提→null。
+- source: 仅 wish 用——"小红书/抖音/朋友/路过/大众点评"等来源；没提填"小红书"；visit 时 null。
+- reason: 仅 wish 用——想去的理由原话；visit 时 null。
 
-只输出 JSON，不要任何 markdown、不要 ``` 包裹。"""
+只输出 JSON。"""
 
 
 STORY_SYSTEM_PROMPT = """你是「吃了么」的回忆录助手。
@@ -156,8 +153,33 @@ def suggest_today(brief: str, timeout: int = 30) -> dict:
 
 
 def parse_one_liner(text: str, timeout: int = 30) -> dict:
-    today = datetime.now().strftime("%Y-%m-%d")
-    weekday = "一二三四五六日"[datetime.now().weekday()]
+    now = datetime.now()
+    today = now.strftime("%Y-%m-%d")
+    yesterday = (now - timedelta(days=1)).strftime("%Y-%m-%d")
+    weekday = "一二三四五六日"[now.weekday()]
+
+    sys_content = f"{SYSTEM_PROMPT}\n\n今天是 {today}（周{weekday}）。"
+
+    # few-shot：覆盖 人均/总价、和X→人数、wish、想再来 —— 提升一致性
+    shots = [
+        ("昨晚和饼饼去海底捞，人均120",
+         {"intent": "visit", "store_hint": "海底捞", "date": yesterday, "meal_period": "晚",
+          "companions": "饼饼", "amount": 240, "people_count": 2, "feeling": None,
+          "mood_emoji": None, "want_again": None, "source": None, "reason": None}),
+        ("中午仨人吃的老王烧烤，一共180，烤腰子绝了，下次还来",
+         {"intent": "visit", "store_hint": "老王烧烤", "date": today, "meal_period": "中",
+          "companions": None, "amount": 180, "people_count": 3, "feeling": "烤腰子绝了",
+          "mood_emoji": "😋", "want_again": True, "source": None, "reason": None}),
+        ("小红书刷到一家云南菜，米线据说一绝，想去",
+         {"intent": "wish", "store_hint": "云南菜", "date": today, "meal_period": None,
+          "companions": None, "amount": None, "people_count": None, "feeling": None,
+          "mood_emoji": None, "want_again": None, "source": "小红书", "reason": "米线据说一绝"}),
+    ]
+    messages = [{"role": "system", "content": sys_content}]
+    for q, a in shots:
+        messages.append({"role": "user", "content": q})
+        messages.append({"role": "assistant", "content": json.dumps(a, ensure_ascii=False)})
+    messages.append({"role": "user", "content": text})
 
     resp = requests.post(
         API_URL,
@@ -167,10 +189,7 @@ def parse_one_liner(text: str, timeout: int = 30) -> dict:
         },
         json={
             "model": MODEL,
-            "messages": [
-                {"role": "system", "content": f"{SYSTEM_PROMPT}\n\n今天是 {today}（周{weekday}）。"},
-                {"role": "user", "content": text},
-            ],
+            "messages": messages,
             "temperature": 0.1,
             "response_format": {"type": "json_object"},
         },
