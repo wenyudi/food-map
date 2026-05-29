@@ -27,7 +27,7 @@ const LS_COMPANIONS = 'last_companions'
 // 示例句：一条「吃过」、一条「种草」，点一下直接套用
 const EXAMPLES: Array<{ kind: 'eat' | 'wish'; text: string }> = [
   { kind: 'eat', text: '今晚和朋友去家川菜馆，人均 80，水煮鱼挺嫩' },
-  { kind: 'wish', text: '小红书种草一家咖啡馆，听说手冲不错' },
+  { kind: 'wish', text: '小红书种草一家面包店，可颂据说一绝' },
 ]
 
 export default function AddView({ onSubmitted, onOpenAccount }: Props) {
