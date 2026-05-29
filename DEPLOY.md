@@ -1,10 +1,10 @@
 # 部署：直接跑在阿里云 ECS
 
-当前方案——**直接在 ECS（47.109.110.56）上跑 Docker，HTTP 端口访问**。
+当前方案——**直接在 ECS（<你的ECS-IP>）上跑 Docker，HTTP 端口访问**。
 不碰现有 Caddy / frp，后面想要 HTTPS + 域名再加（见文末「升级到 HTTPS」）。
 
 ```
-浏览器 → http://47.109.110.56:8765  (或 http://eat.cooky.wang:8765)
+浏览器 → http://<你的ECS-IP>:8765  (或 http://<你的域名>:8765)
         ↓
        ECS Docker: food_map 容器 (8765→8000)
         ↓
@@ -16,14 +16,15 @@
 ## 一、把代码拉到 ECS
 
 ```bash
-ssh root@47.109.110.56            # 或你的 22 端口
+ssh root@<你的ECS-IP>            # 或你的 22 端口
 cd /opt                           # 选个目录
-git clone https://github.com/wenyudi/food-map.git
+# 国内服务器走代理 clone（repo 已公开）
+git clone https://ghfast.top/https://github.com/wenyudi/food-map.git food-map
 cd food-map
 ```
 
-> 私有 repo 第一次 clone 会要 GitHub 账号 + Personal Access Token（不是登录密码）。
-> 没有 token 就去 https://github.com/settings/tokens 生成一个 classic token（勾 `repo`）。
+> 代理偶尔会失效，挂了换 `gh-proxy.com` 或 `ghproxy.net`。
+> 想直连 `git clone https://github.com/...` 在国内 ECS 上一般会超时。
 
 ---
 
@@ -90,7 +91,7 @@ firewall-cmd --add-port=8765/tcp --permanent && firewall-cmd --reload
 
 ## 五、访问 + 首次登录
 
-浏览器打开 `http://47.109.110.56:8765`（或 `http://eat.cooky.wang:8765`）：
+浏览器打开 `http://<你的ECS-IP>:8765`（或 `http://<你的域名>:8765`）：
 
 1. 用 `INITIAL_ADMIN_USERNAME` / `INITIAL_ADMIN_PASSWORD` 登录
 2. 进「我」页面 → **立刻改密码**
@@ -115,7 +116,7 @@ firewall-cmd --add-port=8765/tcp --permanent && firewall-cmd --reload
 
 ```caddyfile
 # /etc/caddy/Caddyfile 追加
-eat.cooky.wang {
+<你的域名> {
     reverse_proxy 127.0.0.1:8765
     request_body { max_size 25MB }
 }
@@ -125,7 +126,7 @@ eat.cooky.wang {
 sudo systemctl reload caddy
 ```
 
-然后把 docker-compose.yml 的端口映射改成 `127.0.0.1:8765:8000`（只让 Caddy 访问，不再裸暴露），重启容器。访问 https://eat.cooky.wang 就有证书 + 手机定位了。
+然后把 docker-compose.yml 的端口映射改成 `127.0.0.1:8765:8000`（只让 Caddy 访问，不再裸暴露），重启容器。访问 https://<你的域名> 就有证书 + 手机定位了。
 
 ---
 

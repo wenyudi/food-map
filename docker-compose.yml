@@ -1,6 +1,11 @@
 services:
   food_map:
-    build: .
+    build:
+      context: .
+      args:
+        # 国内镜像源，加速 npm / pip 装包；迁出国内时删掉这两行即可
+        NPM_REGISTRY: https://registry.npmmirror.com
+        PIP_INDEX_URL: https://pypi.tuna.tsinghua.edu.cn/simple
     image: food_map:latest
     container_name: food_map
     restart: unless-stopped

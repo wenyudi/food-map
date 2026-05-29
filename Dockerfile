@@ -3,9 +3,12 @@
 # =========================
 FROM node:20-alpine AS frontend-build
 
+# 默认官方源；国内部署时由 docker-compose build args 覆盖成镜像源
+ARG NPM_REGISTRY=https://registry.npmjs.org
+
 WORKDIR /app/frontend
 COPY frontend/package*.json ./
-RUN npm ci --no-audit --no-fund
+RUN npm config set registry "$NPM_REGISTRY" && npm ci --no-audit --no-fund
 
 COPY frontend/ ./
 RUN npm run build
@@ -16,13 +19,13 @@ RUN npm run build
 # =========================
 FROM python:3.12-slim
 
+# 默认官方源；国内部署时由 docker-compose build args 覆盖成镜像源
+ARG PIP_INDEX_URL=https://pypi.org/simple
+
 WORKDIR /app
 
-# bcrypt 等 wheel 已经够用，省掉编译依赖
-RUN pip install --no-cache-dir --upgrade pip
-
 COPY requirements.txt ./
-RUN pip install --no-cache-dir -r requirements.txt
+RUN pip install --no-cache-dir -i "$PIP_INDEX_URL" -r requirements.txt
 
 # 后端代码
 COPY *.py ./
