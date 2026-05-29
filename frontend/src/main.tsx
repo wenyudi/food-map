@@ -9,3 +9,10 @@ createRoot(document.getElementById('root')!).render(
     <App />
   </StrictMode>,
 )
+
+// 注册 Service Worker —— 可安装到主屏幕 + 断网可看（仅 https / localhost 生效）
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('/sw.js').catch(() => {})
+  })
+}
