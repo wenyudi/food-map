@@ -198,13 +198,18 @@ function SuggestSheet({ onClose, onFocus }: { onClose: () => void; onFocus: (poi
 
 function FitBounds({ points, disabled }: { points: Point[]; disabled: boolean }) {
   const map = useMap()
+  const fitted = useRef(false)
   useEffect(() => {
-    if (disabled) return
+    // 本次进入地图只自动 fit 一次：避免列表跳转 focus 消费后又被拉回全局视野（缩放乱跳）
+    if (fitted.current) return
+    if (disabled) { fitted.current = true; return }  // 带着 focus 进来 → 交给 flyer 定位，不要 fit
     if (points.length > 1) {
       const bounds = L.latLngBounds(points.map(p => [p.lat, p.lng] as [number, number]))
       map.fitBounds(bounds, { padding: [50, 50] })
+      fitted.current = true
     } else if (points.length === 1) {
       map.setView([points[0].lat, points[0].lng], 15)
+      fitted.current = true
     }
   }, [points, map, disabled])
   return null

@@ -2,11 +2,13 @@ import { useState } from 'react'
 import { updateVisit, deleteVisit, updateWish, deleteWish } from '../api'
 import PhotoPicker from './PhotoPicker'
 
-const EMOJI_OPTIONS: Array<{ emoji: '😋' | '🤤' | '😂' | '😐', label: string }> = [
+type Mood = '😋' | '🤤' | '😂' | '😐' | '🤮'
+const EMOJI_OPTIONS: Array<{ emoji: Mood, label: string }> = [
   { emoji: '😋', label: '太好吃' },
   { emoji: '🤤', label: '好吃' },
   { emoji: '😂', label: '一般' },
   { emoji: '😐', label: '不咋地' },
+  { emoji: '🤮', label: '踩雷' },
 ]
 
 interface Props {
@@ -25,7 +27,7 @@ export default function EditRecordSheet({ kind, data, storeName, onClose, onChan
   // visit 字段
   const [amount, setAmount] = useState(String(data.amount ?? ''))
   const [people, setPeople] = useState(String(data.people_count ?? '2'))
-  const [emoji, setEmoji] = useState<'😋' | '🤤' | '😂' | '😐'>(data.mood_emoji || '🤤')
+  const [emoji, setEmoji] = useState<Mood>(data.mood_emoji || '🤤')
   const [wantAgain, setWantAgain] = useState(!!data.want_again)
   const [feeling, setFeeling] = useState(data.feeling || '')
   const [companions, setCompanions] = useState(data.companions || '')

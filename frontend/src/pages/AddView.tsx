@@ -6,11 +6,13 @@ import type { MyLocation } from '../lib/geo'
 import { cleanTag, fmtDist } from '../lib/format'
 import PhotoPicker from '../components/PhotoPicker'
 
-const EMOJI_OPTIONS: Array<{ emoji: '😋' | '🤤' | '😂' | '😐', label: string }> = [
+type Mood = '😋' | '🤤' | '😂' | '😐' | '🤮'
+const EMOJI_OPTIONS: Array<{ emoji: Mood, label: string }> = [
   { emoji: '😋', label: '太好吃' },
   { emoji: '🤤', label: '好吃' },
   { emoji: '😂', label: '一般' },
   { emoji: '😐', label: '不咋地' },
+  { emoji: '🤮', label: '踩雷' },
 ]
 
 interface Props {
@@ -24,8 +26,8 @@ const LS_COMPANIONS = 'last_companions'
 
 // 示例句：一条「吃过」、一条「种草」，点一下直接套用
 const EXAMPLES: Array<{ kind: 'eat' | 'wish'; text: string }> = [
-  { kind: 'eat', text: '今晚和朋友去华兴煎包，人均 30，皮薄馅大' },
-  { kind: 'wish', text: '抖音种草一家日料店，听说刺身很新鲜' },
+  { kind: 'eat', text: '今晚和朋友去家川菜馆，人均 80，水煮鱼挺嫩' },
+  { kind: 'wish', text: '小红书种草一家咖啡馆，听说手冲不错' },
 ]
 
 export default function AddView({ onSubmitted, onOpenAccount }: Props) {
@@ -46,7 +48,7 @@ export default function AddView({ onSubmitted, onOpenAccount }: Props) {
   // 确认阶段的表单状态
   const [amount, setAmount] = useState('')
   const [people, setPeople] = useState('2')
-  const [emoji, setEmoji] = useState<'😋' | '🤤' | '😂' | '😐'>('🤤')
+  const [emoji, setEmoji] = useState<Mood>('🤤')
   const [wantAgain, setWantAgain] = useState(true)
   const [feeling, setFeeling] = useState('')
   const [companions, setCompanions] = useState(() => localStorage.getItem(LS_COMPANIONS) || '')
@@ -98,7 +100,7 @@ export default function AddView({ onSubmitted, onOpenAccount }: Props) {
   // 「自己填」：跳过 AI，直接拿输入框文字当店名去高德搜
   async function handleManual() {
     const kw = text.trim()
-    if (!kw) { setError('先写下店名，再点「自己填」'); return }
+    if (!kw) { setError('先在上面输入框写下店名，再点这里直接搜'); return }
     setBusy(true)
     setError(null)
     try {
@@ -206,7 +208,7 @@ export default function AddView({ onSubmitted, onOpenAccount }: Props) {
         <textarea
           value={text}
           onChange={e => setText(e.target.value)}
-          placeholder="例如：今晚和朋友去华兴煎包，人均 30，皮薄馅大"
+          placeholder="例如：今晚和朋友去家川菜馆，人均 80，水煮鱼挺嫩"
           rows={4}
         />
         <div className="ex-hint">不知道怎么写？点一条直接套用 👇</div>
@@ -224,10 +226,10 @@ export default function AddView({ onSubmitted, onOpenAccount }: Props) {
         </div>
         {error && <div className="add-error">{error}</div>}
         <button className="primary" disabled={busy || !text.trim()} onClick={handleParse}>
-          {busy ? 'AI 解析中…' : '🤖 让 AI 解析'}
+          {busy ? '解析中…' : '✨ 让 AI 解析'}
         </button>
-        <button className="ghost-btn" disabled={busy || !text.trim()} onClick={handleManual}>
-          ✍️ 不想打字？直接按店名搜，自己填
+        <button className="ghost-btn" disabled={busy} onClick={handleManual}>
+          ✍️ 知道吃哪家？直接搜店名自己填
         </button>
       </div>
     )

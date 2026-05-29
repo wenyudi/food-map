@@ -147,7 +147,7 @@ export interface ParsedSentence {
   amount: number | null
   people_count: number | null
   feeling: string | null
-  mood_emoji: '😋' | '🤤' | '😂' | '😐' | null
+  mood_emoji: '😋' | '🤤' | '😂' | '😐' | '🤮' | null
   want_again: boolean | null
   source: string | null
   reason: string | null

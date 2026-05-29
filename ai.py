@@ -30,7 +30,7 @@ SYSTEM_PROMPT = """你是「吃了么」美食记录助手。用户用一句话�
 - people_count: "和某人/跟某人"→ 至少 2（你 + 对方）；"俩/两个人/两人"→2；"仨/三人"→3；"一个人/自己/独自"→1；没线索→null（但若给了人均，按上面规则补 2）。
 - companions: 同行人名字或称呼（如"饼饼""同事""朋友"）；没提→null（别瞎猜）。
 - feeling: 用户对味道/体验的原话短句（如"皮薄馅大""锅底够香""偏甜"）；没提→null。
-- mood_emoji: "太香/绝了/yyds/巨好吃/封神"→"😋"；"好吃/不错/推荐/可以"→"🤤"；"一般/凑合/还行/偏甜偏咸偏腻"→"😂"；"踩雷/难吃/不喜欢/雷"→"😐"；不确定→null。
+- mood_emoji（5 档）："太香/绝了/yyds/巨好吃/封神"→"😋"；"好吃/不错/推荐/可以"→"🤤"；"一般/凑合/还行/偏甜偏咸偏腻"→"😂"；"不咋地/有点失望/不太行"→"😐"；"踩雷/难吃/恶心/再也不去"→"🤮"；不确定→null。
 - want_again: "想再来/还会去/下次还来"→true；"不会再来/踩雷/不去了"→false；没提→null。
 - source: 仅 wish 用——"小红书/抖音/朋友/路过/大众点评"等来源；没提填"小红书"；visit 时 null。
 - reason: 仅 wish 用——想去的理由原话；visit 时 null。
@@ -162,12 +162,12 @@ def parse_one_liner(text: str, timeout: int = 30) -> dict:
 
     # few-shot：覆盖 人均/总价、和X→人数、wish、想再来 —— 提升一致性
     shots = [
-        ("昨晚和饼饼去海底捞，人均120",
-         {"intent": "visit", "store_hint": "海底捞", "date": yesterday, "meal_period": "晚",
-          "companions": "饼饼", "amount": 240, "people_count": 2, "feeling": None,
+        ("昨晚和朋友去家火锅店，人均120",
+         {"intent": "visit", "store_hint": "火锅", "date": yesterday, "meal_period": "晚",
+          "companions": "朋友", "amount": 240, "people_count": 2, "feeling": None,
           "mood_emoji": None, "want_again": None, "source": None, "reason": None}),
-        ("中午仨人吃的老王烧烤，一共180，烤腰子绝了，下次还来",
-         {"intent": "visit", "store_hint": "老王烧烤", "date": today, "meal_period": "中",
+        ("中午仨人吃的烧烤摊，一共180，烤腰子绝了，下次还来",
+         {"intent": "visit", "store_hint": "烧烤", "date": today, "meal_period": "中",
           "companions": None, "amount": 180, "people_count": 3, "feeling": "烤腰子绝了",
           "mood_emoji": "😋", "want_again": True, "source": None, "reason": None}),
         ("小红书刷到一家云南菜，米线据说一绝，想去",

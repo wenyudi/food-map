@@ -263,7 +263,7 @@ class WishReq(BaseModel):
 
 # ---------- 查询接口 ----------
 
-EMOJI_COLOR = {"😋": "#ff4757", "🤤": "#ffa502", "😂": "#7bed9f", "😐": "#a4b0be"}
+EMOJI_COLOR = {"😋": "#ff4757", "🤤": "#ffa502", "😂": "#7bed9f", "😐": "#a4b0be", "🤮": "#7a8a3a"}
 
 
 @app.get("/api/points")
