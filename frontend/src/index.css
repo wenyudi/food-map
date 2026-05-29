@@ -1982,3 +1982,45 @@ button.primary:disabled {
 .sp-head b { font-size: 15px; color: var(--text); font-weight: 700; }
 .sp-go { margin-left: auto; font-size: 12px; color: var(--primary); font-weight: 600; }
 .sp-reason { font-size: 13px; color: var(--text-soft); line-height: 1.55; margin-top: 6px; }
+
+/* 问地图 · 列表页触发条 */
+.ask-bar {
+  display: block;
+  width: calc(100% - 32px);
+  margin: 0 16px 4px;
+  padding: 12px 16px;
+  text-align: left;
+  border-radius: var(--r-pill);
+  border: 1.5px dashed var(--primary-light);
+  background: var(--bg-card);
+  color: var(--text-soft);
+  font-size: 14px;
+  font-weight: 500;
+  box-shadow: var(--shadow-sm);
+}
+.ask-bar:active { background: var(--primary-soft); }
+
+/* 问地图 · sheet 内容 */
+.ask-examples { display: flex; flex-direction: column; gap: 8px; margin-top: 4px; }
+.ask-ex {
+  text-align: left;
+  padding: 11px 14px;
+  border-radius: var(--r-sm);
+  border: 1px dashed var(--border);
+  background: var(--bg-soft);
+  color: var(--text-soft);
+  font-size: 13px;
+}
+.ask-ex:active { background: var(--primary-soft); border-color: var(--primary-light); }
+.ask-answer {
+  margin-top: 6px;
+  padding: 14px 16px;
+  background: var(--grad-warm-soft);
+  border-radius: var(--r);
+  border-left: 3px solid var(--primary);
+  font-size: 14px;
+  line-height: 1.75;
+  color: var(--text);
+  letter-spacing: 0.3px;
+  font-family: "STKaiti", "KaiTi", "PingFang SC", serif;
+}

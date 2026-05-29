@@ -101,6 +101,35 @@ SUGGEST_SYSTEM_PROMPT = """你是「吃了么」的"今天吃啥"助手。我会
 ⚠️硬规则：n 只能是清单里出现过的编号；绝不许编清单外的店；理由只能用清单里给的信息，不许杜撰菜品或情节。"""
 
 
+ASK_SYSTEM_PROMPT = """你是用户「吃了么」美食记录的问答助手。用户会问关于 TA 自己吃过/想去的店的问题。
+只能依据我给你的【数据】回答；数据里没有的，就直说"这个还没有记录哦"，**绝不许编店名、数字、菜品或情节**。
+能给具体数字、店名就给。回答简洁、口语，一般 1-3 句话，不要复述整份数据。"""
+
+
+def answer_question(context: str, question: str, timeout: int = 30) -> str:
+    """context=整理好的统计+明细，question=用户问题，返回一段自然语言回答。"""
+    resp = requests.post(
+        API_URL,
+        headers={
+            "Authorization": f"Bearer {DEEPSEEK_KEY}",
+            "Content-Type": "application/json",
+        },
+        json={
+            "model": MODEL,
+            "messages": [
+                {"role": "system", "content": ASK_SYSTEM_PROMPT},
+                {"role": "user", "content": f"【数据】\n{context}\n\n【问题】{question}"},
+            ],
+            "temperature": 0.2,  # 偏低——问答要稳，别发挥
+        },
+        timeout=timeout,
+    )
+    data = resp.json()
+    if "error" in data:
+        raise RuntimeError(f"DeepSeek 报错：{data['error']}")
+    return data["choices"][0]["message"]["content"].strip()
+
+
 def suggest_today(brief: str, timeout: int = 30) -> dict:
     """传入带编号的候选店清单，返回 {"picks":[{"n","reason"}],"note"} 。"""
     resp = requests.post(

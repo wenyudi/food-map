@@ -595,6 +595,97 @@ def get_suggest(location: Optional[str] = None, craving: Optional[str] = None,
     return {"note": result.get("note", ""), "picks": picks}
 
 
+# ---------- 问地图 · 自然语言问自己的记录 ----------
+
+class AskReq(BaseModel):
+    q: str
+
+
+def _build_ask_context(circle_id: int) -> Optional[str]:
+    """统计（算数交给后端，避免 AI 算错）+ 明细，整理成给 AI 的上下文。"""
+    data = db.load_all(circle_id)
+    stores = {s["poi_id"]: s for s in data["stores"]}
+    visits = data["visits"]
+    wishes = data["wishes"]
+    if not visits and not wishes:
+        return None
+
+    def tag1(poi_id):
+        return (stores.get(poi_id, {}).get("tag") or "").split("|")[0]
+
+    lines = ["# 统计"]
+    if visits:
+        total_amount = sum(float(v.get("amount") or 0) for v in visits)
+        lines.append(f"- 一共吃过 {len(visits)} 次，{len({v['poi_id'] for v in visits})} 家店，总花费 ¥{total_amount:.0f}")
+        # 去得最多
+        cnt: dict[str, int] = {}
+        for v in visits:
+            cnt[v["poi_id"]] = cnt.get(v["poi_id"], 0) + 1
+        top_poi = max(cnt, key=lambda k: cnt[k])
+        if cnt[top_poi] >= 2:
+            lines.append(f"- 去得最多：{stores.get(top_poi, {}).get('name', '?')}（{cnt[top_poi]} 次）")
+        # 人均最贵 / 最便宜
+        with_pp = [v for v in visits if (v.get("per_person") or 0) > 0]
+        if with_pp:
+            mx = max(with_pp, key=lambda v: v["per_person"])
+            mn = min(with_pp, key=lambda v: v["per_person"])
+            lines.append(f"- 人均最贵：{stores.get(mx['poi_id'], {}).get('name', '?')} ¥{mx['per_person']}/人（{mx.get('date')}）")
+            lines.append(f"- 人均最便宜：{stores.get(mn['poi_id'], {}).get('name', '?')} ¥{mn['per_person']}/人")
+        # 菜系 top
+        cui: dict[str, int] = {}
+        for v in visits:
+            t = tag1(v["poi_id"])
+            if t:
+                cui[t] = cui.get(t, 0) + 1
+        if cui:
+            top3 = sorted(cui.items(), key=lambda x: -x[1])[:3]
+            lines.append("- 常吃菜系：" + "、".join(f"{k} {n}次" for k, n in top3))
+    open_w = [w for w in wishes if w["status"] == "want"]
+    fulfilled = sum(1 for w in wishes if w["status"] == "visited")
+    lines.append(f"- 想去还没去 {len(open_w)} 家，种草已兑现 {fulfilled} 家")
+
+    # 明细（最近在前，限量控提示词长度）
+    lines.append("\n# 吃过的记录（最近在前）")
+    for v in sorted(visits, key=lambda v: (v.get("date") or ""), reverse=True)[:60]:
+        s = stores.get(v["poi_id"], {})
+        t = tag1(v["poi_id"])
+        bits = [f"- {v.get('date', '')} {s.get('name', '?')}"]
+        if t:
+            bits.append(f"[{t}]")
+        bits.append(f"人均¥{v.get('per_person', 0)} {v.get('mood_emoji', '')}")
+        if v.get("want_again"):
+            bits.append("想再来")
+        if v.get("companions"):
+            bits.append(f"和{v['companions']}")
+        if v.get("feeling"):
+            bits.append(f"「{v['feeling']}」")
+        lines.append(" ".join(bits))
+
+    if open_w:
+        lines.append(f"\n# 想去还没去的店")
+        for w in open_w[:40]:
+            s = stores.get(w["poi_id"], {})
+            t = tag1(w["poi_id"])
+            lines.append(f"- {s.get('name', '?')}{('[' + t + ']') if t else ''}（{w.get('source', '')}种草：{w.get('reason') or '没写理由'}）")
+
+    return "\n".join(lines)
+
+
+@app.post("/api/ask")
+def post_ask(req: AskReq, user: dict = Depends(current_user)):
+    q = (req.q or "").strip()
+    if not q:
+        raise HTTPException(400, "问点啥呢？")
+    ctx = _build_ask_context(user["circle_id"])
+    if not ctx:
+        return {"answer": "你还没记录呢，先去记几笔，我才好回答 😋"}
+    try:
+        ans = ai.answer_question(ctx, q)
+    except Exception as e:
+        raise HTTPException(500, f"AI 回答失败：{e}")
+    return {"answer": ans}
+
+
 @app.post("/api/upload")
 async def post_upload(file: UploadFile = File(...), _: dict = Depends(current_user)):
     """接收前端上传的图片（已在前端压缩），保存到 data/photos/ 并返回 URL。"""

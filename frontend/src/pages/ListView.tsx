@@ -1,5 +1,5 @@
 import { useEffect, useState, useMemo, useRef, useCallback } from 'react'
-import { getPoints, getMonthlyStory } from '../api'
+import { getPoints, getMonthlyStory, askMap } from '../api'
 import type { Point, Wish, Visit } from '../api'
 import { cleanTag } from '../lib/format'
 import EditRecordSheet from '../components/EditRecordSheet'
@@ -54,6 +54,7 @@ export default function ListView({ refreshKey, focusPoiId, onPickStore }: Props)
   const [filter, setFilter] = useState<FilterKey>('all')
   const [flashId, setFlashId] = useState<string | null>(null)
   const [editing, setEditing] = useState<EditTarget | null>(null)
+  const [askOpen, setAskOpen] = useState(false)
   const cardRefs = useRef<Record<string, HTMLDivElement | null>>({})
 
   const load = useCallback(() => {
@@ -101,6 +102,12 @@ export default function ListView({ refreshKey, focusPoiId, onPickStore }: Props)
     <div className="page list">
       <MonthlySummary points={points} refreshKey={refreshKey} />
 
+      {points.length > 0 && (
+        <button className="ask-bar" onClick={() => setAskOpen(true)}>
+          🔮 问问这张地图…
+        </button>
+      )}
+
       <div className="filter-chips">
         <Chip active={filter === 'all'} onClick={() => setFilter('all')}>
           全部 <em>{counts.all}</em>
@@ -145,6 +152,60 @@ export default function ListView({ refreshKey, focusPoiId, onPickStore }: Props)
           onChanged={load}
         />
       )}
+
+      {askOpen && <AskSheet onClose={() => setAskOpen(false)} />}
+    </div>
+  )
+}
+
+function AskSheet({ onClose }: { onClose: () => void }) {
+  const [q, setQ] = useState('')
+  const [answer, setAnswer] = useState('')
+  const [loading, setLoading] = useState(false)
+  const [err, setErr] = useState<string | null>(null)
+
+  const EXAMPLES = ['还有几家种草没去？', '最贵的一顿是哪家？', '想吃清淡的，之前去过哪些？', '哪家店去得最多？']
+
+  async function ask(question?: string) {
+    const qq = (question ?? q).trim()
+    if (!qq) return
+    setQ(qq); setLoading(true); setErr(null); setAnswer('')
+    try {
+      const r = await askMap(qq)
+      setAnswer(r.answer)
+    } catch (e: any) {
+      setErr(e?.response?.data?.detail || '没答上来，再试一次')
+    } finally { setLoading(false) }
+  }
+
+  return (
+    <div className="sheet-backdrop" onClick={onClose}>
+      <div className="sheet" onClick={e => e.stopPropagation()}>
+        <div className="sheet-handle" />
+        <div className="sheet-title">🔮 问问这张地图</div>
+        <div className="suggest-craving">
+          <input
+            value={q}
+            onChange={e => setQ(e.target.value)}
+            placeholder="比如：还有几家种草没去？"
+            onKeyDown={e => { if (e.key === 'Enter') ask() }}
+            autoFocus
+          />
+          <button onClick={() => ask()} disabled={loading || !q.trim()}>{loading ? '…' : '问'}</button>
+        </div>
+
+        {!answer && !loading && !err && (
+          <div className="ask-examples">
+            {EXAMPLES.map(e => (
+              <button key={e} className="ask-ex" onClick={() => ask(e)}>{e}</button>
+            ))}
+          </div>
+        )}
+
+        {loading && <div className="as-skeleton"><span></span><span></span><span></span></div>}
+        {err && <div className="add-error">{err}</div>}
+        {answer && <div className="ask-answer">{answer}</div>}
+      </div>
     </div>
   )
 }

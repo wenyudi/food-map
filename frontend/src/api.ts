@@ -221,3 +221,7 @@ export const getSuggest = (location?: string, craving?: string) =>
     params: { location, craving },
     timeout: 40000,
   }).then(r => r.data)
+
+// 问地图 · 自然语言问自己的记录
+export const askMap = (q: string) =>
+  api.post<{ answer: string }>('/ask', { q }, { timeout: 40000 }).then(r => r.data)
