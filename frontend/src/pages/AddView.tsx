@@ -21,6 +21,12 @@ interface Props {
 const LS_CITY = 'last_city'
 const LS_COMPANIONS = 'last_companions'
 
+// 示例句：一条「吃过」、一条「种草」，点一下直接套用
+const EXAMPLES: Array<{ kind: 'eat' | 'wish'; text: string }> = [
+  { kind: 'eat', text: '今晚和朋友去华兴煎包，人均 30，皮薄馅大' },
+  { kind: 'wish', text: '抖音种草一家日料店，听说刺身很新鲜' },
+]
+
 export default function AddView({ onSubmitted, onOpenAccount }: Props) {
   const [step, setStep] = useState<'input' | 'pick' | 'confirm'>('input')
   const [text, setText] = useState('')
@@ -140,19 +146,24 @@ export default function AddView({ onSubmitted, onOpenAccount }: Props) {
         </button>
         <h2>一句话记一笔</h2>
         <p className="hint">
-          支持自动识别 "吃过" 和 "种草"。
+          把刚吃的、或想去的店随口说一句，AI 自动认出店名、金额和心情。
           {myLocation && <span className="geo-tip"> · 📍 已定位，优先搜附近</span>}
         </p>
-        <div className="examples">
-          <button onClick={() => setText('昨晚和朋友去鼎泰丰吃了200，小笼包绝了')}>昨晚和朋友去鼎泰丰吃了200，小笼包绝了</button>
-          <button onClick={() => setText('小红书种草一家咖啡馆，听说手冲不错')}>小红书种草一家咖啡馆，听说手冲不错</button>
-        </div>
         <textarea
           value={text}
           onChange={e => setText(e.target.value)}
-          placeholder="按住麦克风用语音输入也行 →"
+          placeholder="例如：今晚和朋友去华兴煎包，人均 30，皮薄馅大"
           rows={4}
         />
+        <div className="ex-hint">不知道怎么写？点一条直接套用 👇</div>
+        <div className="examples">
+          {EXAMPLES.map((ex, i) => (
+            <button key={i} className="ex-chip" onClick={() => setText(ex.text)}>
+              <span className={'ex-tag ' + ex.kind}>{ex.kind === 'eat' ? '吃过' : '种草'}</span>
+              <span className="ex-text">{ex.text}</span>
+            </button>
+          ))}
+        </div>
         <div className="row">
           <label>城市</label>
           <input value={city} onChange={e => setCity(e.target.value)} placeholder="如：重庆" />
