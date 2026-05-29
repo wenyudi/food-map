@@ -5,7 +5,6 @@ import { getPoints, getStats, getSuggest } from '../api'
 import type { Point, Stats, Suggestion } from '../api'
 import { getMyLocation } from '../lib/geo'
 import { cleanTag } from '../lib/format'
-import MoodEmoji from '../components/MoodEmoji'
 
 interface Props {
   refreshKey: number
@@ -326,7 +325,7 @@ function PopupContent({ point: p }: { point: Point }) {
           </div>
         ) : (
           <div className="pt-row" key={i}>
-            <span className="pt-emoji"><MoodEmoji emoji={e.data.mood_emoji} size={20} /></span>
+            <span className="pt-emoji">{e.data.mood_emoji}</span>
             <div className="pt-text-wrap">
               <div className="pt-line">
                 <span className="pt-date">{e.date.slice(5).replace('-', '/')}</span>

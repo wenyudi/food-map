@@ -363,7 +363,8 @@ export default function AddView({ onSubmitted, onOpenAccount }: Props) {
                   className={emoji === o.emoji ? 'selected' : ''}
                   onClick={() => setEmoji(o.emoji)}
                 >
-                  <MoodEmoji emoji={o.emoji} size={34} /><span>{o.label}</span>
+                  {emoji === o.emoji ? <MoodEmoji emoji={o.emoji} size={34} /> : o.emoji}
+                  <span>{o.label}</span>
                 </button>
               ))}
             </div>
