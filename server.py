@@ -491,11 +491,21 @@ def _build_story_brief(year_month: str, circle_id: int) -> Optional[str]:
     for i, v in enumerate(month_visits, 1):
         s = stores.get(v["poi_id"], {})
         w = wishes_by_visit.get(v["visit_id"])
+        cz = (v.get("cuisine") or "").strip() or (s.get("tag") or "-")
         bits = [
-            f"{i}. **{s.get('name', '?')}** [{s.get('tag') or '-'}]",
+            f"{i}. **{s.get('name', '?')}** [{cz}]",
             f"   - {v['date']} {v['meal_period']}, 和{v['companions']}, ¥{v['per_person']}/人",
             f"   - 评价 {v['mood_emoji']} {'⭐想再来 ' if v['want_again'] else ''}\"{v['feeling'] or '无'}\"",
         ]
+        _ex = []
+        if v.get("flavors"):
+            _ex.append("口味:" + v["flavors"])
+        if v.get("occasion"):
+            _ex.append(v["occasion"])
+        if v.get("dishes"):
+            _ex.append("吃了:" + v["dishes"])
+        if _ex:
+            bits.append("   - " + " · ".join(_ex))
         if v.get("value_label"):
             bits.append(f"   - 💰 {v['value_label']}")
         if v.get("wish_id") and w:
@@ -549,6 +559,23 @@ def _haversine_m(lng1: float, lat1: float, lng2: float, lat2: float) -> int:
     return int(2 * 6371000 * asin(sqrt(a)))
 
 
+def _taste_profile(visits: list) -> tuple:
+    """从历史 visits 聚合口味画像：返回 (常吃菜系 top3, 偏爱口味 top3)。"""
+    cui: dict[str, int] = {}
+    fla: dict[str, int] = {}
+    for v in visits:
+        c = (v.get("cuisine") or "").strip()
+        if c:
+            cui[c] = cui.get(c, 0) + 1
+        for f in (v.get("flavors") or "").split(","):
+            f = f.strip()
+            if f:
+                fla[f] = fla.get(f, 0) + 1
+    top_c = [k for k, _ in sorted(cui.items(), key=lambda x: -x[1])[:3]]
+    top_f = [k for k, _ in sorted(fla.items(), key=lambda x: -x[1])[:3]]
+    return top_c, top_f
+
+
 def _build_suggest_brief(circle_id: int, location: Optional[str], craving: Optional[str]):
     """攒候选店（想去 + 想再来的老店），整理成带编号清单喂 AI。返回 (brief, candidates)。"""
     data = db.load_all(circle_id)
@@ -579,6 +606,8 @@ def _build_suggest_brief(circle_id: int, location: Optional[str], craving: Optio
             "poi_id": w["poi_id"], "name": s.get("name", ""), "kind": "wish",
             "tag": (s.get("tag") or "").split("|")[0],
             "reason": w.get("reason", ""), "source": w.get("source", ""),
+            "cuisine": (w.get("cuisine") or "").strip(),
+            "flavors": (w.get("flavors") or "").strip(),
             "lng": s.get("lng"), "lat": s.get("lat"),
         })
 
@@ -601,6 +630,8 @@ def _build_suggest_brief(circle_id: int, location: Optional[str], craving: Optio
             "poi_id": poi_id, "name": s.get("name", ""), "kind": "fav",
             "tag": (s.get("tag") or "").split("|")[0],
             "feeling": last.get("feeling", ""), "times": len(vs),
+            "cuisine": (last.get("cuisine") or "").strip(),
+            "flavors": (last.get("flavors") or "").strip(),
             "lng": s.get("lng"), "lat": s.get("lat"),
         })
 
@@ -617,13 +648,23 @@ def _build_suggest_brief(circle_id: int, location: Optional[str], craving: Optio
     hour = datetime.now().hour
     period = "早餐" if hour < 10 else "午餐" if hour < 15 else "晚餐" if hour < 21 else "夜宵"
     lines = [f"现在大概是【{period}】时段。"]
+    top_c, top_f = _taste_profile(data["visits"])
+    if top_c or top_f:
+        prof = []
+        if top_c:
+            prof.append("常吃 " + "/".join(top_c))
+        if top_f:
+            prof.append("偏爱 " + "/".join(top_f))
+        lines.append("你们的口味画像：" + " · ".join(prof) + "（可顺着推，也可故意换个没怎么吃的换口味，理由里点明）")
     if craving:
-        lines.append(f"今天的口味偏好：{craving}")
+        lines.append(f"今天特别想吃：{craving}（优先满足这个）")
     lines.append("\n候选店（只能从下面挑，按编号）：")
     for i, c in enumerate(candidates, 1):
         bits = [f"{i}. {c['name']}"]
-        if c.get("tag"):
-            bits.append(f"[{c['tag']}]")
+        if c.get("cuisine") or c.get("tag"):
+            bits.append(f"[{c.get('cuisine') or c['tag']}]")
+        if c.get("flavors"):
+            bits.append(f"口味:{c['flavors']}")
         if c["kind"] == "wish":
             bits.append(f"——想去还没去（{c.get('source', '')}种草：{c.get('reason') or '没写理由'}）")
         else:
@@ -698,15 +739,27 @@ def _build_ask_context(circle_id: int) -> Optional[str]:
             mn = min(with_pp, key=lambda v: v["per_person"])
             lines.append(f"- 人均最贵：{stores.get(mx['poi_id'], {}).get('name', '?')} ¥{mx['per_person']}/人（{mx.get('date')}）")
             lines.append(f"- 人均最便宜：{stores.get(mn['poi_id'], {}).get('name', '?')} ¥{mn['per_person']}/人")
-        # 菜系 top
+        # 菜系 / 口味 / 场合（优先用 AI 隐形维度，菜系回退高德 tag）
         cui: dict[str, int] = {}
+        fla: dict[str, int] = {}
+        occ: dict[str, int] = {}
         for v in visits:
-            t = tag1(v["poi_id"])
-            if t:
-                cui[t] = cui.get(t, 0) + 1
+            c = (v.get("cuisine") or "").strip() or tag1(v["poi_id"])
+            if c:
+                cui[c] = cui.get(c, 0) + 1
+            for f in (v.get("flavors") or "").split(","):
+                f = f.strip()
+                if f:
+                    fla[f] = fla.get(f, 0) + 1
+            o = (v.get("occasion") or "").strip()
+            if o:
+                occ[o] = occ.get(o, 0) + 1
         if cui:
-            top3 = sorted(cui.items(), key=lambda x: -x[1])[:3]
-            lines.append("- 常吃菜系：" + "、".join(f"{k} {n}次" for k, n in top3))
+            lines.append("- 常吃菜系：" + "、".join(f"{k} {n}次" for k, n in sorted(cui.items(), key=lambda x: -x[1])[:4]))
+        if fla:
+            lines.append("- 口味偏好：" + "、".join(f"{k} {n}次" for k, n in sorted(fla.items(), key=lambda x: -x[1])[:5]))
+        if occ:
+            lines.append("- 场合分布：" + "、".join(f"{k} {n}次" for k, n in sorted(occ.items(), key=lambda x: -x[1])))
     open_w = [w for w in wishes if w["status"] == "want"]
     fulfilled = sum(1 for w in wishes if w["status"] == "visited")
     lines.append(f"- 想去还没去 {len(open_w)} 家，种草已兑现 {fulfilled} 家")
@@ -715,15 +768,21 @@ def _build_ask_context(circle_id: int) -> Optional[str]:
     lines.append("\n# 吃过的记录（最近在前）")
     for v in sorted(visits, key=lambda v: (v.get("date") or ""), reverse=True)[:60]:
         s = stores.get(v["poi_id"], {})
-        t = tag1(v["poi_id"])
+        cz = (v.get("cuisine") or "").strip() or tag1(v["poi_id"])
         bits = [f"- {v.get('date', '')} {s.get('name', '?')}"]
-        if t:
-            bits.append(f"[{t}]")
+        if cz:
+            bits.append(f"[{cz}]")
         bits.append(f"人均¥{v.get('per_person', 0)} {v.get('mood_emoji', '')}")
         if v.get("want_again"):
             bits.append("想再来")
+        if v.get("occasion"):
+            bits.append(v["occasion"])
         if v.get("companions"):
             bits.append(f"和{v['companions']}")
+        if v.get("flavors"):
+            bits.append(f"口味:{v['flavors']}")
+        if v.get("dishes"):
+            bits.append(f"吃了:{v['dishes']}")
         if v.get("feeling"):
             bits.append(f"「{v['feeling']}」")
         lines.append(" ".join(bits))
