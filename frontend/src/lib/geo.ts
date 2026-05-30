@@ -48,6 +48,17 @@ export interface MyLocation {
   accuracy: number
 }
 
+/** 两个经纬度之间的距离（米）。双方都是 GCJ-02 时，相对距离不受坐标系偏移影响。 */
+export function haversine(lng1: number, lat1: number, lng2: number, lat2: number): number {
+  const R = 6371000
+  const toRad = (d: number) => (d * PI) / 180
+  const dLat = toRad(lat2 - lat1)
+  const dLng = toRad(lng2 - lng1)
+  const a = Math.sin(dLat / 2) ** 2
+    + Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLng / 2) ** 2
+  return 2 * R * Math.asin(Math.min(1, Math.sqrt(a)))
+}
+
 /**
  * 拿当前位置（GCJ-02，已转好可以直接给高德用）。
  * 用户首次会被浏览器问授权；拒绝或失败时返回 null。

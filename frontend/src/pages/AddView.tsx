@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
-import { parseText, search, upsertStore, addVisit, addWish, regeo, getStats } from '../api'
-import type { ParsedSentence, Stats } from '../api'
-import { getMyLocation } from '../lib/geo'
+import { parseText, search, upsertStore, addVisit, addWish, regeo, getStats, getPoints } from '../api'
+import type { ParsedSentence, Stats, Point } from '../api'
+import { getMyLocation, haversine } from '../lib/geo'
 import type { MyLocation } from '../lib/geo'
 import { cleanTag, fmtDist } from '../lib/format'
 import { useCountUp } from '../lib/useCountUp'
@@ -110,6 +110,7 @@ export default function AddView({ onSubmitted }: Props) {
   const cityTouched = useRef<boolean>(!!localStorage.getItem(LS_CITY))
 
   const [myLocation, setMyLocation] = useState<MyLocation | null>(null)
+  const [nearby, setNearby] = useState<Point | null>(null)   // 你正站在某家已知店附近
   const [photos, setPhotos] = useState<string[]>([])
 
   // 确认阶段的表单状态
@@ -127,15 +128,25 @@ export default function AddView({ onSubmitted }: Props) {
   // 进入页面就异步拿定位（不阻塞 UI；失败/拒绝就没事，fallback 到城市搜）
   useEffect(() => {
     getMyLocation().then(loc => {
-      if (loc) {
-        setMyLocation(loc)
-        // 没手动设过城市 → 用定位反查城市，自动填一次（出差/外地朋友友好）
-        if (!cityTouched.current) {
-          regeo(`${loc.lng},${loc.lat}`)
-            .then(r => { if (r.city && !cityTouched.current) setCity(r.city) })
-            .catch(() => {})
-        }
+      if (!loc) return
+      setMyLocation(loc)
+      // 没手动设过城市 → 用定位反查城市，自动填一次（出差/外地朋友友好）
+      if (!cityTouched.current) {
+        regeo(`${loc.lng},${loc.lat}`)
+          .then(r => { if (r.city && !cityTouched.current) setCity(r.city) })
+          .catch(() => {})
       }
+      // 位置魔法：你正站在某家"想去/去过"的店附近吗？取 250m 内最近的一家
+      getPoints().then(pts => {
+        let best: Point | null = null
+        let bestD = 250
+        for (const p of pts) {
+          if (!p.lng || !p.lat) continue
+          const d = haversine(loc.lng, loc.lat, p.lng, p.lat)
+          if (d < bestD) { bestD = d; best = p }
+        }
+        setNearby(best)
+      }).catch(() => {})
     })
   }, [])
 
@@ -185,6 +196,26 @@ export default function AddView({ onSubmitted }: Props) {
       pname: '', cityname: city, adname: '',
       address: loc ? '手动添加 · 当前位置' : '手动添加 · 未定位',
     })
+    setStep('confirm')
+  }
+
+  // 位置魔法：一键记下"就在附近"的已知店——直接跳确认页（店已在库，确认即写）
+  function recordNearby(p: Point) {
+    setSelectedPoi({
+      id: p.poi_id,
+      name: p.name,
+      location: `${p.lng},${p.lat}`,
+      business: { tag: p.tag, rating: p.rating, cost: p.cost, business_area: p.business_area },
+      pname: '', cityname: city, adname: p.business_area || '',
+      address: p.address || '',
+    })
+    setParsed({ intent: 'visit', store_hint: p.name, date: null, meal_period: null,
+      companions: null, amount: null, people_count: null, feeling: null,
+      mood_emoji: null, want_again: null, source: null, reason: null })
+    setIntent('visit')
+    setAmount(''); setPeople('2'); setEmoji('🤤'); setWantAgain(true)
+    setFeeling(''); setCompanions(localStorage.getItem(LS_COMPANIONS) || '')
+    setDate(new Date().toISOString().slice(0, 10)); setMeal(guessMealPeriod())
     setStep('confirm')
   }
 
@@ -252,6 +283,20 @@ export default function AddView({ onSubmitted }: Props) {
     return (
       <div className="page add-input">
         <RecordHero />
+
+        {nearby && (
+          <button className="nearby-card" onClick={() => recordNearby(nearby)}>
+            <div className="nearby-ico">{nearby.visit_count > 0 ? '📍' : '💘'}</div>
+            <div className="nearby-text">
+              <div className="nearby-title">就在「{nearby.name}」附近</div>
+              <div className="nearby-sub">
+                {nearby.visit_count > 0 ? '又来啦？一键再记一笔' : '你想去的店就在眼前 · 点一下直接打卡'}
+              </div>
+            </div>
+            <div className="nearby-go">记这家 →</div>
+          </button>
+        )}
+
         <p className="hint">
           把刚吃的、或想去的店随口说一句，AI 自动认出店名、金额和心情。
           {myLocation && <span className="geo-tip"> · 📍 已定位，优先搜附近</span>}
