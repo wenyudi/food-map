@@ -223,6 +223,7 @@ export default function AddView({ onSubmitted }: Props) {
     const isVisit = parsed?.intent === 'visit'
     return (
       <div className="page add-pick">
+        <div className="pick-scroll">
         <div className="step-head">
           <button className="step-back" onClick={reset} aria-label="返回">←</button>
           <div className="step-head-text">
@@ -242,6 +243,7 @@ export default function AddView({ onSubmitted }: Props) {
             <button className="link-btn" onClick={reset}>← 换个店名重搜</button>
           </div>
         ) : (
+          <>
           <div className="poi-list">
             {pois.map((p, i) => {
               const sel = selectedPoi?.id === p.id
@@ -268,14 +270,16 @@ export default function AddView({ onSubmitted }: Props) {
               )
             })}
           </div>
+          <button className="link-btn" onClick={addManualStore}>都不是？✍️ 自己加「{parsed?.store_hint}」</button>
+          </>
         )}
+        </div>
 
         {pois.length > 0 && (
-          <div className="step-actions">
+          <div className="confirm-footer">
             <button className="primary" disabled={!selectedPoi} onClick={() => setStep('confirm')}>
               就是这家 →
             </button>
-            <button className="link-btn" onClick={addManualStore}>都不是？✍️ 自己加「{parsed?.store_hint}」</button>
           </div>
         )}
       </div>
