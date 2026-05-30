@@ -92,6 +92,52 @@ def generate_monthly_story(brief: str, timeout: int = 60) -> str:
     return data["choices"][0]["message"]["content"].strip()
 
 
+AREA_TITLE_SYSTEM_PROMPT = """你是「吃了么」的"片区称号官"，本人就是抖音 / 小红书 / B站的重度冲浪选手，满脑子当下最新最野的梗。给每个片区取一个**够发散、够抽象、有网感**的搞笑称号，再配一句点评。
+
+我只告诉你每个片区的：片区名、**段位等级**（共 4 档，数字越大越资深、称号越该有排面）、吃过几家。——故意不给你菜系口味，所以**称号专心玩"地名 + 段位梗"，别扯到吃的**。
+
+【最重要】**别套模板、别雷同**：把几个片区放一起，称号用的梗和句式要**各不相同**；别老揪着"显眼包 / 卷王 / 遥遥领先"这几个被用烂的词，换着花样来，怎么新、怎么抽象、怎么有梗怎么来，每次都给我不一样的惊喜。
+
+取名规则：
+- title：6-14 字，**必须嵌入片区名**，用一个**当下流行的网络梗**把段位感拍出来（一眼看出是萌新还是大佬，段位越高越有排面）。可带 0-1 个 emoji。
+- 段位用各种"等级体系"的梗花式表达，**每个片区挑不同体系、自己造词**——⚠️别老套"新人 / 常客 / 老炮 / 传奇 / 萌新"这几个固定词（太死板、容易重样），换新鲜的来：
+   · 游戏段位：倔强青铜 / 黄金 / 铂金 / 钻石 / 星耀 / 最强王者 / 荣耀王者
+   · 修仙等级：练气期 / 筑基 / 金丹 / 元婴 / 化神 / 渡劫飞升
+   · 学位职级：试吃实习生 / 本科 / 硕士 / 博士 / 终身院士 / 扛把子CEO
+   · 称号式：XX天花板 / XX十级学者 / XX课代表 / XX代言人 / XX地头蛇 / 守门员 / 一方霸主 / XX麦门
+   · 纯热梗：city不city、嘴替、特种兵、报恩、人间清醒、已老实、偷感很重、那咋了、包的、谁懂啊、含金量……（这些只是火花，更欢迎你用知道的更新的梗）
+- title 只管"地名 + 段位梗"，别扯具体吃的（你也没拿到菜系信息）。
+- blurb：≤24 字，带梗、口语、能逗笑——吐槽段位、探店进度、这片是不是他们的地盘，都行。
+
+只输出 JSON：{"areas":[{"name":"片区名（原样照抄）","title":"...","blurb":"..."}]}
+⚠️硬规则（违反即失败）：① name 与我给的片区名一字不差；② title 和 blurb 都**不出现任何具体菜系 / 食物 / 口味词**（你没这信息，别瞎编硬凑）；③ 几个称号风格别撞车；④ 别低俗、别冒犯。"""
+
+
+def generate_area_titles(brief: str, timeout: int = 40) -> dict:
+    """传入各片区的战绩清单，返回 {"areas":[{"name","title","blurb"}]}。"""
+    resp = requests.post(
+        API_URL,
+        headers={
+            "Authorization": f"Bearer {DEEPSEEK_KEY}",
+            "Content-Type": "application/json",
+        },
+        json={
+            "model": MODEL,
+            "messages": [
+                {"role": "system", "content": AREA_TITLE_SYSTEM_PROMPT},
+                {"role": "user", "content": brief},
+            ],
+            "temperature": 1.3,  # 创意写作档——没喂菜系，可放心拉满发散、玩梗不重样
+            "response_format": {"type": "json_object"},
+        },
+        timeout=timeout,
+    )
+    data = resp.json()
+    if "error" in data:
+        raise RuntimeError(f"DeepSeek 报错：{data['error']}")
+    return json.loads(data["choices"][0]["message"]["content"])
+
+
 SUGGEST_SYSTEM_PROMPT = """你是「吃了么」的"今天吃啥"助手。我会给你一份带编号的候选店清单（你们想去还没去的、和去过还想再来的），外加现在的时段、可能的口味偏好。
 
 请从清单里挑 1-2 家推荐，每家给一句走心、口语的理由。挑的时候综合考虑（按优先级）：

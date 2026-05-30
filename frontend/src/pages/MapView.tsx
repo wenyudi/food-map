@@ -1,11 +1,18 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { MapContainer, TileLayer, Marker, Popup, useMap } from 'react-leaflet'
 import L from 'leaflet'
-import { getPoints, getStats, getSuggest } from '../api'
-import type { Point, Stats, Suggestion } from '../api'
+import { getPoints, getStats, getSuggest, getAreaTitles } from '../api'
+import type { Point, Stats, Suggestion, AreaTitle } from '../api'
+import { buildAreas } from '../lib/areas'
+import type { Area } from '../lib/areas'
+import AreaSheet from '../components/AreaSheet'
 import { getMyLocation } from '../lib/geo'
 import { cleanTag } from '../lib/format'
 import { useCountUp } from '../lib/useCountUp'
+
+const esc = (s: string) =>
+  s.replace(/[&<>"]/g, c =>
+    c === '&' ? '&amp;' : c === '<' ? '&lt;' : c === '>' ? '&gt;' : '&quot;')
 
 interface Props {
   refreshKey: number
@@ -23,6 +30,12 @@ export default function MapView({ refreshKey, focusPoiId, onConsumeFocus, onJump
   const [suggestFocus, setSuggestFocus] = useState<string | null>(null)
   const markerRefs = useRef<Record<string, L.Marker>>({})
 
+  // 片区版图
+  const [areaMode, setAreaMode] = useState(false)
+  const [activeArea, setActiveArea] = useState<Area | null>(null)
+  const [areaTitles, setAreaTitles] = useState<Record<string, AreaTitle>>({})
+  const [rerolling, setRerolling] = useState(false)
+
   useEffect(() => {
     setLoading(true)
     Promise.all([getPoints(), getStats()])
@@ -36,6 +49,27 @@ export default function MapView({ refreshKey, focusPoiId, onConsumeFocus, onJump
   const center: [number, number] = located.length
     ? [located[0].lat, located[0].lng]
     : [29.56, 106.55]
+
+  // 片区聚合：用全部点位算"吃过/想去"计数，地图只画有质心的片区
+  const areas = useMemo(() => buildAreas(points), [points])
+  const mapAreas = areas.filter(a => a.center)
+
+  function enterAreaMode() {
+    setAreaMode(true)
+    // 每次进版图都刷新一次：跨过里程碑(1/3/6/10)才真重算，否则后端直接返缓存，很便宜
+    getAreaTitles()
+      .then(r => setAreaTitles(r.areas || {}))
+      .catch(() => {})
+  }
+  async function reroll() {
+    setRerolling(true)
+    try {
+      const r = await getAreaTitles(true)
+      setAreaTitles(r.areas || {})
+    } finally {
+      setRerolling(false)
+    }
+  }
 
   return (
     <div className="map-view" style={{ height: '100%', position: 'relative' }}>
@@ -64,7 +98,7 @@ export default function MapView({ refreshKey, focusPoiId, onConsumeFocus, onJump
           markerRefs={markerRefs}
           onDone={() => setSuggestFocus(null)}
         />
-        {located.map(p => (
+        {!areaMode && located.map(p => (
           <Marker
             key={p.poi_id}
             position={[p.lat, p.lng]}
@@ -80,6 +114,19 @@ export default function MapView({ refreshKey, focusPoiId, onConsumeFocus, onJump
               <PopupContent point={p} />
             </Popup>
           </Marker>
+        ))}
+        {areaMode && mapAreas.map(a => (
+          <Marker
+            key={'area-' + a.key}
+            position={a.center as [number, number]}
+            icon={L.divIcon({
+              html: `<div class="area-chip${a.eaten.length === 0 ? ' locked' : ''}" style="--rate:${a.rate.toFixed(3)}"><span class="ac-name">${esc(a.name)}</span><span class="ac-count">${a.eaten.length}/${a.total}</span></div>`,
+              className: 'area-chip-wrap',
+              iconSize: [0, 0],
+              iconAnchor: [0, 0],
+            })}
+            eventHandlers={{ click: () => setActiveArea(a) }}
+          />
         ))}
         <HereButton />
       </MapContainer>
@@ -127,10 +174,29 @@ export default function MapView({ refreshKey, focusPoiId, onConsumeFocus, onJump
         <button className="suggest-btn" onClick={() => setSuggestOpen(true)}>🍽️ 今天吃啥</button>
       )}
 
+      {!loading && mapAreas.length > 0 && (
+        <button
+          className={'area-toggle' + (areaMode ? ' on' : '')}
+          onClick={() => (areaMode ? setAreaMode(false) : enterAreaMode())}
+          title="片区版图"
+        >{areaMode ? '✕' : '🏆'}</button>
+      )}
+
       {suggestOpen && (
         <SuggestSheet
           onClose={() => setSuggestOpen(false)}
           onFocus={(id) => { setSuggestFocus(id); setSuggestOpen(false) }}
+        />
+      )}
+
+      {activeArea && (
+        <AreaSheet
+          area={activeArea}
+          titles={areaTitles}
+          rerolling={rerolling}
+          onReroll={reroll}
+          onClose={() => setActiveArea(null)}
+          onPickStore={(poiId) => { setActiveArea(null); setAreaMode(false); setSuggestFocus(poiId) }}
         />
       )}
     </div>

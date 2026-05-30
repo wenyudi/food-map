@@ -2160,8 +2160,165 @@ button.primary:disabled {
 
 /* 尊重"减少动态"系统偏好：地图上的循环动画全部关掉 */
 @media (prefers-reduced-motion: reduce) {
-  .marker-dot.want, .suggest-btn { animation: none !important; }
+  .marker-dot.want, .suggest-btn, .area-chip { animation: none !important; }
 }
+
+/* ============================================
+   片区版图 · 把散点聚成"商圈领地"，AI 给称号
+   ============================================ */
+.area-toggle {
+  position: absolute;
+  right: 14px;
+  bottom: 72px;             /* 叠在「我在哪儿」上方 */
+  z-index: 800;
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  border: none;
+  background: var(--bg-card);
+  box-shadow: var(--shadow);
+  font-size: 22px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: transform 0.12s, background 0.2s, color 0.2s;
+}
+.area-toggle:active { transform: scale(0.92); }
+.area-toggle.on {
+  background: var(--grad-warm);
+  color: #fff;
+  box-shadow: 0 6px 18px rgba(239, 108, 79, 0.5);
+}
+
+/* 地图上的片区徽章（pin 聚合形态） */
+.area-chip-wrap { width: 0; height: 0; }
+.area-chip {
+  position: absolute;
+  transform: translate(-50%, -50%);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  white-space: nowrap;
+  padding: 5px 6px;
+  border-radius: var(--r-pill);
+  background: rgba(255, 255, 255, 0.95);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  box-shadow: 0 4px 14px rgba(239, 108, 79, 0.28), 0 0 0 2px rgba(239, 108, 79, 0.16);
+  font-size: 12.5px;
+  font-weight: 800;
+  color: var(--text);
+  cursor: pointer;
+  animation: chip-pop 0.32s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+@keyframes chip-pop {
+  from { opacity: 0; transform: translate(-50%, -50%) scale(0.6); }
+  to   { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+}
+.area-chip .ac-name { padding-left: 3px; }
+.area-chip .ac-count {
+  font-size: 11px;
+  font-weight: 800;
+  color: #fff;
+  background: var(--grad-warm);
+  padding: 1px 7px;
+  border-radius: var(--r-pill);
+}
+/* 进度环：填充比例 = --rate（探索度可视化） */
+.area-chip::before {
+  content: '';
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  background: conic-gradient(var(--primary) calc(var(--rate) * 360deg), rgba(239, 108, 79, 0.16) 0);
+  -webkit-mask: radial-gradient(circle 5px at 50% 50%, transparent 98%, #000 100%);
+          mask: radial-gradient(circle 5px at 50% 50%, transparent 98%, #000 100%);
+}
+.area-chip.locked {
+  box-shadow: 0 3px 10px rgba(120, 110, 100, 0.22), 0 0 0 1.5px rgba(150, 140, 130, 0.3);
+  color: var(--text-soft);
+}
+.area-chip.locked .ac-count { background: #b9b1a8; }
+.area-chip.locked::before {
+  background: conic-gradient(#cfc7be calc(var(--rate) * 360deg), rgba(150, 140, 130, 0.18) 0);
+}
+
+/* 片区详情 sheet */
+.area-sheet .as-title-head { text-align: center; margin-bottom: 18px; }
+.as-badge { font-size: 34px; line-height: 1; }
+.as-title {
+  font-size: 21px;
+  font-weight: 900;
+  color: var(--text);
+  margin-top: 6px;
+  letter-spacing: 0.5px;
+}
+.as-blurb { font-size: 13px; color: var(--text-soft); margin-top: 5px; }
+.as-blurb.dim { opacity: 0.55; }
+
+.as-progress { margin-bottom: 14px; }
+.as-bar {
+  display: flex;
+  height: 12px;
+  border-radius: 6px;
+  overflow: hidden;
+  background: rgba(0, 0, 0, 0.05);
+  gap: 2px;
+}
+.as-bar .as-eaten { background: var(--grad-warm); border-radius: 6px; min-width: 5px; }
+.as-bar .as-want {
+  border-radius: 6px;
+  min-width: 5px;
+  background: repeating-linear-gradient(45deg,
+    rgba(239, 108, 79, 0.22), rgba(239, 108, 79, 0.22) 4px,
+    transparent 4px, transparent 8px);
+}
+.as-legend { font-size: 12.5px; color: var(--text-soft); margin-top: 7px; text-align: center; }
+.as-legend b { color: var(--primary-deep); font-size: 14px; }
+
+.as-taste { font-size: 13px; color: var(--text-soft); text-align: center; margin-bottom: 16px; }
+.as-taste b { color: var(--text); }
+
+.as-group { margin-bottom: 14px; }
+.as-group-t { font-size: 12px; font-weight: 700; color: var(--text-soft); margin: 0 2px 8px; }
+.as-store {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 11px 12px;
+  margin-bottom: 7px;
+  border: none;
+  background: var(--bg-card);
+  border-radius: var(--r);
+  box-shadow: var(--shadow);
+  text-align: left;
+  transition: transform 0.1s;
+}
+.as-store:active { transform: scale(0.98); }
+.as-store.want { background: var(--primary-soft); box-shadow: none; }
+.as-store .as-emoji { font-size: 18px; flex-shrink: 0; }
+.as-store .as-name {
+  font-weight: 700;
+  color: var(--text);
+  font-size: 14.5px;
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.as-store .as-tag {
+  font-size: 11px;
+  font-weight: 700;
+  color: #fff;
+  background: var(--primary);
+  padding: 1px 7px;
+  border-radius: var(--r-pill);
+  flex-shrink: 0;
+}
+.as-store .as-cui { font-size: 11px; color: var(--text-soft); flex-shrink: 0; }
+.as-store .as-go { color: var(--text-soft); font-size: 18px; flex-shrink: 0; }
 
 /* ============================================
    评分选择器 · 选中的心情"动起来"

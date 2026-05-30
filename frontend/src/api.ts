@@ -131,6 +131,8 @@ export interface Point {
   lat: number
   address: string
   business_area: string
+  district?: string
+  city?: string
   tag: string
   rating: string
   cost: string
@@ -247,3 +249,16 @@ export const getSuggest = (location?: string, craving?: string) =>
 // 问地图 · 自然语言问自己的记录
 export const askMap = (q: string) =>
   api.post<{ answer: string }>('/ask', { q }, { timeout: 40000 }).then(r => r.data)
+
+// 片区称号 · AI 给每个商圈取的江湖名号（按圈子缓存，可重摇）
+export interface AreaTitle { title: string; blurb: string }
+export interface AreaTitlesResp {
+  areas: Record<string, AreaTitle>
+  cached?: boolean
+  empty?: boolean
+}
+export const getAreaTitles = (regenerate = false) =>
+  api.get<AreaTitlesResp>('/area-titles', {
+    params: { regenerate: regenerate || undefined },
+    timeout: 50000,
+  }).then(r => r.data)

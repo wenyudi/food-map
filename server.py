@@ -457,6 +457,9 @@ def post_visit(req: VisitReq, user: dict = Depends(current_user)):
 # ---------- 月度回忆录（in-memory cache） ----------
 
 _story_cache: dict[str, str] = {}  # key: f"{circle_id}:{yyyy-mm}"
+_area_titles_cache: dict[int, dict] = {}  # circle_id → {片区名: {title, blurb, tier}}
+# 称号只在「吃过家数」跨过里程碑(1/3/6/10)时才重生成，平时冻结复用——
+# 所以不在写入处清缓存，由 /api/area-titles 自己比对档位决定哪些要重取。
 
 
 def _story_key(circle_id: int, year_month: str) -> str:
@@ -548,6 +551,121 @@ def get_monthly_story(year_month: Optional[str] = None, regenerate: bool = False
 
     _story_cache[key] = story
     return {"story": story, "cached": False, "year_month": year_month}
+
+
+# ---------- 片区称号（AI 给每个商圈取江湖名号） ----------
+
+def _area_key(store: dict) -> str:
+    """片区归类键：优先商圈，退到行政区，再退到「其他」。⚠️前后端必须一致。"""
+    return ((store.get("business_area") or "").strip()
+            or (store.get("district") or "").strip()
+            or "其他")
+
+
+_MILESTONES = (10, 6, 3, 1)  # 吃过家数的里程碑档位（跨档才重取称号）
+_TIER_LABEL = {
+    # 故意只给"第几档 / 共四档"的中性数字，不写新人/常客/老炮/传奇这种词——
+    # 否则模型照抄，称号名就固化了。让它按档位自己造词。
+    1: "等级 1/4（四档里最低档）",
+    3: "等级 2/4",
+    6: "等级 3/4",
+    10: "等级 4/4（四档里最高档）",
+}
+
+
+def _area_tier(eaten: int) -> int:
+    """吃过家数 → 里程碑档位（0/1/3/6/10）；跨档才重生成称号。"""
+    for m in _MILESTONES:
+        if eaten >= m:
+            return m
+    return 0
+
+
+def _aggregate_areas(circle_id: int) -> dict[str, dict]:
+    """按商圈聚合本圈子战绩 → {片区名: {eaten, want, cui, fla, names}}（只含吃过≥1 的片区）。
+    eaten 按「店家数」去重计（同店复访只算 1 家）。"""
+    data = db.load_all(circle_id)
+    stores = {s["poi_id"]: s for s in data["stores"]}
+    visits_by_poi: dict[str, list] = {}
+    for v in data["visits"]:
+        visits_by_poi.setdefault(v["poi_id"], []).append(v)
+    want_pois = {w["poi_id"] for w in data["wishes"] if w.get("status") == "want"}
+
+    areas: dict[str, dict] = {}
+    for poi_id in set(visits_by_poi) | want_pois:
+        s = stores.get(poi_id)
+        if not s:
+            continue
+        a = areas.setdefault(_area_key(s), {"eaten": 0, "want": 0, "cui": {}, "fla": {}, "names": []})
+        if poi_id in visits_by_poi:
+            a["eaten"] += 1
+            a["names"].append(s.get("name", "?"))
+            for v in visits_by_poi[poi_id]:
+                cz = (v.get("cuisine") or "").strip()
+                if cz:
+                    a["cui"][cz] = a["cui"].get(cz, 0) + 1
+                for f in (v.get("flavors") or "").split(","):
+                    f = f.strip()
+                    if f:
+                        a["fla"][f] = a["fla"].get(f, 0) + 1
+        else:
+            a["want"] += 1
+    return {k: a for k, a in areas.items() if a["eaten"] > 0}
+
+
+def _build_area_titles_brief(need: dict[str, dict]) -> str:
+    """给 AI 取称号的清单——故意只给「地名 + 段位 + 家数」，不给菜系/口味/店名，
+    这样称号根本不可能扯到具体吃的（治本，比靠提示词压更稳）。"""
+    lines = ["请给下面每个片区取称号 + 点评。务必参考各自的「段位」，段位越高称号越霸气有排面。"]
+    for name, a in sorted(need.items(), key=lambda kv: -kv[1]["eaten"]):
+        bits = [f"- 片区「{name}」｜段位：{_TIER_LABEL.get(a['tier'], '新人')}｜吃过 {a['eaten']} 家"]
+        if a["want"]:
+            bits.append(f"，想去还没去 {a['want']} 家")
+        lines.append("".join(bits))
+    return "\n".join(lines)
+
+
+@app.get("/api/area-titles")
+def get_area_titles(regenerate: bool = False, user: dict = Depends(current_user)):
+    """各片区 AI 称号。只在「吃过家数」跨过里程碑(1/3/6/10)时重生成，平时冻结复用缓存；
+    regenerate=True 时全部重摇。"""
+    cid = user["circle_id"]
+    agg = _aggregate_areas(cid)
+    cache = _area_titles_cache.setdefault(cid, {})
+
+    # 清掉已被删空 / 不存在的片区缓存
+    for stale in [k for k in cache if k not in agg]:
+        cache.pop(stale, None)
+
+    if not agg:
+        return {"areas": {}, "empty": True}
+
+    # 找出需要（重新）取称号的片区：跨了档位、还没有、或手动重摇
+    need: dict[str, dict] = {}
+    for name, a in agg.items():
+        tier = _area_tier(a["eaten"])
+        cached = cache.get(name)
+        if regenerate or not cached or cached.get("tier") != tier:
+            need[name] = {**a, "tier": tier}
+
+    if need:
+        try:
+            raw = ai.generate_area_titles(_build_area_titles_brief(need))
+        except Exception as e:
+            if not cache:  # 一个都没有还失败 → 报错；否则降级返回已有的，下次再补
+                raise HTTPException(500, f"AI 生成失败：{e}")
+            raw = {"areas": []}
+        for item in (raw.get("areas") or []):
+            nm = (item.get("name") or "").strip()
+            if nm in need:
+                cache[nm] = {
+                    "title": (item.get("title") or "").strip(),
+                    "blurb": (item.get("blurb") or "").strip(),
+                    "tier": need[nm]["tier"],
+                }
+
+    out = {k: {"title": v["title"], "blurb": v["blurb"]} for k, v in cache.items() if k in agg}
+    return {"areas": out, "cached": not need}
 
 
 # ---------- 今天吃啥 · 决策助手 ----------
