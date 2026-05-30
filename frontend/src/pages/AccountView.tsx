@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react'
-import { listUsers, deleteUserApi, changePassword, clearToken, genInvite, listInvites, revokeInvite } from '../api'
-import type { MeInfo, UserItem, InviteCode } from '../api'
+import { listUsers, deleteUserApi, changePassword, clearToken, genInvite, listInvites, revokeInvite, getPoints } from '../api'
+import type { MeInfo, UserItem, InviteCode, Point } from '../api'
 import { APP_NAME, APP_SLOGAN } from '../brand'
+import MemoryReport from '../components/MemoryReport'
 
 interface Props {
   me: MeInfo
@@ -11,6 +12,14 @@ interface Props {
 export default function AccountView({ me, onLogout }: Props) {
   const isAdmin = me.role === 'admin'
   const [confirmLogout, setConfirmLogout] = useState(false)
+  const [report, setReport] = useState<Point[] | null>(null)
+  const [loadingReport, setLoadingReport] = useState(false)
+
+  async function openReport() {
+    if (loadingReport) return
+    setLoadingReport(true)
+    try { setReport(await getPoints()) } catch { setReport([]) } finally { setLoadingReport(false) }
+  }
 
   return (
     <div className="page account-page">
@@ -23,6 +32,15 @@ export default function AccountView({ me, onLogout }: Props) {
         <div className="acc-name">{me.username}</div>
         <div className="acc-role">{isAdmin ? '管理员' : '成员'}</div>
       </div>
+
+      <button className="memory-entry" onClick={openReport} disabled={loadingReport}>
+        <span className="memory-entry-ico">📖</span>
+        <span className="memory-entry-text">
+          <b>美食回忆报告</b>
+          <small>{loadingReport ? '正在翻看你们的足迹…' : '翻翻你们一起吃过的故事'}</small>
+        </span>
+        <span className="memory-entry-go">›</span>
+      </button>
 
       <ChangePasswordBlock />
 
@@ -44,6 +62,8 @@ export default function AccountView({ me, onLogout }: Props) {
         <div className="acc-brand-name">{APP_NAME}</div>
         <div className="acc-brand-slogan">{APP_SLOGAN}</div>
       </div>
+
+      {report && <MemoryReport points={report} onClose={() => setReport(null)} />}
     </div>
   )
 }

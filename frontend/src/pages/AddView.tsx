@@ -28,11 +28,10 @@ interface Props {
 const LS_CITY = 'last_city'
 const LS_COMPANIONS = 'last_companions'
 
-// 示例句：点一下直接套用，覆盖「吃过 / 想再来 / 种草」三种语气
+// 示例句：点一下直接套用，一条「吃过·想再来」、一条「种草」
 const EXAMPLES: Array<{ kind: 'eat' | 'wish'; text: string }> = [
-  { kind: 'eat', text: '今晚和朋友去家川菜馆，人均 80，水煮鱼挺嫩' },
-  { kind: 'eat', text: '中午跟同事拼的烤鱼，人均 45，香辣过瘾还想再来' },
-  { kind: 'wish', text: '小红书种草一家面包店，可颂据说一绝' },
+  { kind: 'eat', text: '中午和同事去 XX 烤鱼，人均 45，香辣过瘾还想再来' },
+  { kind: 'wish', text: '小红书种草 XX 面包店，可颂据说一绝' },
 ]
 
 // 高光时刻的内容（撒花浮层用）

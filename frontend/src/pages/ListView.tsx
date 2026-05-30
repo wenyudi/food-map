@@ -4,8 +4,6 @@ import type { Point, Wish, Visit } from '../api'
 import { cleanTag } from '../lib/format'
 import { useCountUp } from '../lib/useCountUp'
 import EditRecordSheet from '../components/EditRecordSheet'
-import PullToRefresh from '../components/PullToRefresh'
-import MemoryReport from '../components/MemoryReport'
 
 type EditTarget = { kind: 'visit' | 'wish'; data: any; storeName: string }
 
@@ -59,15 +57,12 @@ export default function ListView({ refreshKey, focusPoiId, onPickStore, onJumpTo
   const [flashId, setFlashId] = useState<string | null>(null)
   const [editing, setEditing] = useState<EditTarget | null>(null)
   const [askOpen, setAskOpen] = useState(false)
-  const [reportOpen, setReportOpen] = useState(false)
   const cardRefs = useRef<Record<string, HTMLDivElement | null>>({})
 
   const load = useCallback(() => {
     setLoading(true)
     getPoints().then(setPoints).finally(() => setLoading(false))
   }, [])
-  // 下拉刷新：静默重拉（不走骨架屏），返回 Promise 让刷新动画等它
-  const refresh = useCallback(() => getPoints().then(setPoints), [])
 
   useEffect(() => { load() }, [load, refreshKey])
 
@@ -106,19 +101,8 @@ export default function ListView({ refreshKey, focusPoiId, onPickStore, onJumpTo
   }, [focusPoiId, filtered, filter, loading])
 
   return (
-    <PullToRefresh className="page list" onRefresh={refresh}>
+    <div className="page list">
       <MonthlySummary points={points} refreshKey={refreshKey} />
-
-      {points.some(p => p.visit_count > 0) && (
-        <button className="memory-entry" onClick={() => setReportOpen(true)}>
-          <span className="memory-entry-ico">📖</span>
-          <span className="memory-entry-text">
-            <b>美食回忆报告</b>
-            <small>翻翻你们一起吃过的故事</small>
-          </span>
-          <span className="memory-entry-go">›</span>
-        </button>
-      )}
 
       {points.length > 0 && (
         <button className="ask-bar" onClick={() => setAskOpen(true)}>
@@ -186,8 +170,7 @@ export default function ListView({ refreshKey, focusPoiId, onPickStore, onJumpTo
       )}
 
       {askOpen && <AskSheet onClose={() => setAskOpen(false)} />}
-      {reportOpen && <MemoryReport points={points} onClose={() => setReportOpen(false)} />}
-    </PullToRefresh>
+    </div>
   )
 }
 
