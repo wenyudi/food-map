@@ -2259,6 +2259,82 @@ button.primary:disabled {
 .ptr-noodle.spinning { animation: ptr-spin 0.8s linear infinite; }
 @keyframes ptr-spin { to { transform: rotate(360deg); } }
 
+/* ============================================
+   美食回忆报告 · 入口横幅 + 全屏故事卡
+   ============================================ */
+.memory-entry {
+  display: flex; align-items: center; gap: 12px;
+  width: calc(100% - 32px); margin: 0 16px 10px;
+  padding: 14px 16px; border: none; border-radius: var(--r);
+  text-align: left; color: #fff;
+  background: linear-gradient(135deg, #8e6bb0 0%, #c0708a 100%);
+  box-shadow: 0 8px 22px rgba(120, 70, 110, 0.32);
+}
+.memory-entry:active { transform: scale(0.99); }
+.memory-entry-ico { font-size: 26px; flex-shrink: 0; }
+.memory-entry-text { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.memory-entry-text b { font-size: 15px; font-weight: 800; }
+.memory-entry-text small { font-size: 12px; opacity: 0.9; margin-top: 1px; }
+.memory-entry-go { font-size: 22px; opacity: 0.8; flex-shrink: 0; }
+
+/* 全屏故事卡 */
+.mr-overlay {
+  position: fixed; inset: 0; z-index: 1400;
+  background: #15100d; overflow: hidden;
+  animation: fade-in 0.2s ease-out;
+}
+.mr-progress {
+  position: absolute; top: calc(env(safe-area-inset-top) + 10px); left: 12px; right: 12px;
+  display: flex; gap: 4px; z-index: 5;
+}
+.mr-progress span {
+  flex: 1; height: 3px; border-radius: 2px;
+  background: rgba(255, 255, 255, 0.25); transition: background 0.3s;
+}
+.mr-progress span.on { background: #fff; }
+.mr-close {
+  position: absolute; top: calc(env(safe-area-inset-top) + 20px); right: 14px; z-index: 6;
+  width: 34px; height: 34px; border-radius: 50%;
+  background: rgba(255, 255, 255, 0.18); color: #fff; border: none; font-size: 15px;
+  display: flex; align-items: center; justify-content: center;
+}
+.mr-close:active { transform: scale(0.92); }
+.mr-card {
+  position: absolute; inset: 0;
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  text-align: center; padding: 40px 32px; color: #fff;
+  animation: mr-in 0.45s cubic-bezier(0.22, 1, 0.36, 1);
+}
+.mr-emoji {
+  font-size: 72px; line-height: 1; margin-bottom: 22px;
+  animation: mr-emoji-pop 0.6s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+}
+.mr-big { font-size: 31px; font-weight: 900; line-height: 1.3; letter-spacing: -0.5px; }
+.mr-num { font-size: 46px; font-variant-numeric: tabular-nums; }
+.mr-small { font-size: 16px; margin-top: 18px; opacity: 0.92; line-height: 1.55; }
+.mr-tap { position: absolute; top: 0; bottom: 0; width: 40%; z-index: 3; }
+.mr-tap-left { left: 0; }
+.mr-tap-right { right: 0; width: 60%; }
+.mr-hint {
+  position: absolute; bottom: calc(env(safe-area-inset-bottom) + 22px); left: 0; right: 0;
+  text-align: center; color: rgba(255, 255, 255, 0.65); font-size: 13px; z-index: 4;
+}
+@keyframes mr-in { from { opacity: 0; transform: scale(1.05); } to { opacity: 1; transform: scale(1); } }
+@keyframes mr-emoji-pop { 0% { opacity: 0; transform: scale(0.3) rotate(-25deg); } to { opacity: 1; transform: scale(1) rotate(0); } }
+
+/* 每张卡的主题渐变 */
+.mr-cover  { background: linear-gradient(165deg, #ff9a62, #ef6c4f 55%, #d44d2f); }
+.mr-sum    { background: linear-gradient(165deg, #ffb27a, #ef6c4f); }
+.mr-fav    { background: linear-gradient(165deg, #ff7a8a, #e0506a); }
+.mr-pricey { background: linear-gradient(165deg, #f7b733, #e0902f); }
+.mr-taste  { background: linear-gradient(165deg, #7bd389, #3f9d6a); }
+.mr-wish   { background: linear-gradient(165deg, #c08cff, #8a5fd6); }
+.mr-end    { background: linear-gradient(165deg, #ff9a62, #ef6c4f 55%, #d44d2f); }
+
+@media (prefers-reduced-motion: reduce) {
+  .mr-card, .mr-emoji { animation: none !important; }
+}
+
 /* 确认页：日期 + 早/中/晚 */
 .datetime-row { flex: 1; display: flex; gap: 8px; align-items: stretch; min-width: 0; }
 .datetime-row input[type="date"] {
