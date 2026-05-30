@@ -1147,6 +1147,27 @@ button.primary:disabled {
 
 .store-list { padding: 0 16px 24px; }
 
+/* 同伴动态提醒条 */
+.partner-news {
+  display: flex; align-items: center; gap: 9px;
+  width: calc(100% - 32px); margin: 12px 16px 0;
+  padding: 11px 14px; border: none; border-radius: var(--r);
+  text-align: left; font-size: 13px; font-weight: 600;
+  color: var(--primary-deep); background: var(--grad-warm-soft);
+  box-shadow: var(--shadow-sm);
+}
+.partner-news:active { transform: scale(0.99); }
+.pn-dot {
+  width: 8px; height: 8px; border-radius: 50%;
+  background: var(--primary); flex-shrink: 0;
+  animation: pn-pulse 1.6s ease-in-out infinite;
+}
+@keyframes pn-pulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(239, 108, 79, 0.5); }
+  50%      { box-shadow: 0 0 0 5px rgba(239, 108, 79, 0); }
+}
+@media (prefers-reduced-motion: reduce) { .pn-dot { animation: none; } }
+
 /* 列表搜索框 */
 .list-search { position: relative; padding: 12px 16px 0; }
 .list-search input {

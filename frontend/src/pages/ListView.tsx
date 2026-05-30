@@ -76,6 +76,7 @@ export default function ListView({ refreshKey, focusPoiId, onPickStore, onJumpTo
   const [askOpen, setAskOpen] = useState(false)
   const [toast, setToast] = useState<string | null>(null)
   const [query, setQuery] = useState('')
+  const [seenTs, setSeenTs] = useState(() => localStorage.getItem('partner_seen_ts') || '')
 
   // 圈子里是否有多个记录者 → 决定要不要显示"谁写的"
   const multiAuthor = useMemo(() => {
@@ -86,6 +87,39 @@ export default function ListView({ refreshKey, focusPoiId, onPickStore, onJumpTo
     })
     return set.size > 1
   }, [points])
+
+  // 同伴动态：同伴（非我）在我上次"已读"之后新记了几笔
+  const partnerNews = useMemo(() => {
+    if (!myUsername) return null
+    let count = 0, who = '', latest = ''
+    const consider = (by?: string, ts?: string) => {
+      if (!by || by === myUsername || !ts) return
+      if (ts > latest) latest = ts
+      if (ts > seenTs) { count++; who = by }
+    }
+    points.forEach(p => {
+      p.visits.forEach(v => consider(v.recorded_by, v.created_at))
+      consider(p.wish?.recorded_by, p.wish?.created_at)
+    })
+    return (count > 0 && seenTs) ? { count, who, latest } : null
+  }, [points, myUsername, seenTs])
+
+  // 首次：把现有记录都标为"已读"，避免一上来就显示一堆"新的"
+  useEffect(() => {
+    if (localStorage.getItem('partner_seen_ts') !== null || !points.length) return
+    let maxTs = ''
+    points.forEach(p => {
+      p.visits.forEach(v => { if (v.created_at && v.created_at > maxTs) maxTs = v.created_at })
+      if (p.wish?.created_at && p.wish.created_at > maxTs) maxTs = p.wish.created_at
+    })
+    localStorage.setItem('partner_seen_ts', maxTs)
+    setSeenTs(maxTs)
+  }, [points])
+
+  function markPartnerSeen(ts: string) {
+    setSeenTs(ts)
+    localStorage.setItem('partner_seen_ts', ts)
+  }
 
   async function shareStore(p: Point) {
     const text = buildShareText(p)
@@ -147,6 +181,13 @@ export default function ListView({ refreshKey, focusPoiId, onPickStore, onJumpTo
 
   return (
     <div className="page list">
+      {partnerNews && (
+        <button className="partner-news" onClick={() => markPartnerSeen(partnerNews.latest)}>
+          <span className="pn-dot" />
+          👋 {partnerNews.who} 最近记了 {partnerNews.count} 笔，看看 TA 吃了啥
+        </button>
+      )}
+
       <MonthlySummary points={points} refreshKey={refreshKey} />
 
       {points.length > 0 && (
