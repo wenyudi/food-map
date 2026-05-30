@@ -96,13 +96,15 @@ export default function EditRecordSheet({ kind, data, storeName, onClose, onChan
                 </div>
               </div>
             </div>
-            <div className="form-row">
-              <label>金额 ¥</label>
-              <input type="number" inputMode="numeric" value={amount} onChange={e => setAmount(e.target.value)} />
-            </div>
-            <div className="form-row">
-              <label>人数</label>
-              <input type="number" inputMode="numeric" value={people} onChange={e => setPeople(e.target.value)} />
+            <div className="form-duo">
+              <div className="form-cell">
+                <label>金额 ¥</label>
+                <input type="number" inputMode="numeric" value={amount} onChange={e => setAmount(e.target.value)} />
+              </div>
+              <div className="form-cell">
+                <label>人数</label>
+                <input type="number" inputMode="numeric" value={people} onChange={e => setPeople(e.target.value)} />
+              </div>
             </div>
             <div className="form-row">
               <label>感受</label>

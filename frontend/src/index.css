@@ -2157,6 +2157,18 @@ button.primary:disabled {
 .list-empty-title { font-size: 18px; font-weight: 700; color: var(--text); margin-top: 10px; }
 .list-empty-sub { font-size: 13px; color: var(--text-soft); line-height: 1.6; margin-top: 6px; }
 
+/* 金额 + 人数 并排一行（省高度，确认页/编辑面板共用） */
+.form-duo { display: flex; gap: 12px; margin-bottom: 14px; }
+.form-duo .form-cell { flex: 1; display: flex; align-items: center; gap: 10px; min-width: 0; }
+.form-duo .form-cell label {
+  font-size: 13px; color: var(--text-soft); font-weight: 500; white-space: nowrap;
+}
+.form-duo .form-cell input {
+  flex: 1; min-width: 0;
+  padding: 12px 14px; border-radius: var(--r-sm);
+  border: 1.5px solid var(--border); background: var(--bg-card);
+}
+
 /* 确认页：日期 + 早/中/晚 */
 .datetime-row { flex: 1; display: flex; gap: 8px; align-items: stretch; min-width: 0; }
 .datetime-row input[type="date"] {
