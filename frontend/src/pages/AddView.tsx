@@ -1,9 +1,10 @@
 import { useEffect, useRef, useState } from 'react'
-import { parseText, search, upsertStore, addVisit, addWish, regeo } from '../api'
-import type { ParsedSentence } from '../api'
+import { parseText, search, upsertStore, addVisit, addWish, regeo, getStats } from '../api'
+import type { ParsedSentence, Stats } from '../api'
 import { getMyLocation } from '../lib/geo'
 import type { MyLocation } from '../lib/geo'
 import { cleanTag, fmtDist } from '../lib/format'
+import { useCountUp } from '../lib/useCountUp'
 import PhotoPicker from '../components/PhotoPicker'
 
 type Mood = '😋' | '🤤' | '😂' | '😐' | '🤮'
@@ -27,11 +28,39 @@ interface Props {
 const LS_CITY = 'last_city'
 const LS_COMPANIONS = 'last_companions'
 
-// 示例句：一条「吃过」、一条「种草」，点一下直接套用
+// 示例句：点一下直接套用，覆盖「吃过 / 想再来 / 种草」三种语气
 const EXAMPLES: Array<{ kind: 'eat' | 'wish'; text: string }> = [
   { kind: 'eat', text: '今晚和朋友去家川菜馆，人均 80，水煮鱼挺嫩' },
+  { kind: 'eat', text: '中午跟同事拼的烤鱼，人均 45，香辣过瘾还想再来' },
   { kind: 'wish', text: '小红书种草一家面包店，可颂据说一绝' },
 ]
+
+// 记一笔头部卡：按时段问候 + 录入进度（带数字滚动）
+function RecordHero() {
+  const [stats, setStats] = useState<Stats | null>(null)
+  useEffect(() => { getStats().then(setStats).catch(() => {}) }, [])
+  const meals = Math.round(useCountUp(stats?.total_visits ?? 0))
+  const stores = Math.round(useCountUp(stats?.total_stores_visited ?? 0))
+
+  const h = new Date().getHours()
+  const [emoji, greet, prompt] =
+    h < 5  ? ['🌙', '夜深了', '宵夜也值得记一笔'] :
+    h < 11 ? ['🌅', '早上好', '早上吃了点啥？'] :
+    h < 14 ? ['☀️', '中午好', '午饭整了顿啥？'] :
+    h < 18 ? ['🌤️', '下午好', '下午茶 / 加餐也算一笔'] :
+             ['🌙', '晚上好', '今晚吃了点啥？']
+
+  return (
+    <div className="add-hero">
+      <div className="add-hero-greet">{emoji} {greet}</div>
+      <div className="add-hero-prompt">{prompt}</div>
+      {stats && (stats.total_visits > 0
+        ? <div className="add-hero-stat">地图上已记下 <b>{meals}</b> 顿 · <b>{stores}</b> 家店 🥢</div>
+        : <div className="add-hero-stat">记下第一顿，点亮你们的美食地图 ✨</div>
+      )}
+    </div>
+  )
+}
 
 export default function AddView({ onSubmitted }: Props) {
   const [step, setStep] = useState<'input' | 'pick' | 'confirm'>('input')
@@ -183,7 +212,7 @@ export default function AddView({ onSubmitted }: Props) {
   if (step === 'input') {
     return (
       <div className="page add-input">
-        <h2>一句话记一笔</h2>
+        <RecordHero />
         <p className="hint">
           把刚吃的、或想去的店随口说一句，AI 自动认出店名、金额和心情。
           {myLocation && <span className="geo-tip"> · 📍 已定位，优先搜附近</span>}

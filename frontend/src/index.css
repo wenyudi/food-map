@@ -2159,14 +2159,42 @@ button.primary:disabled {
 
 /* 金额 + 人数 并排一行（省高度，确认页/编辑面板共用） */
 .form-duo { display: flex; gap: 12px; margin-bottom: 14px; }
-.form-duo .form-cell { flex: 1; display: flex; align-items: center; gap: 10px; min-width: 0; }
+.form-duo .form-cell { display: flex; align-items: center; gap: 14px; min-width: 0; }
+.form-duo .form-cell:first-child { flex: 1.5; }   /* 金额给更宽，数字长 */
+.form-duo .form-cell:last-child  { flex: 1; }
 .form-duo .form-cell label {
-  font-size: 13px; color: var(--text-soft); font-weight: 500; white-space: nowrap;
+  width: 60px; flex-shrink: 0;                     /* 与其它行对齐：60px label + 14px gap → 输入框左缘 74px */
+  font-size: 13px; color: var(--text-soft); font-weight: 500;
 }
+.form-duo .form-cell:last-child label { width: auto; }   /* 人数紧凑，给输入框留空间 */
 .form-duo .form-cell input {
   flex: 1; min-width: 0;
   padding: 12px 14px; border-radius: var(--r-sm);
   border: 1.5px solid var(--border); background: var(--bg-card);
+}
+
+/* 记一笔 · 头部卡（按时段问候 + 进度），让录入页和其它页一样有"头" */
+.add-hero {
+  background: var(--grad-warm-soft);
+  border: 1px solid var(--border);
+  border-radius: var(--r-lg);
+  padding: 18px 20px;
+  margin-bottom: 18px;
+}
+.add-hero-greet {
+  font-size: 22px; font-weight: 800; color: var(--text); letter-spacing: -0.3px;
+}
+.add-hero-prompt {
+  font-size: 14px; color: var(--text-soft); margin-top: 3px;
+}
+.add-hero-stat {
+  margin-top: 14px; padding-top: 12px;
+  border-top: 1px dashed var(--border);
+  font-size: 13px; color: var(--text-soft);
+}
+.add-hero-stat b {
+  color: var(--primary-deep); font-weight: 800; font-size: 16px;
+  font-variant-numeric: tabular-nums;
 }
 
 /* 确认页：日期 + 早/中/晚 */
