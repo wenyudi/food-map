@@ -1147,6 +1147,25 @@ button.primary:disabled {
 
 .store-list { padding: 0 16px 24px; }
 
+/* 列表搜索框 */
+.list-search { position: relative; padding: 12px 16px 0; }
+.list-search input {
+  width: 100%;
+  padding: 11px 38px 11px 16px;
+  border-radius: var(--r-pill);
+  border: 1.5px solid var(--border);
+  background: var(--bg-card);
+  font-size: 14px; color: var(--text);
+}
+.list-search input:focus { outline: none; border-color: var(--primary-light); }
+.ls-clear {
+  position: absolute; right: 26px; top: 22px;
+  width: 22px; height: 22px; border-radius: 50%;
+  border: none; background: var(--bg-soft); color: var(--text-soft);
+  font-size: 12px; display: flex; align-items: center; justify-content: center;
+}
+.ls-clear:active { transform: scale(0.9); }
+
 .store-card {
   background: var(--bg-card);
   margin-bottom: 14px;

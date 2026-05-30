@@ -7,7 +7,7 @@ import EditRecordSheet from '../components/EditRecordSheet'
 
 type EditTarget = { kind: 'visit' | 'wish'; data: any; storeName: string }
 
-type FilterKey = 'all' | 'want' | 'fulfilled' | 'repeat'
+type FilterKey = 'all' | 'fav' | 'want' | 'fulfilled' | 'repeat'
 
 interface StoreStatus {
   key: 'want' | 'fulfilled' | 'repeat' | 'direct'
@@ -75,6 +75,7 @@ export default function ListView({ refreshKey, focusPoiId, onPickStore, onJumpTo
   const [editing, setEditing] = useState<EditTarget | null>(null)
   const [askOpen, setAskOpen] = useState(false)
   const [toast, setToast] = useState<string | null>(null)
+  const [query, setQuery] = useState('')
 
   // 圈子里是否有多个记录者 → 决定要不要显示"谁写的"
   const multiAuthor = useMemo(() => {
@@ -107,19 +108,23 @@ export default function ListView({ refreshKey, focusPoiId, onPickStore, onJumpTo
   useEffect(() => { load() }, [load, refreshKey])
 
   const { filtered, counts } = useMemo(() => {
-    const c = { all: points.length, want: 0, fulfilled: 0, repeat: 0 }
+    const c = { all: points.length, fav: 0, want: 0, fulfilled: 0, repeat: 0 }
     const enriched = points.map(p => {
       const status = getStatus(p)
       if (status.key === 'want') c.want++
       else if (status.key === 'fulfilled') c.fulfilled++
       else if (status.key === 'repeat') c.repeat++
+      if (p.visits.some(v => v.want_again)) c.fav++   // 想再来：任一笔标了想再来
       return { p, status }
     })
     let result = enriched
-    if (filter !== 'all') result = result.filter(e => e.status.key === filter)
+    if (filter === 'fav') result = result.filter(e => e.p.visits.some(v => v.want_again))
+    else if (filter !== 'all') result = result.filter(e => e.status.key === filter)
+    const q = query.trim().toLowerCase()
+    if (q) result = result.filter(e => e.p.name.toLowerCase().includes(q))
     result.sort((a, b) => latestTs(b.p) - latestTs(a.p))
     return { filtered: result, counts: c }
-  }, [points, filter])
+  }, [points, filter, query])
 
   // 收到 focusPoiId 时滚动到那张卡片 + 临时高亮
   useEffect(() => {
@@ -151,9 +156,19 @@ export default function ListView({ refreshKey, focusPoiId, onPickStore, onJumpTo
       )}
 
       {points.length > 0 && (
+        <div className="list-search">
+          <input value={query} onChange={e => setQuery(e.target.value)} placeholder="🔍 搜店名…" />
+          {query && <button className="ls-clear" onClick={() => setQuery('')} aria-label="清除">✕</button>}
+        </div>
+      )}
+
+      {points.length > 0 && (
         <div className="filter-chips">
           <Chip active={filter === 'all'} onClick={() => setFilter('all')}>
             全部 <em>{counts.all}</em>
+          </Chip>
+          <Chip active={filter === 'fav'} onClick={() => setFilter('fav')}>
+            ⭐ 想再来 <em>{counts.fav}</em>
           </Chip>
           <Chip active={filter === 'want'} onClick={() => setFilter('want')}>
             🤍 想去 <em>{counts.want}</em>
@@ -181,7 +196,7 @@ export default function ListView({ refreshKey, focusPoiId, onPickStore, onJumpTo
       )}
 
       {!loading && points.length > 0 && filtered.length === 0 && (
-        <div className="empty">这个分类下还没有 🍃</div>
+        <div className="empty">{query.trim() ? `没搜到「${query.trim()}」` : '这个分类下还没有 🍃'}</div>
       )}
 
       <div className="store-list">
