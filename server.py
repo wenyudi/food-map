@@ -725,6 +725,16 @@ def _build_ask_context(circle_id: int) -> Optional[str]:
     if visits:
         total_amount = sum(float(v.get("amount") or 0) for v in visits)
         lines.append(f"- 一共吃过 {len(visits)} 次，{len({v['poi_id'] for v in visits})} 家店，总花费 ¥{total_amount:.0f}")
+        # 本月 / 上月拆分（能答"这个月花了多少 / 吃了几次"）
+        now = datetime.now()
+        tm = now.strftime("%Y-%m")
+        lm = f"{now.year if now.month > 1 else now.year - 1:04d}-{(now.month - 1) or 12:02d}"
+        tmv = [v for v in visits if (v.get("date") or "").startswith(tm)]
+        lmv = [v for v in visits if (v.get("date") or "").startswith(lm)]
+        if tmv:
+            lines.append(f"- 本月({tm})：吃过 {len(tmv)} 次，花了 ¥{sum(float(v.get('amount') or 0) for v in tmv):.0f}")
+        if lmv:
+            lines.append(f"- 上月({lm})：吃过 {len(lmv)} 次，花了 ¥{sum(float(v.get('amount') or 0) for v in lmv):.0f}")
         # 去得最多
         cnt: dict[str, int] = {}
         for v in visits:
