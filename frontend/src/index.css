@@ -2394,8 +2394,10 @@ button.primary:disabled {
 .mr-fav    { background: linear-gradient(165deg, #ff7a8a, #e0506a); }
 .mr-pricey { background: linear-gradient(165deg, #f7b733, #e0902f); }
 .mr-taste  { background: linear-gradient(165deg, #7bd389, #3f9d6a); }
+.mr-occ    { background: linear-gradient(165deg, #ff9eb5, #d4607f); }
 .mr-wish   { background: linear-gradient(165deg, #c08cff, #8a5fd6); }
 .mr-end    { background: linear-gradient(165deg, #ff9a62, #ef6c4f 55%, #d44d2f); }
+.mr-small b { font-weight: 800; }
 
 @media (prefers-reduced-motion: reduce) {
   .mr-card, .mr-emoji { animation: none !important; }

@@ -35,6 +35,21 @@ function buildCards(points: Point[]): Card[] {
   })
   const topTags = Object.entries(tagCount).sort((a, b) => b[1] - a[1]).slice(0, 3).map(e => e[0])
 
+  // AI 隐形维度聚合：菜系 / 口味 / 场合
+  const cuiCt: Record<string, number> = {}
+  const flaCt: Record<string, number> = {}
+  const occCt: Record<string, number> = {}
+  visits.forEach(({ v }) => {
+    if (v.cuisine) cuiCt[v.cuisine] = (cuiCt[v.cuisine] || 0) + 1
+    ;(v.flavors || '').split(',').forEach(f => { const t = f.trim(); if (t) flaCt[t] = (flaCt[t] || 0) + 1 })
+    if (v.occasion) occCt[v.occasion] = (occCt[v.occasion] || 0) + 1
+  })
+  const topN = (o: Record<string, number>, n: number) =>
+    Object.entries(o).sort((a, b) => b[1] - a[1]).slice(0, n).map(e => e[0])
+  const topCuisines = topN(cuiCt, 3).length ? topN(cuiCt, 3) : topTags
+  const topFlavors = topN(flaCt, 3)
+  const topOcc = Object.entries(occCt).sort((a, b) => b[1] - a[1])[0]
+
   const dates = visits.map(x => x.v.date).filter(Boolean).sort()
   const fmt = (d: string) => d.slice(0, 7).replace('-', '.')
   const range = dates.length
@@ -62,8 +77,22 @@ function buildCards(points: Point[]): Card[] {
       small: <>人均 ¥<span className="mr-num"><Stat value={Number(priciest.v.per_person)} /></span></>,
     })
   }
-  if (topTags.length) {
-    cards.push({ theme: 'taste', emoji: '😋', big: <>你们的口味</>, small: topTags.join('  ·  ') })
+  if (topCuisines.length || topFlavors.length) {
+    cards.push({
+      theme: 'taste', emoji: '😋', big: <>你们的口味</>,
+      small: <>
+        {topCuisines.length ? <>常吃 <b>{topCuisines.join(' / ')}</b></> : null}
+        {topCuisines.length && topFlavors.length ? <br /> : null}
+        {topFlavors.length ? <>偏爱 <b>{topFlavors.join(' / ')}</b></> : null}
+      </>,
+    })
+  }
+  if (topOcc && topOcc[1] >= 2) {
+    cards.push({
+      theme: 'occ', emoji: '💞',
+      big: <>最多是<br />「{topOcc[0]}」饭</>,
+      small: <>一起吃了 <span className="mr-num"><Stat value={topOcc[1]} /></span> 顿</>,
+    })
   }
   if (fulfilled > 0 || openWishes > 0) {
     cards.push({
