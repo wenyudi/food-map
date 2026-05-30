@@ -1,30 +1,49 @@
-# 饼饼の美食地图
+# 吃了么 · 美食地图 🍜
 
-自用的美食日记 + 地图点位记录。和女朋友一起的吃饭回忆。
+和女朋友 / 朋友一起的美食日记 —— 吃过的、想去的，都点亮在同一张地图上。
+一句话就能记一顿，AI 帮你把它们串成回忆。
 
 ## 功能
 
-- 🗺️ 高德地图标注 + 自动按距离搜索附近 POI
-- ✏️ 一句话录入（DeepSeek 自动解析意图：吃过 / 种草）
-- 🤍 种草 → ✨ 兑现 的店铺状态流转
+**地图 & 片区**
+- 🗺️ 高德地图点位，按距离自动搜附近 POI
+- 🏆 **片区版图**：把散点聚成「商圈领地」，按里程碑（吃过 1 / 3 / 6 / 10 家）由 AI 给每个商圈取玩梗称号，配探索进度（吃过 vs 想去）
+- 📍 浏览器定位 + 「我在哪儿」（需 HTTPS）
+
+**记录**
+- ✏️ 一句话录入，DeepSeek 自动解析「吃过 / 种草」以及金额、人数、心情…
+- 🤍 种草 → ✨ 兑现 的状态流转
 - 📷 拍照 / 选图，前端自动压缩上传
-- 📊 月度小结 + AI 写的回忆录
-- 👤 双用户共享（你 + 饼饼），登录后看同一份数据
-- 📍 浏览器定位（需 HTTPS）
+- 😋 口味飞轮：录入时悄悄提取 菜系 / 口味 / 招牌菜 / 场合，喂给下面所有 AI 节点
+
+**AI 助手**
+- 🍽️ 今天吃啥：按口味、时段、位置帮你拍板
+- 🔮 问地图：用大白话问自己的记录（「我们爱吃辣吗」「哪家有水煮鱼」）
+- 📊 月度小结 + AI 回忆录
+- 📖 美食回忆报告（翻页故事卡）
+
+**协作 & 数据**
+- 👤 圈子隔离：你和 TA 共享同一份数据，邀请码注册
+- 🔍 列表搜索 + 「想再来」筛选 + 作者标记
+- 🎉 里程碑撒花 · 就在附近 · 同伴动态提醒
+- 📦 数据备份导出 / 只清理我的记录 / 分享店名
+- 📲 PWA，可装到手机主屏、断网也能翻历史
 
 ## 技术栈
 
-- **后端**：FastAPI + SQLite + JWT
-- **前端**：React + Vite + leaflet + 高德矢量瓦片
-- **AI**：DeepSeek（一句话解析 + 月度回忆录生成）
-- **POI**：高德 Web 服务 API v5
-- **部署**：Docker compose + ECS Caddy + frp 内网穿透
+- **后端**：FastAPI · SQLite · JWT（bcrypt + PyJWT）
+- **前端**：React + Vite + TypeScript · react-leaflet + 高德矢量瓦片（GCJ-02）· PWA
+- **AI**：DeepSeek（deepseek-chat）—— 一句话解析 / 今天吃啥 / 问地图 / 月度回忆 / 片区称号 多节点
+- **地图数据**：高德 Web 服务 API v5（POI 2.0 + regeo 反向地理编码）
+- **部署**：Docker Compose · ECS（可选 Caddy 上 HTTPS）
+
+> 数据隔离：store（POI）全局共享，visit / wish 按 `circle_id`（圈子）隔离 —— 每对情侣 / 每群朋友各看各的。
 
 ## 本地开发
 
 ```bash
 # 后端
-cp .env.example .env       # 填入 key
+cp .env.example .env       # 填 AMAP_KEY / DEEPSEEK_KEY / JWT_SECRET / 初始管理员
 pip install -r requirements.txt
 python server.py           # http://localhost:8000
 
@@ -36,9 +55,13 @@ npm run dev                # http://localhost:5173
 
 ## 部署
 
-见 [DEPLOY.md](./DEPLOY.md)。
+直接跑在 ECS 上的 Docker，详见 [DEPLOY.md](./DEPLOY.md)。日常更新：
 
-## 也有命令行版（B 方案）
+```bash
+git pull && docker compose up -d --build
+```
+
+## 命令行版（早期 B 方案，仍可用）
 
 ```bash
 python cli.py say "昨晚和饼饼去格特士吃了200"
