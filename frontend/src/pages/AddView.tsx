@@ -230,6 +230,10 @@ export default function AddView({ onSubmitted }: Props) {
           store_hint: store.name,
           source: source || '小红书',
           reason: reason || '',
+          cuisine: parsed?.cuisine || '',
+          flavors: parsed?.flavors || [],
+          dishes: parsed?.dishes || [],
+          occasion: parsed?.occasion || '',
         })
       } else {
         const res = await addVisit({
@@ -242,6 +246,11 @@ export default function AddView({ onSubmitted }: Props) {
           want_again: wantAgain,
           feeling, companions,
           my_photos: photos.join('|'),
+          // AI 隐形维度（解析出来就透传，没有就空）
+          cuisine: parsed?.cuisine || '',
+          flavors: parsed?.flavors || [],
+          dishes: parsed?.dishes || [],
+          occasion: parsed?.occasion || '',
         })
         // 记住这次的同行人，下次自动带出
         if (companions.trim()) localStorage.setItem(LS_COMPANIONS, companions.trim())

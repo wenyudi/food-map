@@ -252,6 +252,11 @@ class VisitReq(BaseModel):
     companions: str = ""
     my_photos: str = ""
     wish_id: str = ""
+    # AI 隐形维度（前端从解析结果透传）
+    cuisine: str = ""
+    flavors: list[str] = []
+    dishes: list[str] = []
+    occasion: str = ""
 
 
 class WishReq(BaseModel):
@@ -259,6 +264,10 @@ class WishReq(BaseModel):
     store_hint: str
     source: str = "小红书"
     reason: str = ""
+    cuisine: str = ""
+    flavors: list[str] = []
+    dishes: list[str] = []
+    occasion: str = ""
 
 
 # ---------- 查询接口 ----------
@@ -425,6 +434,8 @@ def post_visit(req: VisitReq, user: dict = Depends(current_user)):
         my_photos=req.my_photos,
         amap_cost_ref=cost,
         value_label=db.compute_value_label(per_person, cost),
+        cuisine=req.cuisine, flavors=",".join(req.flavors),
+        dishes=",".join(req.dishes), occasion=req.occasion,
         wish_id=wish_id,
         recorded_by=user["username"],
         circle_id=user["circle_id"],
@@ -760,6 +771,8 @@ def post_wish(req: WishReq, user: dict = Depends(current_user)):
     wish = db.Wish(
         store_hint=req.store_hint, poi_id=req.poi_id,
         source=req.source, reason=req.reason,
+        cuisine=req.cuisine, flavors=",".join(req.flavors),
+        dishes=",".join(req.dishes), occasion=req.occasion,
         recorded_by=user["username"],
         circle_id=user["circle_id"],
     )

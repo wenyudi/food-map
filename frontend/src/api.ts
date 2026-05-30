@@ -98,6 +98,10 @@ export interface Visit {
   my_photos: string  // | 分隔的 URL
   created_at: string
   recorded_by?: string
+  cuisine?: string
+  flavors?: string
+  dishes?: string
+  occasion?: string
   store_name?: string
   store_tag?: string
   business_area?: string
@@ -153,6 +157,11 @@ export interface ParsedSentence {
   want_again: boolean | null
   source: string | null
   reason: string | null
+  // AI 隐形维度
+  cuisine?: string | null
+  flavors?: string[] | null
+  dishes?: string[] | null
+  occasion?: string | null
 }
 
 export interface Stats {

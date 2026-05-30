@@ -52,6 +52,10 @@ class Visit:
     my_photos: str = ""
     amap_cost_ref: str = ""
     value_label: str = ""
+    cuisine: str = ""       # AI 隐形维度：菜系（川菜/日料/面包…）
+    flavors: str = ""       # 口味标签，逗号分隔（辣,麻,汤水）
+    dishes: str = ""        # 招牌菜，逗号分隔（水煮鱼,毛血旺）
+    occasion: str = ""      # 场合（约会/聚餐/工作餐/独自/家庭/庆祝/夜宵）
     wish_id: str = ""
     recorded_by: str = ""  # 谁录的（username）
     circle_id: int = 0     # 属于哪个圈子（数据隔离边界）
@@ -69,6 +73,10 @@ class Wish:
     poi_id: str  # 必填，杜绝模糊种草
     source: str = "手填"
     reason: str = ""
+    cuisine: str = ""       # AI 隐形维度（与 Visit 同义）
+    flavors: str = ""
+    dishes: str = ""
+    occasion: str = ""
     status: str = "want"
     visited_at: str = ""
     visit_id: str = ""
@@ -113,6 +121,7 @@ CREATE TABLE IF NOT EXISTS visits (
     amap_cost_ref TEXT, value_label TEXT,
     mood_emoji TEXT, want_again INTEGER,
     feeling TEXT, companions TEXT, my_photos TEXT,
+    cuisine TEXT, flavors TEXT, dishes TEXT, occasion TEXT,
     wish_id TEXT, recorded_by TEXT, circle_id INTEGER, created_at TEXT,
     FOREIGN KEY (poi_id) REFERENCES stores(poi_id)
 );
@@ -121,6 +130,7 @@ CREATE TABLE IF NOT EXISTS wishes (
     wish_id TEXT PRIMARY KEY,
     poi_id TEXT NOT NULL,
     store_hint TEXT, source TEXT, reason TEXT,
+    cuisine TEXT, flavors TEXT, dishes TEXT, occasion TEXT,
     status TEXT DEFAULT 'want',
     created_at TEXT, visited_at TEXT, visit_id TEXT,
     recorded_by TEXT, circle_id INTEGER,
@@ -159,6 +169,13 @@ def _migrate(c: sqlite3.Connection) -> None:
         cols = {r["name"] for r in c.execute(f"PRAGMA table_info({table})")}
         if "recorded_by" not in cols:
             c.execute(f"ALTER TABLE {table} ADD COLUMN recorded_by TEXT")
+
+    # AI 隐形维度：菜系 / 口味 / 招牌菜 / 场合
+    for table in ("visits", "wishes"):
+        cols = {r["name"] for r in c.execute(f"PRAGMA table_info({table})")}
+        for col in ("cuisine", "flavors", "dishes", "occasion"):
+            if col not in cols:
+                c.execute(f"ALTER TABLE {table} ADD COLUMN {col} TEXT")
 
     # 圈子隔离：补 circle_id 列
     for table in ("users", "visits", "wishes", "invite_codes"):

@@ -35,6 +35,12 @@ SYSTEM_PROMPT = """你是「吃了么」美食记录助手。用户用一句话�
 - source: 仅 wish 用——"小红书/抖音/朋友/路过/大众点评"等来源；没提填"小红书"；visit 时 null。
 - reason: 仅 wish 用——想去的理由原话；visit 时 null。
 
+【以下为"隐形维度"——用户不会专门写，你从同一句话顺手推断，用来悄悄建立口味画像】
+- cuisine: 菜系，归一化到常见类目（川菜/火锅/日料/韩餐/西餐/粤菜/云南菜/烧烤/面包/咖啡/甜品/小吃/快餐/江湖菜…）。从店名、菜品、上下文推断，手动店也尽量给；判不准填 null。
+- flavors: 口味标签**数组**（如 ["辣","麻"]、["清淡","鲜"]、["甜"]、["汤水"]、["油"]）；没线索给 []。
+- dishes: 提到的具体菜品/招牌**数组**（如 ["水煮鱼"]、["可颂"]、["烤腰子"]）；没提给 []。
+- occasion: 场合，取其一："约会"（和对象/二人）/"聚餐"（多人朋友同事）/"工作餐"/"独自"/"家庭"/"庆祝"/"夜宵"；判不准 null。
+
 只输出 JSON。"""
 
 
@@ -162,18 +168,21 @@ def parse_one_liner(text: str, timeout: int = 30) -> dict:
 
     # few-shot：覆盖 人均/总价、和X→人数、wish、想再来 —— 提升一致性
     shots = [
-        ("昨晚和朋友去家火锅店，人均120",
+        ("昨晚和朋友去家火锅店，人均120，锅底够辣",
          {"intent": "visit", "store_hint": "火锅", "date": yesterday, "meal_period": "晚",
-          "companions": "朋友", "amount": 240, "people_count": 2, "feeling": None,
-          "mood_emoji": None, "want_again": None, "source": None, "reason": None}),
+          "companions": "朋友", "amount": 240, "people_count": 2, "feeling": "锅底够辣",
+          "mood_emoji": None, "want_again": None, "source": None, "reason": None,
+          "cuisine": "火锅", "flavors": ["辣", "麻"], "dishes": [], "occasion": "聚餐"}),
         ("中午仨人吃的烧烤摊，一共180，烤腰子绝了，下次还来",
          {"intent": "visit", "store_hint": "烧烤", "date": today, "meal_period": "中",
           "companions": None, "amount": 180, "people_count": 3, "feeling": "烤腰子绝了",
-          "mood_emoji": "😋", "want_again": True, "source": None, "reason": None}),
+          "mood_emoji": "😋", "want_again": True, "source": None, "reason": None,
+          "cuisine": "烧烤", "flavors": [], "dishes": ["烤腰子"], "occasion": "聚餐"}),
         ("小红书刷到一家云南菜，米线据说一绝，想去",
          {"intent": "wish", "store_hint": "云南菜", "date": today, "meal_period": None,
           "companions": None, "amount": None, "people_count": None, "feeling": None,
-          "mood_emoji": None, "want_again": None, "source": "小红书", "reason": "米线据说一绝"}),
+          "mood_emoji": None, "want_again": None, "source": "小红书", "reason": "米线据说一绝",
+          "cuisine": "云南菜", "flavors": [], "dishes": ["米线"], "occasion": None}),
     ]
     messages = [{"role": "system", "content": sys_content}]
     for q, a in shots:
