@@ -171,6 +171,9 @@ export const getStats = () => api.get<Stats>('/stats').then(r => r.data)
 export const resetMine = () =>
   api.post<{ ok: boolean; visits: number; wishes: number }>('/reset-mine').then(r => r.data)
 
+// 导出本圈子全部数据（留底备份）
+export const exportData = () => api.get<any>('/export').then(r => r.data)
+
 export const search = (keywords: string, region = '重庆', location?: string) =>
   api.post<any[]>('/search', { keywords, region, location }).then(r => r.data)
 

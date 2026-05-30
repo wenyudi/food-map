@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { listUsers, deleteUserApi, changePassword, clearToken, genInvite, listInvites, revokeInvite, getPoints, resetMine } from '../api'
+import { listUsers, deleteUserApi, changePassword, clearToken, genInvite, listInvites, revokeInvite, getPoints, resetMine, exportData } from '../api'
 import type { MeInfo, UserItem, InviteCode, Point } from '../api'
 import { APP_NAME, APP_SLOGAN } from '../brand'
 import MemoryReport from '../components/MemoryReport'
@@ -35,6 +35,25 @@ export default function AccountView({ me, onLogout }: Props) {
     } finally { setResetting(false) }
   }
 
+  const [exporting, setExporting] = useState(false)
+  const [exportMsg, setExportMsg] = useState<string | null>(null)
+  async function doExport() {
+    setExporting(true); setExportMsg(null)
+    try {
+      const data = await exportData()
+      const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' })
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `chiledme-backup-${new Date().toISOString().slice(0, 10)}.json`
+      document.body.appendChild(a); a.click(); a.remove()
+      URL.revokeObjectURL(url)
+      setExportMsg(`已导出 ${data?.counts?.visits ?? 0} 条吃过、${data?.counts?.wishes ?? 0} 条想去`)
+    } catch {
+      setExportMsg('导出失败，稍后再试')
+    } finally { setExporting(false) }
+  }
+
   return (
     <div className="page account-page">
       <div className="acc-topbar">
@@ -60,6 +79,17 @@ export default function AccountView({ me, onLogout }: Props) {
 
       <InviteCodes isAdmin={isAdmin} />
       {isAdmin && <UserManagement currentUsername={me.username} />}
+
+      <div className="acc-section">
+        <div className="acc-section-head static"><span>📦 数据备份</span></div>
+        <div className="acc-section-body">
+          <button className="ghost" onClick={doExport} disabled={exporting}>
+            {exporting ? '导出中…' : '⬇️ 导出我的全部数据（JSON）'}
+          </button>
+          <div className="invite-hint">下载一份留底，换手机 / 出意外都不怕。</div>
+          {exportMsg && <div className="acc-msg">{exportMsg}</div>}
+        </div>
+      </div>
 
       {!confirmLogout ? (
         <button className="logout-btn" onClick={() => setConfirmLogout(true)}>登出</button>

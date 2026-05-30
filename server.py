@@ -327,6 +327,22 @@ def reset_mine(user: dict = Depends(current_user)):
     return {"ok": True, **res}
 
 
+@app.get("/api/export")
+def export_data(user: dict = Depends(current_user)):
+    """导出本圈子的全部数据（吃过 + 想去 + 相关店铺），供用户自己留底备份。"""
+    data = db.load_all(user["circle_id"])
+    visits, wishes = data["visits"], data["wishes"]
+    used = {v["poi_id"] for v in visits} | {w["poi_id"] for w in wishes}
+    stores = [s for s in data["stores"] if s["poi_id"] in used]
+    return {
+        "app": "chiledme",
+        "exported_at": datetime.now().isoformat(timespec="seconds"),
+        "circle_id": user["circle_id"],
+        "counts": {"stores": len(stores), "visits": len(visits), "wishes": len(wishes)},
+        "stores": stores, "visits": visits, "wishes": wishes,
+    }
+
+
 # ---------- 写入接口 ----------
 
 @app.post("/api/search")
