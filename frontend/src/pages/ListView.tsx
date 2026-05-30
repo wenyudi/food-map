@@ -2,6 +2,7 @@ import { useEffect, useState, useMemo, useRef, useCallback } from 'react'
 import { getPoints, getMonthlyStory, askMap } from '../api'
 import type { Point, Wish, Visit } from '../api'
 import { cleanTag } from '../lib/format'
+import { useCountUp } from '../lib/useCountUp'
 import EditRecordSheet from '../components/EditRecordSheet'
 
 type EditTarget = { kind: 'visit' | 'wish'; data: any; storeName: string }
@@ -144,9 +145,10 @@ export default function ListView({ refreshKey, focusPoiId, onPickStore, onJumpTo
       )}
 
       <div className="store-list">
-        {!loading && filtered.map(({ p, status }) => (
+        {!loading && filtered.map(({ p, status }, i) => (
           <StoreCard
             key={p.poi_id}
+            index={i}
             point={p}
             status={status}
             flashing={flashId === p.poi_id}
@@ -254,13 +256,14 @@ function Chip({ active, onClick, children }: { active: boolean; onClick: () => v
   )
 }
 
-function StoreCard({ point, status, flashing, cardRef, onClick, onEdit }: {
+function StoreCard({ point, status, flashing, cardRef, onClick, onEdit, index }: {
   point: Point
   status: StoreStatus
   flashing: boolean
   cardRef: (el: HTMLDivElement | null) => void
   onClick?: () => void
   onEdit: (t: EditTarget) => void
+  index: number
 }) {
   const timeline = buildTimeline(point)
   const headEmoji = point.visit_count > 0 ? point.emoji : '🤍'
@@ -271,6 +274,7 @@ function StoreCard({ point, status, flashing, cardRef, onClick, onEdit }: {
     <div
       ref={cardRef}
       className={`store-card status-${status.key}` + (flashing ? ' flashing' : '')}
+      style={{ animationDelay: `${Math.min(index, 6) * 45}ms` }}
       onClick={hasCoords ? onClick : undefined}
       role="button"
     >
@@ -402,6 +406,11 @@ function MonthlySummary({ points, refreshKey }: { points: Point[]; refreshKey: n
     }
   }, [points])
 
+  // 数字滚动到位（仪表盘点亮感）
+  const cVisit = Math.round(useCountUp(data.visitCount))
+  const cSpent = Math.round(useCountUp(data.totalSpent))
+  const cFulfilled = Math.round(useCountUp(data.fulfilledThisMonth))
+
   // AI 故事
   const [story, setStory] = useState<string>('')
   const [storyLoading, setStoryLoading] = useState(false)
@@ -465,9 +474,9 @@ function MonthlySummary({ points, refreshKey }: { points: Point[]; refreshKey: n
       <button className="monthly-summary collapsed" onClick={toggle}>
         <span className="ms-collapsed-title">📊 本月</span>
         <span className="ms-collapsed-stats">
-          <b>{data.visitCount}</b> 次 · <b>¥{data.totalSpent.toFixed(0)}</b>
+          <b>{cVisit}</b> 次 · <b>¥{cSpent}</b>
           {data.topTag && <> · 最爱 <b>{data.topTag}</b></>}
-          {data.fulfilledThisMonth > 0 && <> · 兑现 <b>{data.fulfilledThisMonth}</b> ✨</>}
+          {data.fulfilledThisMonth > 0 && <> · 兑现 <b>{cFulfilled}</b> ✨</>}
         </span>
         <span className="ms-toggle-icon">▼</span>
       </button>
@@ -486,12 +495,12 @@ function MonthlySummary({ points, refreshKey }: { points: Point[]; refreshKey: n
       </div>
       <div className="ms-stats">
         <div className="ms-stat">
-          <div className="ms-value">{data.visitCount}</div>
+          <div className="ms-value">{cVisit}</div>
           <div className="ms-label">次出门</div>
           {deltaTxt && <div className="ms-delta">{deltaTxt}</div>}
         </div>
         <div className="ms-stat">
-          <div className="ms-value">¥{data.totalSpent.toFixed(0)}</div>
+          <div className="ms-value">¥{cSpent}</div>
           <div className="ms-label">总花费</div>
         </div>
         {data.topTag && (
@@ -502,7 +511,7 @@ function MonthlySummary({ points, refreshKey }: { points: Point[]; refreshKey: n
         )}
         {data.fulfilledThisMonth > 0 && (
           <div className="ms-stat">
-            <div className="ms-value">{data.fulfilledThisMonth}</div>
+            <div className="ms-value">{cFulfilled}</div>
             <div className="ms-label">兑现种草 ✨</div>
           </div>
         )}

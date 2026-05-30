@@ -243,13 +243,14 @@ export default function AddView({ onSubmitted }: Props) {
           </div>
         ) : (
           <div className="poi-list">
-            {pois.map((p) => {
+            {pois.map((p, i) => {
               const sel = selectedPoi?.id === p.id
               const tag = cleanTag(p.business?.tag)
               return (
                 <button
                   key={p.id}
                   className={'poi-card' + (sel ? ' selected' : '')}
+                  style={{ animationDelay: `${Math.min(i, 6) * 40}ms` }}
                   onClick={() => setSelectedPoi(p)}
                 >
                   <div className="poi-main">

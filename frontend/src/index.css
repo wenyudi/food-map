@@ -519,7 +519,7 @@ input, textarea, select {
   flex-direction: column;
   align-items: center;
   gap: 3px;
-  transition: transform 0.22s cubic-bezier(0.22, 1, 0.36, 1), background 0.2s, color 0.2s;
+  transition: transform 0.32s cubic-bezier(0.34, 1.56, 0.64, 1), background 0.2s, color 0.2s;
 }
 .tabs button span {
   font-size: 11px;
@@ -1542,15 +1542,22 @@ button.primary:disabled {
   100% { background-position: -200% 0; }
 }
 
-/* 列表卡片：可点击 + flash 高亮 */
-.store-card { cursor: pointer; transition: transform 0.15s, box-shadow 0.15s; }
-.store-card:active { transform: scale(0.985); }
-.store-card.flashing {
-  animation: card-flash 1.8s ease-out;
+/* 列表卡片：可点击 + 错峰入场 + 聚焦高亮 */
+.store-card {
+  cursor: pointer;
+  transition: transform 0.15s, box-shadow 0.15s;
+  animation: card-enter 0.42s cubic-bezier(0.22, 1, 0.36, 1) backwards;
 }
-@keyframes card-flash {
-  0% { box-shadow: 0 0 0 4px var(--primary), var(--shadow); }
-  100% { box-shadow: var(--shadow-sm); }
+.store-card:active { transform: scale(0.985); }
+/* 聚焦高亮用独立的 ::after 光环，避免和入场动画抢 animation 属性 */
+.store-card.flashing::after {
+  content: '';
+  position: absolute;
+  inset: -2px;
+  border-radius: inherit;
+  box-shadow: 0 0 0 3px var(--primary);
+  animation: flash-ring 1.8s ease-out forwards;
+  pointer-events: none;
 }
 .store-card-foot {
   margin-top: 10px;
@@ -2190,4 +2197,48 @@ button.primary:disabled {
   font-size: 11px;
   color: var(--text-light);
   letter-spacing: 1px;
+}
+
+/* ============================================
+   微动效 · 让界面丝滑有生气
+   入场错峰 / 选中轻弹 / 图钉柔和缩放 / 聚焦光环
+   ============================================ */
+@keyframes card-enter {
+  from { opacity: 0; transform: translateY(10px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+@keyframes pop {
+  0%   { transform: scale(1); }
+  45%  { transform: scale(1.09); }
+  100% { transform: scale(1); }
+}
+@keyframes marker-pop {
+  from { opacity: 0; transform: scale(0.7); }
+  to   { opacity: 1; transform: scale(1); }
+}
+@keyframes flash-ring {
+  0%   { opacity: 1; }
+  100% { opacity: 0; }
+}
+
+/* 候选店卡片：错峰入场（backwards：延迟期间先隐身，结束后不挟持 transform，:active 仍可按压） */
+.poi-card { animation: card-enter 0.36s cubic-bezier(0.22, 1, 0.36, 1) backwards; }
+
+/* 选中即"弹一下"：吃过/种草、想再来、早中晚、筛选 chip */
+.intent-toggle button.selected,
+.toggle button.selected,
+.meal-toggle button.selected,
+.chip.active { animation: pop 0.3s ease-out; }
+
+/* 地图图钉：柔和缩放淡入（不再"啪"地砸下来） */
+.marker-dot { animation: marker-pop 0.32s ease-out backwards; }
+.marker-dot.want {
+  animation: marker-pop 0.32s ease-out backwards, want-breathe 2.8s ease-in-out 0.32s infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .store-card, .poi-card, .marker-dot, .marker-dot.want,
+  .intent-toggle button.selected, .toggle button.selected,
+  .meal-toggle button.selected, .chip.active,
+  .store-card.flashing::after { animation: none !important; }
 }

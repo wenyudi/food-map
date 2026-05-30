@@ -5,6 +5,7 @@ import { getPoints, getStats, getSuggest } from '../api'
 import type { Point, Stats, Suggestion } from '../api'
 import { getMyLocation } from '../lib/geo'
 import { cleanTag } from '../lib/format'
+import { useCountUp } from '../lib/useCountUp'
 
 interface Props {
   refreshKey: number
@@ -83,14 +84,7 @@ export default function MapView({ refreshKey, focusPoiId, onConsumeFocus, onJump
         <HereButton />
       </MapContainer>
 
-      {stats && (
-        <div className="map-stat-bar">
-          <span><span className="stat-ico">📍</span><b>{stats.total_visits}</b><small>次</small></span>
-          <span><span className="stat-ico">🏠</span><b>{stats.total_stores_visited}</b><small>家</small></span>
-          <span><span className="stat-ico">🤍</span><b>{stats.total_wishes_open}</b><small>想去</small></span>
-          <span><span className="stat-ico">💵</span><b>¥{stats.total_amount.toFixed(0)}</b><small>总花</small></span>
-        </div>
-      )}
+      {stats && <StatBar stats={stats} />}
 
       {loading && (
         <div className="map-stat-bar">
@@ -139,6 +133,22 @@ export default function MapView({ refreshKey, focusPoiId, onConsumeFocus, onJump
           onFocus={(id) => { setSuggestFocus(id); setSuggestOpen(false) }}
         />
       )}
+    </div>
+  )
+}
+
+// 顶部统计：数字滚动到位，像仪表盘点亮
+function StatBar({ stats }: { stats: Stats }) {
+  const visits = useCountUp(stats.total_visits)
+  const stores = useCountUp(stats.total_stores_visited)
+  const wishes = useCountUp(stats.total_wishes_open)
+  const amount = useCountUp(stats.total_amount)
+  return (
+    <div className="map-stat-bar">
+      <span><span className="stat-ico">📍</span><b>{Math.round(visits)}</b><small>次</small></span>
+      <span><span className="stat-ico">🏠</span><b>{Math.round(stores)}</b><small>家</small></span>
+      <span><span className="stat-ico">🤍</span><b>{Math.round(wishes)}</b><small>想去</small></span>
+      <span><span className="stat-ico">💵</span><b>¥{Math.round(amount)}</b><small>总花</small></span>
     </div>
   )
 }
