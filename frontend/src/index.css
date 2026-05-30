@@ -2242,6 +2242,23 @@ button.primary:disabled {
   .nearby-card { animation: none; }
 }
 
+/* 下拉刷新 · 食物主题（🍜 随拉伸放大旋转，刷新时转圈） */
+.ptr {
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  overflow: hidden;
+}
+.ptr-noodle {
+  font-size: 28px;
+  line-height: 1;
+  padding-bottom: 8px;
+  display: inline-block;
+  will-change: transform;
+}
+.ptr-noodle.spinning { animation: ptr-spin 0.8s linear infinite; }
+@keyframes ptr-spin { to { transform: rotate(360deg); } }
+
 /* 确认页：日期 + 早/中/晚 */
 .datetime-row { flex: 1; display: flex; gap: 8px; align-items: stretch; min-width: 0; }
 .datetime-row input[type="date"] {

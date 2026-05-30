@@ -4,6 +4,7 @@ import type { Point, Wish, Visit } from '../api'
 import { cleanTag } from '../lib/format'
 import { useCountUp } from '../lib/useCountUp'
 import EditRecordSheet from '../components/EditRecordSheet'
+import PullToRefresh from '../components/PullToRefresh'
 
 type EditTarget = { kind: 'visit' | 'wish'; data: any; storeName: string }
 
@@ -63,6 +64,8 @@ export default function ListView({ refreshKey, focusPoiId, onPickStore, onJumpTo
     setLoading(true)
     getPoints().then(setPoints).finally(() => setLoading(false))
   }, [])
+  // 下拉刷新：静默重拉（不走骨架屏），返回 Promise 让刷新动画等它
+  const refresh = useCallback(() => getPoints().then(setPoints), [])
 
   useEffect(() => { load() }, [load, refreshKey])
 
@@ -101,7 +104,7 @@ export default function ListView({ refreshKey, focusPoiId, onPickStore, onJumpTo
   }, [focusPoiId, filtered, filter, loading])
 
   return (
-    <div className="page list">
+    <PullToRefresh className="page list" onRefresh={refresh}>
       <MonthlySummary points={points} refreshKey={refreshKey} />
 
       {points.length > 0 && (
@@ -170,7 +173,7 @@ export default function ListView({ refreshKey, focusPoiId, onPickStore, onJumpTo
       )}
 
       {askOpen && <AskSheet onClose={() => setAskOpen(false)} />}
-    </div>
+    </PullToRefresh>
   )
 }
 
