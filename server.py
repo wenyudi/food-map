@@ -353,6 +353,27 @@ def post_store(req: StoreReq, _: dict = Depends(current_user)):
     return {**store.__dict__}
 
 
+# 里程碑节点：吃饭顿数 / 解锁店数
+_MEAL_MILESTONES = {10, 25, 50, 100, 150, 200, 300, 500, 800, 1000}
+_STORE_MILESTONES = {10, 25, 50, 100, 200}
+
+
+def _compute_milestone(poi_id: str, circle_id: int) -> Optional[dict]:
+    """这一笔吃过是否撞上"高光节点"，撞上就返回给前端撒花。优先级：第一笔 > 顿数 > 二刷 > 店数。"""
+    s = db.stats(circle_id)
+    total_visits = s["total_visits"]
+    total_stores = s["total_stores_visited"]
+    if total_visits == 1:
+        return {"kind": "first", "emoji": "🎉", "title": "第一笔！", "sub": "你们的美食地图正式启程"}
+    if total_visits in _MEAL_MILESTONES:
+        return {"kind": "meals", "emoji": "🥢", "title": f"第 {total_visits} 顿！", "sub": "一起吃过这么多啦"}
+    if db.count_visits_by_poi(poi_id, circle_id) == 2:
+        return {"kind": "repeat", "emoji": "🔁", "title": "二刷达成", "sub": "好吃到让你回头的一家"}
+    if total_stores in _STORE_MILESTONES:
+        return {"kind": "stores", "emoji": "🗺️", "title": f"解锁第 {total_stores} 家", "sub": "地图又点亮一块"}
+    return None
+
+
 @app.post("/api/visit")
 def post_visit(req: VisitReq, user: dict = Depends(current_user)):
     store_row = next((s for s in db.load_all()["stores"] if s["poi_id"] == req.poi_id), None)
@@ -393,6 +414,7 @@ def post_visit(req: VisitReq, user: dict = Depends(current_user)):
         "per_person": visit.per_person,
         "value_label": visit.value_label,
         "fulfilled_wish": bool(wish_id),  # 前端可据此提示"种草已兑现 ✨"
+        "milestone": _compute_milestone(req.poi_id, user["circle_id"]),  # 撞上高光节点就撒花
     }
 
 

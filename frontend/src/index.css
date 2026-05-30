@@ -1763,6 +1763,26 @@ button.primary:disabled {
 @keyframes pop-in { from { opacity: 0; transform: scale(0.8); } to { opacity: 1; transform: scale(1); } }
 @keyframes sparkle { 0%, 100% { transform: scale(1) rotate(0); } 50% { transform: scale(1.15) rotate(8deg); } }
 
+/* 撒花：彩色纸屑从顶部飘落 */
+.confetti { position: absolute; inset: 0; overflow: hidden; pointer-events: none; }
+.confetti span {
+  position: absolute;
+  top: -20px;
+  border-radius: 2px;
+  opacity: 0.95;
+  animation-name: confetti-fall;
+  animation-timing-function: cubic-bezier(0.3, 0.2, 0.5, 1);
+  animation-iteration-count: 1;
+  animation-fill-mode: both;
+}
+@keyframes confetti-fall {
+  0%   { transform: translate(0, 0) rotate(0deg); opacity: 1; }
+  100% { transform: translate(var(--drift, 0), 105vh) rotate(540deg); opacity: 0.85; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .confetti { display: none; }
+}
+
 /* 图片大图 lightbox */
 .zoomable { cursor: zoom-in; }
 .lightbox {

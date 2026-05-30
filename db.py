@@ -365,6 +365,15 @@ def list_open_wishes(circle_id: Optional[int] = None) -> list[dict]:
         return [_row_to_dict(r) for r in rows]
 
 
+def count_visits_by_poi(poi_id: str, circle_id: Optional[int] = None) -> int:
+    """某家店在本圈子被记录过几次（用于「二刷」里程碑判定）。"""
+    with _conn() as c:
+        return c.execute(
+            "SELECT COUNT(*) c FROM visits WHERE poi_id=? AND circle_id=?",
+            (poi_id, circle_id),
+        ).fetchone()["c"]
+
+
 def stats(circle_id: Optional[int] = None) -> dict:
     with _conn() as c:
         row = c.execute(

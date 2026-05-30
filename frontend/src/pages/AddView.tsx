@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { parseText, search, upsertStore, addVisit, addWish, regeo, getStats } from '../api'
 import type { ParsedSentence, Stats } from '../api'
 import { getMyLocation } from '../lib/geo'
@@ -35,6 +35,39 @@ const EXAMPLES: Array<{ kind: 'eat' | 'wish'; text: string }> = [
   { kind: 'wish', text: '小红书种草一家面包店，可颂据说一绝' },
 ]
 
+// 高光时刻的内容（撒花浮层用）
+type Celebration = { emoji: string; title: string; sub: ReactNode }
+
+// 撒花：一把彩色纸屑从顶部飘落（纯 CSS + 随机参数，无依赖）
+function Confetti() {
+  const pieces = useMemo(() => {
+    const colors = ['#ff5e62', '#ffa726', '#84b56a', '#ffd166', '#ef6c4f', '#f9c8c0', '#7bd389']
+    return Array.from({ length: 40 }, (_, i) => ({
+      left: Math.random() * 100,
+      bg: colors[i % colors.length],
+      delay: Math.random() * 0.5,
+      dur: 1.6 + Math.random() * 1.3,
+      drift: (Math.random() * 2 - 1) * 50,
+      w: 6 + Math.random() * 6,
+      h: 8 + Math.random() * 8,
+    }))
+  }, [])
+  return (
+    <div className="confetti" aria-hidden="true">
+      {pieces.map((p, i) => (
+        <span key={i} style={{
+          left: `${p.left}%`,
+          background: p.bg,
+          width: p.w, height: p.h,
+          ['--drift' as any]: `${p.drift}px`,
+          animationDelay: `${p.delay}s`,
+          animationDuration: `${p.dur}s`,
+        }} />
+      ))}
+    </div>
+  )
+}
+
 // 记一笔头部卡：按时段问候 + 录入进度（带数字滚动）
 function RecordHero() {
   const [stats, setStats] = useState<Stats | null>(null)
@@ -67,7 +100,7 @@ export default function AddView({ onSubmitted }: Props) {
   const [text, setText] = useState('')
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const [celebrate, setCelebrate] = useState<string | null>(null)  // 兑现种草时显示店名
+  const [celebrate, setCelebrate] = useState<Celebration | null>(null)  // 高光时刻：兑现 / 里程碑
   const [parsed, setParsed] = useState<ParsedSentence | null>(null)
   const [intent, setIntent] = useState<'visit' | 'wish'>('visit')  // 确认页可改；手动录入靠它
   const [pois, setPois] = useState<any[]>([])
@@ -182,10 +215,16 @@ export default function AddView({ onSubmitted }: Props) {
         })
         // 记住这次的同行人，下次自动带出
         if (companions.trim()) localStorage.setItem(LS_COMPANIONS, companions.trim())
-        // 这次"吃过"刚好兑现了之前的种草 → 庆祝一下再跳走
+        // 高光时刻：种草兑现 > 里程碑 → 撒花 2.2s 再跳走
+        let cel: Celebration | null = null
         if (res?.fulfilled_wish) {
-          setCelebrate(store.name || '这家店')
-          setTimeout(() => { setCelebrate(null); reset(); onSubmitted() }, 2000)
+          cel = { emoji: '✨', title: '种草兑现啦', sub: <>惦记了一阵的 <b>{store.name || '这家店'}</b><br />今天终于吃到了</> }
+        } else if (res?.milestone) {
+          cel = { emoji: res.milestone.emoji, title: res.milestone.title, sub: res.milestone.sub }
+        }
+        if (cel) {
+          setCelebrate(cel)
+          setTimeout(() => { setCelebrate(null); reset(); onSubmitted() }, 2200)
           return
         }
       }
@@ -322,10 +361,11 @@ export default function AddView({ onSubmitted }: Props) {
     <div className="page add-confirm">
       {celebrate && (
         <div className="celebrate-overlay">
+          <Confetti />
           <div className="celebrate-card">
-            <div className="celebrate-emoji">✨</div>
-            <div className="celebrate-title">种草兑现啦</div>
-            <div className="celebrate-sub">惦记了一阵的 <b>{celebrate}</b><br />今天终于吃到了</div>
+            <div className="celebrate-emoji">{celebrate.emoji}</div>
+            <div className="celebrate-title">{celebrate.title}</div>
+            <div className="celebrate-sub">{celebrate.sub}</div>
           </div>
         </div>
       )}
