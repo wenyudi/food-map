@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { listUsers, deleteUserApi, changePassword, clearToken, genInvite, listInvites, revokeInvite, getPoints } from '../api'
+import { listUsers, deleteUserApi, changePassword, clearToken, genInvite, listInvites, revokeInvite, getPoints, resetMine } from '../api'
 import type { MeInfo, UserItem, InviteCode, Point } from '../api'
 import { APP_NAME, APP_SLOGAN } from '../brand'
 import MemoryReport from '../components/MemoryReport'
@@ -14,11 +14,25 @@ export default function AccountView({ me, onLogout }: Props) {
   const [confirmLogout, setConfirmLogout] = useState(false)
   const [report, setReport] = useState<Point[] | null>(null)
   const [loadingReport, setLoadingReport] = useState(false)
+  const [confirmReset, setConfirmReset] = useState(false)
+  const [resetting, setResetting] = useState(false)
+  const [resetMsg, setResetMsg] = useState<string | null>(null)
 
   async function openReport() {
     if (loadingReport) return
     setLoadingReport(true)
     try { setReport(await getPoints()) } catch { setReport([]) } finally { setLoadingReport(false) }
+  }
+
+  async function doReset() {
+    setResetting(true); setResetMsg(null)
+    try {
+      const r = await resetMine()
+      setResetMsg(`已清空你记的 ${r.visits} 条吃过、${r.wishes} 条想去`)
+      setConfirmReset(false)
+    } catch (e: any) {
+      setResetMsg(e?.response?.data?.detail || '清空失败')
+    } finally { setResetting(false) }
   }
 
   return (
@@ -56,6 +70,19 @@ export default function AccountView({ me, onLogout }: Props) {
           <button className="lc-yes" onClick={() => { clearToken(); onLogout() }}>登出</button>
         </div>
       )}
+
+      <div className="acc-danger">
+        {!confirmReset ? (
+          <button className="acc-danger-link" onClick={() => setConfirmReset(true)}>清空我记录的数据</button>
+        ) : (
+          <div className="logout-confirm">
+            <span>只清你记的吃过/想去，同伴的保留 · 删了找不回</span>
+            <button className="lc-cancel" onClick={() => setConfirmReset(false)}>取消</button>
+            <button className="lc-yes" disabled={resetting} onClick={doReset}>{resetting ? '清空中…' : '清空'}</button>
+          </div>
+        )}
+        {resetMsg && <div className="acc-msg">{resetMsg}</div>}
+      </div>
 
       <div className="acc-brand">
         <img src="/icon.png" alt={APP_NAME} width={40} height={40} />

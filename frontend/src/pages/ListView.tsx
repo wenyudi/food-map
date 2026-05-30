@@ -48,15 +48,55 @@ interface Props {
   focusPoiId?: string | null
   onPickStore?: (poiId: string) => void
   onJumpToAdd?: () => void
+  myUsername?: string
 }
 
-export default function ListView({ refreshKey, focusPoiId, onPickStore, onJumpToAdd }: Props) {
+// 把一家店 + 最新一笔整理成可分享的文字
+function buildShareText(p: Point): string {
+  const lines: string[] = [`📍「${p.name}」`]
+  const meta = [p.business_area, cleanTag(p.tag), p.cost && `人均¥${p.cost}`].filter(Boolean).join(' · ')
+  if (meta) lines.push(meta)
+  const lastVisit = [...p.visits].sort((a, b) => a.date.localeCompare(b.date)).slice(-1)[0]
+  if (lastVisit) {
+    const bits = [lastVisit.mood_emoji, lastVisit.feeling].filter(Boolean).join(' ')
+    lines.push(bits || '我记过一笔')
+  } else if (p.wish?.reason) {
+    lines.push(`想去：${p.wish.reason}`)
+  }
+  lines.push('—— 来自我的美食地图')
+  return lines.join('\n')
+}
+
+export default function ListView({ refreshKey, focusPoiId, onPickStore, onJumpToAdd, myUsername }: Props) {
   const [points, setPoints] = useState<Point[]>([])
   const [loading, setLoading] = useState(true)
   const [filter, setFilter] = useState<FilterKey>('all')
   const [flashId, setFlashId] = useState<string | null>(null)
   const [editing, setEditing] = useState<EditTarget | null>(null)
   const [askOpen, setAskOpen] = useState(false)
+  const [toast, setToast] = useState<string | null>(null)
+
+  // 圈子里是否有多个记录者 → 决定要不要显示"谁写的"
+  const multiAuthor = useMemo(() => {
+    const set = new Set<string>()
+    points.forEach(p => {
+      p.visits.forEach(v => v.recorded_by && set.add(v.recorded_by))
+      if (p.wish?.recorded_by) set.add(p.wish.recorded_by)
+    })
+    return set.size > 1
+  }, [points])
+
+  async function shareStore(p: Point) {
+    const text = buildShareText(p)
+    try {
+      if (navigator.share) await navigator.share({ title: p.name, text })
+      else {
+        await navigator.clipboard.writeText(text)
+        setToast('已复制，粘贴给朋友吧 📋')
+        setTimeout(() => setToast(null), 1800)
+      }
+    } catch { /* 用户取消，忽略 */ }
+  }
   const cardRefs = useRef<Record<string, HTMLDivElement | null>>({})
 
   const load = useCallback(() => {
@@ -155,6 +195,9 @@ export default function ListView({ refreshKey, focusPoiId, onPickStore, onJumpTo
             cardRef={(el) => { cardRefs.current[p.poi_id] = el }}
             onClick={() => onPickStore?.(p.poi_id)}
             onEdit={setEditing}
+            onShare={() => shareStore(p)}
+            showAuthor={multiAuthor}
+            myUsername={myUsername}
           />
         ))}
       </div>
@@ -170,6 +213,7 @@ export default function ListView({ refreshKey, focusPoiId, onPickStore, onJumpTo
       )}
 
       {askOpen && <AskSheet onClose={() => setAskOpen(false)} />}
+      {toast && <div className="toast">{toast}</div>}
     </div>
   )
 }
@@ -256,13 +300,16 @@ function Chip({ active, onClick, children }: { active: boolean; onClick: () => v
   )
 }
 
-function StoreCard({ point, status, flashing, cardRef, onClick, onEdit, index }: {
+function StoreCard({ point, status, flashing, cardRef, onClick, onEdit, onShare, showAuthor, myUsername, index }: {
   point: Point
   status: StoreStatus
   flashing: boolean
   cardRef: (el: HTMLDivElement | null) => void
   onClick?: () => void
   onEdit: (t: EditTarget) => void
+  onShare: () => void
+  showAuthor: boolean
+  myUsername?: string
   index: number
 }) {
   const timeline = buildTimeline(point)
@@ -304,19 +351,31 @@ function StoreCard({ point, status, flashing, cardRef, onClick, onEdit, index }:
             event={e}
             isLast={i === timeline.length - 1}
             onEdit={() => onEdit({ kind: e.type, data: e.data, storeName: point.name })}
+            showAuthor={showAuthor}
+            myUsername={myUsername}
           />
         ))}
       </div>
 
-      <div className="store-card-foot">{hasCoords ? '看在地图上 →' : '📍 未定位'}</div>
+      <div className="store-card-foot">
+        <span className="scf-hint">{hasCoords ? '看在地图上 →' : '📍 未定位'}</span>
+        <button className="card-share" onClick={(e) => { e.stopPropagation(); onShare() }}>↗ 分享</button>
+      </div>
     </div>
   )
 }
 
-function TimelineRow({ event, isLast, onEdit }: { event: TimelineEvent; isLast: boolean; onEdit: () => void }) {
+function TimelineRow({ event, isLast, onEdit, showAuthor, myUsername }: {
+  event: TimelineEvent; isLast: boolean; onEdit: () => void
+  showAuthor: boolean; myUsername?: string
+}) {
   const editBtn = (
     <button className="tl-edit" onClick={e => { e.stopPropagation(); onEdit() }} aria-label="编辑">✏️</button>
   )
+  const by = event.data.recorded_by
+  const authorTag = showAuthor && by
+    ? <span className="tl-by">{by === myUsername ? '你记的' : `${by} 记的`}</span>
+    : null
   if (event.type === 'wish') {
     const w = event.data
     return (
@@ -329,6 +388,7 @@ function TimelineRow({ event, isLast, onEdit }: { event: TimelineEvent; isLast: 
           <div className="tl-date">
             {prettyDate(w.created_at)} · {w.source}种草
             {w.status === 'visited' && <span className="tl-pill">已兑现</span>}
+            {authorTag}
           </div>
           {w.reason && <div className="tl-content">{w.reason}</div>}
         </div>
@@ -349,6 +409,7 @@ function TimelineRow({ event, isLast, onEdit }: { event: TimelineEvent; isLast: 
           {prettyDate(v.date)} {v.meal_period}
           {v.wish_id && <span className="tl-pill warm">兑现 ✨</span>}
           {!!v.want_again && <span className="tl-star">⭐</span>}
+          {authorTag}
         </div>
         <div className="tl-info">
           {v.companions} · ¥{v.per_person}/人

@@ -270,6 +270,28 @@ def revert_wish_to_want(wish_id: str) -> None:
         )
 
 
+def reset_my_records(username: str, circle_id: Optional[int] = None) -> dict:
+    """清空某用户在本圈子记的所有 visits + wishes（同伴的保留）。
+    若他的访问曾兑现过种草（可能是同伴的），先把那些种草退回「想去」。"""
+    with _conn() as c:
+        my_visit_ids = [r["visit_id"] for r in c.execute(
+            "SELECT visit_id FROM visits WHERE recorded_by=? AND circle_id=?",
+            (username, circle_id),
+        ).fetchall()]
+        if my_visit_ids:
+            qs = ",".join("?" * len(my_visit_ids))
+            c.execute(
+                f"UPDATE wishes SET status='want', visited_at='', visit_id='' "
+                f"WHERE visit_id IN ({qs}) AND circle_id=?",
+                (*my_visit_ids, circle_id),
+            )
+        v = c.execute("DELETE FROM visits WHERE recorded_by=? AND circle_id=?",
+                      (username, circle_id)).rowcount
+        w = c.execute("DELETE FROM wishes WHERE recorded_by=? AND circle_id=?",
+                      (username, circle_id)).rowcount
+        return {"visits": v, "wishes": w}
+
+
 # ---------- 单条 visit / wish 的增改删（编辑/删除记录用） ----------
 
 _VISIT_EDITABLE = {

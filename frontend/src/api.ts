@@ -97,6 +97,7 @@ export interface Visit {
   wish_id: string
   my_photos: string  // | 分隔的 URL
   created_at: string
+  recorded_by?: string
   store_name?: string
   store_tag?: string
   business_area?: string
@@ -116,6 +117,7 @@ export interface Wish {
   business_area?: string
   lng?: number
   lat?: number
+  recorded_by?: string
 }
 
 export interface Point {
@@ -164,6 +166,10 @@ export const getPoints = () => api.get<Point[]>('/points').then(r => r.data)
 export const getRecent = (limit = 20) => api.get<Visit[]>('/recent', { params: { limit } }).then(r => r.data)
 export const getWishes = () => api.get<Wish[]>('/wishes').then(r => r.data)
 export const getStats = () => api.get<Stats>('/stats').then(r => r.data)
+
+// 只清空"我"记录的数据（同伴的保留）
+export const resetMine = () =>
+  api.post<{ ok: boolean; visits: number; wishes: number }>('/reset-mine').then(r => r.data)
 
 export const search = (keywords: string, region = '重庆', location?: string) =>
   api.post<any[]>('/search', { keywords, region, location }).then(r => r.data)

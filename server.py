@@ -318,6 +318,15 @@ def get_stats(user: dict = Depends(current_user)):
     return db.stats(user["circle_id"])
 
 
+@app.post("/api/reset-mine")
+def reset_mine(user: dict = Depends(current_user)):
+    """清空"我"在本圈子记的所有记录（吃过 + 想去），同伴的保留。"""
+    res = db.reset_my_records(user["username"], user["circle_id"])
+    for k in [k for k in _story_cache if k.startswith(f"{user['circle_id']}:")]:
+        _story_cache.pop(k, None)   # 当月回忆缓存失效
+    return {"ok": True, **res}
+
+
 # ---------- 写入接口 ----------
 
 @app.post("/api/search")

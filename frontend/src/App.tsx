@@ -76,6 +76,7 @@ export default function App() {
             focusPoiId={focusPoiId}
             onPickStore={(id) => jumpTo('map', id)}
             onJumpToAdd={() => setTab('add')}
+            myUsername={me.username}
           />
         )}
         {tab === 'account' && (

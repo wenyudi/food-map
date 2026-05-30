@@ -1563,10 +1563,50 @@ button.primary:disabled {
   margin-top: 10px;
   padding-top: 10px;
   border-top: 1px dashed var(--border);
-  text-align: right;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
   font-size: 11px;
   color: var(--text-light);
   letter-spacing: 0.3px;
+}
+.scf-hint { flex: 1; }
+.card-share {
+  flex-shrink: 0;
+  border: none; background: var(--bg-soft); color: var(--primary-deep);
+  font-size: 11px; font-weight: 700; padding: 5px 12px; border-radius: var(--r-pill);
+  transition: transform 0.1s, background 0.15s;
+}
+.card-share:active { transform: scale(0.94); background: var(--primary-soft); }
+
+/* 时间线里"谁写的"小标签 */
+.tl-by {
+  font-size: 10px; font-weight: 600;
+  color: var(--text-light); background: var(--bg-soft);
+  padding: 1px 7px; border-radius: var(--r-pill);
+}
+
+/* 账户页"清空我的数据"低调入口 */
+.acc-danger { margin-top: 18px; text-align: center; }
+.acc-danger-link {
+  background: none; border: none; color: var(--text-light);
+  font-size: 12px; text-decoration: underline; text-underline-offset: 3px; padding: 6px;
+}
+.acc-danger-link:active { color: #d44d2f; }
+.acc-danger .logout-confirm { text-align: left; margin-top: 8px; }
+
+/* 轻提示 toast */
+.toast {
+  position: fixed; left: 50%; bottom: calc(env(safe-area-inset-bottom) + 84px);
+  transform: translateX(-50%);
+  background: rgba(61, 43, 26, 0.92); color: #fff;
+  font-size: 13px; font-weight: 600; padding: 10px 18px; border-radius: var(--r-pill);
+  z-index: 1300; box-shadow: var(--shadow-lg);
+  animation: toast-in 0.25s ease-out;
+}
+@keyframes toast-in {
+  from { opacity: 0; transform: translateX(-50%) translateY(8px); }
+  to   { opacity: 1; transform: translateX(-50%) translateY(0); }
 }
 
 /* popup 内的用户照片 */
