@@ -2187,6 +2187,28 @@ button.primary:disabled {
   background: var(--primary); color: #fff; border-color: var(--primary);
 }
 
+/* 确认页：内容区滚动 + 提交按钮吸底悬浮（毛玻璃），表单再长也点得到 */
+.page.add-confirm {
+  display: flex;
+  flex-direction: column;
+  padding: 0;
+  overflow: hidden;
+}
+.confirm-scroll {
+  flex: 1;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  padding: 24px 20px 14px;
+}
+.confirm-footer {
+  padding: 12px 20px;   /* Tab 栏在下方、已含安全区，这里不再叠加 */
+  background: rgba(252, 246, 237, 0.86);
+  backdrop-filter: blur(16px) saturate(1.4);
+  -webkit-backdrop-filter: blur(16px) saturate(1.4);
+  border-top: 1px solid rgba(240, 224, 200, 0.7);
+}
+.confirm-footer .primary { margin-top: 0; }
+
 /* 账户页底部品牌落款（暖化、强化品牌） */
 .acc-brand {
   text-align: center;

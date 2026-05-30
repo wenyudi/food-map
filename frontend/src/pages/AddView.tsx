@@ -296,6 +296,8 @@ export default function AddView({ onSubmitted }: Props) {
           </div>
         </div>
       )}
+
+      <div className="confirm-scroll">
       <div className="step-head">
         <button className="step-back" onClick={() => setStep('pick')} aria-label="改店">←</button>
         <div className="step-head-text">
@@ -397,7 +399,9 @@ export default function AddView({ onSubmitted }: Props) {
       )}
 
       {error && <div className="add-error">{error}</div>}
-      <div className="step-actions">
+      </div>
+
+      <div className="confirm-footer">
         <button className="primary" disabled={busy} onClick={handleSubmit}>
           {busy ? '提交中…' : isVisit ? '✓ 存进地图' : '✓ 收藏想去'}
         </button>
