@@ -111,35 +111,6 @@ export default function AddView({ onSubmitted }: Props) {
     }
   }
 
-  // 「自己填」：跳过 AI，直接拿输入框文字当店名去高德搜
-  async function handleManual() {
-    const kw = text.trim()
-    if (!kw) { setError('先在上面输入框写下店名，再点这里直接搜'); return }
-    setBusy(true)
-    setError(null)
-    try {
-      if (city.trim()) localStorage.setItem(LS_CITY, city.trim())
-      const locStr = myLocation ? `${myLocation.lng},${myLocation.lat}` : undefined
-      const ps = await search(kw, city, locStr)
-      setPois(ps)
-      if (ps.length > 0) setSelectedPoi(ps[0])
-      // 合成一个最简 parsed，剩下的字段确认页手动填
-      setParsed({ intent: 'visit', store_hint: kw, date: null, meal_period: null,
-        companions: null, amount: null, people_count: null, feeling: null,
-        mood_emoji: null, want_again: null, source: null, reason: null })
-      setIntent('visit')
-      setAmount(''); setPeople('2'); setEmoji('🤤'); setWantAgain(true)
-      setFeeling(''); setCompanions(localStorage.getItem(LS_COMPANIONS) || '')
-      setSource('小红书'); setReason('')
-      setDate(new Date().toISOString().slice(0, 10)); setMeal(guessMealPeriod())
-      setStep('pick')
-    } catch (e: any) {
-      setError('搜索失败：' + (e?.response?.data?.detail || e?.message || e))
-    } finally {
-      setBusy(false)
-    }
-  }
-
   // 高德查无此店 → 用当前定位建一个「手动店」（poi_id 以 m_ 开头）
   function addManualStore() {
     const name = (parsed?.store_hint || text || '').trim() || '未命名小店'
@@ -243,9 +214,6 @@ export default function AddView({ onSubmitted }: Props) {
         {error && <div className="add-error">{error}</div>}
         <button className="primary" disabled={busy || !text.trim()} onClick={handleParse}>
           {busy ? '解析中…' : '✨ 让 AI 解析'}
-        </button>
-        <button className="ghost-btn" disabled={busy} onClick={handleManual}>
-          ✍️ 知道吃哪家？直接搜店名自己填
         </button>
       </div>
     )

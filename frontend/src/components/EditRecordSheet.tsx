@@ -25,6 +25,10 @@ export default function EditRecordSheet({ kind, data, storeName, onClose, onChan
   const [confirmDel, setConfirmDel] = useState(false)
 
   // visit 字段
+  const [date, setDate] = useState<string>(data.date || '')
+  const [meal, setMeal] = useState<'早' | '中' | '晚'>(
+    ['早', '中', '晚'].includes(data.meal_period) ? data.meal_period : '中'
+  )
   const [amount, setAmount] = useState(String(data.amount ?? ''))
   const [people, setPeople] = useState(String(data.people_count ?? '2'))
   const [emoji, setEmoji] = useState<Mood>(data.mood_emoji || '🤤')
@@ -41,6 +45,8 @@ export default function EditRecordSheet({ kind, data, storeName, onClose, onChan
     try {
       if (kind === 'visit') {
         await updateVisit(data.visit_id, {
+          date: date || data.date,
+          meal_period: meal,
           amount: Number(amount) || 0,
           people_count: Number(people) || 1,
           mood_emoji: emoji,
@@ -79,6 +85,17 @@ export default function EditRecordSheet({ kind, data, storeName, onClose, onChan
 
         {kind === 'visit' ? (
           <>
+            <div className="form-row">
+              <label>时间</label>
+              <div className="datetime-row">
+                <input type="date" value={date} onChange={e => setDate(e.target.value)} />
+                <div className="meal-toggle">
+                  {(['早', '中', '晚'] as const).map(m => (
+                    <button key={m} className={meal === m ? 'selected' : ''} onClick={() => setMeal(m)}>{m}</button>
+                  ))}
+                </div>
+              </div>
+            </div>
             <div className="form-row">
               <label>金额 ¥</label>
               <input type="number" inputMode="numeric" value={amount} onChange={e => setAmount(e.target.value)} />
