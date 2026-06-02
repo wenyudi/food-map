@@ -185,7 +185,10 @@ export default function MapView({ refreshKey, focusPoiId, onConsumeFocus, onJump
       )}
 
       {!loading && points.length > 0 && (
-        <button className="suggest-btn" onClick={() => setSuggestOpen(true)}>🍽️ 今天吃啥</button>
+        <button className="suggest-btn" onClick={() => setSuggestOpen(true)}>
+          <svg viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path d="M10 0 L12 8 L20 10 L12 12 L10 20 L8 12 L0 10 L8 8 Z" /></svg>
+          今天吃啥
+        </button>
       )}
 
       {!loading && mapAreas.length > 0 && (
@@ -193,7 +196,15 @@ export default function MapView({ refreshKey, focusPoiId, onConsumeFocus, onJump
           className={'area-toggle' + (areaMode ? ' on' : '')}
           onClick={() => (areaMode ? setAreaMode(false) : enterAreaMode())}
           title="片区版图"
-        >{areaMode ? '✕' : '🏆'}</button>
+        >{areaMode ? '✕' : (
+          <svg viewBox="0 0 24 24" fill="none" stroke="#3d2b1a" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+            <path d="M7 5h10v5a5 5 0 0 1-10 0z" fill="#ffc857" />
+            <path d="M7 6H4v1.5A3.5 3.5 0 0 0 7.5 11" />
+            <path d="M17 6h3v1.5A3.5 3.5 0 0 1 16.5 11" />
+            <path d="M12 15v2.5" />
+            <path d="M8.5 21h7l-.6-3.5h-5.8z" fill="#ffc857" />
+          </svg>
+        )}</button>
       )}
 
       {suggestOpen && (
@@ -373,7 +384,13 @@ function HereButton() {
       onClick={handleClick}
       title="定位到我的位置"
     >
-      {busy ? '…' : '📍'}
+      {busy ? '…' : (
+        <svg viewBox="0 0 24 24" fill="none" stroke="#ef6c4f" strokeWidth="2.2" strokeLinecap="round" aria-hidden="true">
+          <circle cx="12" cy="12" r="5.5" />
+          <circle cx="12" cy="12" r="1.6" fill="#ef6c4f" stroke="none" />
+          <path d="M12 2.5v3" /><path d="M12 18.5v3" /><path d="M2.5 12h3" /><path d="M18.5 12h3" />
+        </svg>
+      )}
     </button>
   )
 }

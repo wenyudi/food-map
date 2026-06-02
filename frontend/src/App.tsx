@@ -85,16 +85,33 @@ export default function App() {
       </div>
       <nav className="tabs">
         <button onClick={() => setTab('map')} className={tab === 'map' ? 'active' : ''}>
-          🗺️<span>地图</span>
-        </button>
-        <button onClick={() => setTab('add')} className={tab === 'add' ? 'active' : ''}>
-          ✏️<span>记一笔</span>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinejoin="round">
+            <path d="M9 3 3 5.2V21l6-2.2 6 2.2 6-2.2V3l-6 2.2L9 3z" />
+            <path d="M9 3.2v15.6M15 5.2v15.6" strokeWidth="1.5" />
+          </svg>
+          <span>地图</span>
         </button>
         <button onClick={() => setTab('list')} className={tab === 'list' ? 'active' : ''}>
-          📋<span>列表</span>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+            <circle cx="5" cy="6.5" r="1.7" fill="currentColor" stroke="none" /><path d="M10 6.5h10" />
+            <circle cx="5" cy="12" r="1.7" fill="currentColor" stroke="none" /><path d="M10 12h10" />
+            <circle cx="5" cy="17.5" r="1.7" fill="currentColor" stroke="none" /><path d="M10 17.5h10" />
+          </svg>
+          <span>列表</span>
+        </button>
+        <button onClick={() => setTab('add')} className={'tab-add' + (tab === 'add' ? ' active' : '')}>
+          <span className="tab-add-circle">
+            <svg viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M4 20h4L19 9l-4-4L4 16z" /><path d="M14 6l4 4" />
+            </svg>
+          </span>
+          <span>记一笔</span>
         </button>
         <button onClick={() => setTab('account')} className={tab === 'account' ? 'active' : ''}>
-          👤<span>我的</span>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <circle cx="12" cy="8" r="3.6" /><path d="M5 20c0-4 3.2-6.5 7-6.5s7 2.5 7 6.5" />
+          </svg>
+          <span>我的</span>
         </button>
       </nav>
 
