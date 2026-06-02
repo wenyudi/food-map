@@ -2669,3 +2669,137 @@ button.primary:disabled {
   .meal-toggle button.selected, .chip.active,
   .store-card.flashing::after { animation: none !important; }
 }
+
+/* ============================================================
+   鲜活波普 · 贴纸皮肤（暖橙 + 墨棕硬描边 + 圆胖快乐体）
+   只重塑外观、不改结构；token 与既有暖色板同源，故仅作覆盖层
+   ============================================================ */
+:root {
+  --ink: var(--text);                  /* 墨棕描边色 = #3d2b1a */
+  --sh-st1: 2px 2px 0 var(--ink);      /* 小磁贴硬投影 */
+  --sh-st2: 3px 3px 0 var(--ink);      /* 中磁贴 */
+  --sh-st3: 4px 4px 0 var(--ink);      /* 大磁贴 / 主按钮 */
+  --font-display: 'ZCOOL KuaiLe', 'PingFang SC', 'Microsoft YaHei', sans-serif;
+  --font-num: 'Fredoka', system-ui, sans-serif;
+}
+
+/* 大标题统一圆胖快乐体（快乐体仅 400 一档，避免 faux-bold） */
+.page h2, .sheet-title, .map-empty-title, .login-card h1,
+.mr-big, .as-title, .add-hero h1 {
+  font-family: var(--font-display);
+  font-weight: 400;
+  letter-spacing: 0.5px;
+}
+
+/* 顶部战绩 → 磁贴化（每格独立贴纸 + 超大 Fredoka 数字） */
+.map-stat-bar {
+  background: transparent !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+  border: none !important;
+  box-shadow: none !important;
+  border-radius: 0;
+  padding: 0;
+  gap: 9px;
+}
+.map-stat-bar > span {
+  background: var(--bg-card);
+  border: 2px solid var(--ink);
+  border-radius: 16px;
+  box-shadow: var(--sh-st2);
+  padding: 10px 4px 8px;
+  gap: 1px;
+}
+.map-stat-bar > span + span::before { display: none; }   /* 去掉分隔竖线 */
+.map-stat-bar .stat-ico { display: none; }                /* 去掉小图标，留干净磁贴 */
+.map-stat-bar b {
+  font-family: var(--font-num);
+  font-size: 23px;
+  font-weight: 700;
+  background: none;
+  -webkit-text-fill-color: currentColor;                  /* 取消上一层的渐变文字裁切 */
+  color: var(--primary);
+}
+.map-stat-bar > span:nth-child(2) b { color: var(--primary-deep); }
+.map-stat-bar > span:nth-child(3) b { color: #e0a100; }
+.map-stat-bar > span:nth-child(4) b { color: #15b886; }
+.map-stat-bar small { color: var(--text-soft); font-weight: 600; }
+
+/* 地图 marker → 白圆 + 墨棕描边 + 心情色内环 + 硬投影 */
+.marker-dot {
+  background: #fff;
+  border: 2.5px solid var(--ink);
+  box-shadow: var(--sh-st1), inset 0 0 0 3px var(--ring, var(--primary));
+}
+.marker-dot.want {
+  border: 2.5px dashed var(--pink);
+  box-shadow: var(--sh-st1);
+  animation: marker-pop 0.32s ease-out backwards !important;   /* 去呼吸光晕，保硬投影 */
+}
+.marker-dot.manual {
+  border-style: dashed !important;
+  box-shadow: var(--sh-st1) !important;
+}
+
+/* 今天吃啥 CTA → 橙色贴纸药丸 */
+.suggest-btn {
+  background: var(--primary) !important;
+  border: 2.5px solid var(--ink);
+  box-shadow: var(--sh-st3) !important;
+  font-family: var(--font-display);
+  font-weight: 400;
+  letter-spacing: 0.5px;
+  animation: none !important;                              /* 去掉发光脉冲（会改 box-shadow） */
+}
+
+/* 圆形悬浮钮（定位 / 片区）→ 圆磁贴 */
+.here-btn, .area-toggle {
+  background: var(--bg-card);
+  border: 2.5px solid var(--ink);
+  box-shadow: var(--sh-st2);
+}
+.area-toggle.on { background: var(--primary); color: #fff; box-shadow: var(--sh-st2); }
+
+/* 片区徽章 → 墨棕描边 + 硬投影 */
+.area-chip { border: 2px solid var(--ink); box-shadow: var(--sh-st2); }
+
+/* 底部 tab → 贴纸长条，墨棕上沿，激活转暖橙软底 */
+.tabs {
+  background: var(--bg-card);
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+  border-top: 2px solid var(--ink);
+  gap: 2px;
+}
+.tabs button { color: var(--text-soft); }
+.tabs button span { font-weight: 700; }
+.tabs button.active {
+  background: var(--primary-soft);
+  color: var(--primary);
+  box-shadow: none;
+  transform: none;
+}
+.tabs button.active span { color: var(--primary-deep); }
+
+/* 登录页 → 贴纸化（第一屏即可见新皮肤，无需登录） */
+.login-card { border: 2.5px solid var(--ink); box-shadow: var(--sh-st3); }
+.brand-badge { border: 2.5px solid var(--ink); box-shadow: var(--sh-st2); }
+.login-title { font-family: var(--font-display); font-weight: 400; letter-spacing: 0; }
+.login-tabs { border: 2px solid var(--ink); }
+.login-tabs button.active { background: var(--primary); color: #fff; box-shadow: none; }
+.login-card input {
+  border: 2px solid var(--ink);
+  border-radius: 14px;
+  background: var(--bg-card);
+}
+.login-card form button {
+  background: var(--primary);
+  border: 2.5px solid var(--ink);
+  border-radius: 16px;
+  box-shadow: var(--sh-st2);
+  font-family: var(--font-display);
+  font-weight: 400;
+  letter-spacing: 1px;
+}
+.login-card form button:active { transform: translate(1px, 1px); box-shadow: var(--sh-st1); }
+.login-card form button:disabled { background: var(--text-light); border-color: var(--text-light); box-shadow: none; }
