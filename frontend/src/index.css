@@ -2803,3 +2803,97 @@ button.primary:disabled {
 }
 .login-card form button:active { transform: translate(1px, 1px); box-shadow: var(--sh-st1); }
 .login-card form button:disabled { background: var(--text-light); border-color: var(--text-light); box-shadow: none; }
+
+/* ============================================================
+   贴纸皮肤 · 全屏（列表 / 记一笔 / 我的 / 弹层 全部上贴纸）
+   ============================================================ */
+
+/* —— 通用按钮 —— */
+.primary {
+  background: var(--primary) !important;
+  border: 2.5px solid var(--ink) !important;
+  box-shadow: var(--sh-st2) !important;
+  border-radius: 16px;
+  font-family: var(--font-display);
+  font-weight: 400;
+  letter-spacing: 1px;
+  color: #fff;
+}
+.primary:active { transform: translate(1px, 1px); box-shadow: var(--sh-st1) !important; }
+.primary:disabled { background: var(--text-light) !important; border-color: var(--text-light) !important; box-shadow: none !important; }
+.ghost, .ghost-btn, .link-btn.manual-add-btn {
+  border: 2px solid var(--ink) !important;
+  box-shadow: var(--sh-st1);
+  background: var(--bg-card);
+  border-radius: 14px;
+}
+
+/* —— 列表页 —— */
+.store-card { border: 2px solid var(--ink) !important; box-shadow: var(--sh-st3) !important; border-radius: 20px; }
+.store-name { font-family: var(--font-display); font-weight: 400; }
+.list-search, .ask-bar {
+  border: 2px solid var(--ink) !important;
+  box-shadow: var(--sh-st1) !important;
+  border-radius: 999px;
+  background: var(--bg-card) !important;
+}
+.filter-chips button, .filter-chips .chip, .chip {
+  border: 2px solid var(--ink) !important;
+  background: var(--bg-card);
+  box-shadow: none;
+  font-weight: 700;
+}
+.filter-chips button.active, .filter-chips .chip.active, .chip.active {
+  background: var(--primary) !important;
+  color: #fff !important;
+  box-shadow: var(--sh-st1);
+}
+.tl-dot { border: 2.5px solid var(--ink) !important; box-shadow: var(--sh-st1); background: #fff; }
+.tl-pill { border: 1.5px solid var(--ink); font-weight: 700; }
+.tl-photos img { border: 2px solid var(--ink) !important; border-radius: 12px; }
+.monthly-summary {
+  border: 2px solid var(--ink) !important;
+  box-shadow: var(--sh-st3) !important;
+  border-radius: 20px;
+  background: var(--grad-warm-soft) !important;
+}
+.ms-value { font-family: var(--font-num); }
+.partner-news { border: 2px solid var(--ink) !important; box-shadow: var(--sh-st2) !important; border-radius: 16px; }
+.toast { border: 2px solid var(--ink) !important; box-shadow: var(--sh-st2) !important; }
+
+/* —— 记一笔 —— */
+.nearby-card { border: 2px solid var(--ink) !important; box-shadow: var(--sh-st2) !important; border-radius: 18px; }
+.ex-chip { border: 2px solid var(--ink) !important; box-shadow: var(--sh-st1); border-radius: 14px; }
+.poi-card { border: 2px solid var(--ink) !important; box-shadow: var(--sh-st2) !important; border-radius: 16px; }
+.intent-toggle button { border: 2px solid var(--ink) !important; }
+.intent-toggle button.selected { background: var(--primary) !important; color: #fff !important; box-shadow: var(--sh-st1); }
+.meal-toggle button { border: 2px solid var(--ink) !important; }
+.meal-toggle button.selected { background: var(--primary) !important; color: #fff !important; box-shadow: var(--sh-st1); }
+.toggle button { border: 2px solid var(--ink) !important; }
+.toggle button.selected { background: var(--primary) !important; color: #fff !important; box-shadow: var(--sh-st1); }
+.emoji-picker button { border: 2.5px solid var(--ink) !important; box-shadow: var(--sh-st1); }
+.emoji-picker button.selected { border-color: var(--primary) !important; box-shadow: 3px 3px 0 var(--primary) !important; transform: scale(1.07); }
+.confirm-store, .confirm-store-edit > div:first-child { font-family: var(--font-display); font-weight: 400; }
+.celebrate-card { border: 2.5px solid var(--ink) !important; box-shadow: var(--sh-st3) !important; }
+.acc-section-body input, .form-cell input, .form-cell textarea,
+.datetime-row input, .confirm-store-edit input, .add-input textarea {
+  border: 2px solid var(--ink) !important;
+  border-radius: 12px;
+  background: var(--bg-card) !important;
+}
+
+/* —— 我的 —— */
+.acc-card { border: 2.5px solid var(--ink) !important; box-shadow: var(--sh-st3) !important; }
+.acc-avatar { border: 2.5px solid var(--ink); box-shadow: var(--sh-st2); }
+.acc-name { font-family: var(--font-display); font-weight: 400; }
+.acc-section { border: 2px solid var(--ink) !important; box-shadow: var(--sh-st2) !important; }
+.memory-entry { border: 2.5px solid var(--ink) !important; box-shadow: var(--sh-st3) !important; border-radius: 18px; }
+.acc-brand-name { font-family: var(--font-display); font-weight: 400; }
+.logout-btn, .acc-back { border: 2px solid var(--ink) !important; box-shadow: var(--sh-st1); }
+
+/* —— 弹层：今天吃啥 / 片区 / 回忆报告 —— */
+.suggest-pick { border: 2px solid var(--ink) !important; box-shadow: var(--sh-st1) !important; border-radius: 14px; }
+.as-store { border: 1.5px solid var(--ink) !important; }
+.as-bar { border: 2px solid var(--ink); }
+.as-badge, .as-store .as-emoji { border-color: var(--ink) !important; }
+.mr-card { border: 3px solid var(--ink) !important; }
