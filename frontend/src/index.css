@@ -2897,3 +2897,53 @@ button.primary:disabled {
 .as-bar { border: 2px solid var(--ink); }
 .as-badge, .as-store .as-emoji { border-color: var(--ink) !important; }
 .mr-card { border: 3px solid var(--ink) !important; }
+
+/* —— 地图主页 · 品牌标题栏（按理想稿补结构） —— */
+.map-header {
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  z-index: 600;
+  padding: calc(env(safe-area-inset-top) + 8px) 12px 12px;
+  background: var(--bg);
+  border-bottom: 2px solid var(--ink);
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.map-brand-row { display: flex; align-items: center; justify-content: space-between; padding: 0 4px; }
+.map-brand { display: flex; flex-direction: column; gap: 1px; }
+.mb-word {
+  display: flex;
+  font-family: var(--font-display);
+  font-size: 30px;
+  line-height: 32px;
+  color: var(--text);
+  letter-spacing: 0.5px;
+}
+.mb-word .mb-accent { color: var(--primary-deep); }
+.mb-sub { font-size: 12px; color: var(--text-soft); }
+.map-avatar {
+  width: 46px; height: 46px;
+  border-radius: 50%;
+  background: var(--accent);
+  border: 2.5px solid var(--ink);
+  box-shadow: var(--sh-st2);
+  display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0;
+}
+/* 战绩条并入标题栏 → 取消原先的绝对浮动定位 */
+.map-header .map-stat-bar {
+  position: static;
+  top: auto; left: auto; right: auto;
+}
+
+/* —— 列表页 · 顶部标题（按理想稿补） —— */
+.list-header { padding: 2px 2px 14px; }
+.list-title {
+  font-family: var(--font-display);
+  font-size: 28px;
+  line-height: 30px;
+  color: var(--text);
+  letter-spacing: 0.5px;
+}
+.list-sub { font-size: 12.5px; color: var(--text-soft); margin-top: 2px; }

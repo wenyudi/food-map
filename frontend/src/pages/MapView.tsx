@@ -131,18 +131,32 @@ export default function MapView({ refreshKey, focusPoiId, onConsumeFocus, onJump
         <HereButton />
       </MapContainer>
 
-      {stats && <StatBar stats={stats} />}
-
-      {loading && (
-        <div className="map-stat-bar">
-          {[0, 1, 2, 3].map(i => (
-            <span key={i} className="skel-stat">
-              <span className="skel-line" style={{ width: 26, height: 18 }} />
-              <span className="skel-line" style={{ width: 30, height: 9 }} />
-            </span>
-          ))}
+      <div className="map-header">
+        <div className="map-brand-row">
+          <div className="map-brand">
+            <div className="mb-word"><span>吃了</span><span className="mb-accent">么</span></div>
+            <div className="mb-sub">你俩一起点亮的食光地图</div>
+          </div>
+          <div className="map-avatar">
+            <svg width="26" height="26" viewBox="0 0 26 26" fill="none">
+              <circle cx="9.5" cy="10.5" r="1.8" fill="#3d2b1a" />
+              <circle cx="16.5" cy="10.5" r="1.8" fill="#3d2b1a" />
+              <path d="M8 15.5c1.3 1.7 3 2.6 5 2.6s3.7-.9 5-2.6" stroke="#3d2b1a" stroke-width="2.2" stroke-linecap="round" />
+            </svg>
+          </div>
         </div>
-      )}
+        {stats && <StatBar stats={stats} />}
+        {loading && (
+          <div className="map-stat-bar">
+            {[0, 1, 2, 3].map(i => (
+              <span key={i} className="skel-stat">
+                <span className="skel-line" style={{ width: 26, height: 18 }} />
+                <span className="skel-line" style={{ width: 30, height: 9 }} />
+              </span>
+            ))}
+          </div>
+        )}
+      </div>
 
       {!loading && unlocated.length > 0 && (
         <div className="unlocated-tray">

@@ -181,6 +181,11 @@ export default function ListView({ refreshKey, focusPoiId, onPickStore, onJumpTo
 
   return (
     <div className="page list">
+      <div className="list-header">
+        <div className="list-title">食光清单</div>
+        <div className="list-sub">你俩一起吃过的好味道</div>
+      </div>
+
       {partnerNews && (
         <button className="partner-news" onClick={() => markPartnerSeen(partnerNews.latest)}>
           <span className="pn-dot" />
