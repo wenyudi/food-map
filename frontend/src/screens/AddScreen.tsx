@@ -279,7 +279,12 @@ export default function AddScreen({ onSubmitted }: AddScreenProps) {
         </div>
       )}
 
-      <TopBar title="记一笔" subtitle="一句话，记下这一顿" right={<Avatar emoji="😋" />} />
+      <TopBar
+        title="记一笔"
+        subtitle="一句话，记下这一顿"
+        right={<Avatar emoji="😋" />}
+        onBack={parsed ? () => setParsed(null) : undefined}
+      />
 
       <div className="flex-1 min-h-0 overflow-y-auto px-4 pt-4 pb-8">
         {!parsed && <RecordHero />}
