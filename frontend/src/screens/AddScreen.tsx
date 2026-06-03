@@ -63,6 +63,7 @@ export default function AddScreen({ onSubmitted }: AddScreenProps) {
   const [amountSheet, setAmountSheet] = useState(false)
   const [companionsSheet, setCompanionsSheet] = useState(false)
   const [timeSheet, setTimeSheet] = useState(false)
+  const [feelingSheet, setFeelingSheet] = useState(false)
 
   useEffect(() => {
     getMyLocation().then((loc) => {
@@ -418,6 +419,14 @@ export default function AddScreen({ onSubmitted }: AddScreenProps) {
               {isVisit && (
                 <>
                   <button
+                    onClick={() => setWantAgain((a) => !a)}
+                    className={`px-3 py-1.5 rounded-full border-2 border-on-surface text-sm font-bold shadow-sticker-sm press-sm ${
+                      wantAgain ? 'bg-primary text-white' : 'bg-white text-on-surface-variant'
+                    }`}
+                  >
+                    {wantAgain ? '❤️ 还想来' : '🤍 还想来'}
+                  </button>
+                  <button
                     onClick={() => setTimeSheet(true)}
                     className="px-3 py-1.5 rounded-full border-2 border-on-surface bg-primary text-white text-sm font-bold shadow-sticker-sm press-sm"
                   >
@@ -434,6 +443,12 @@ export default function AddScreen({ onSubmitted }: AddScreenProps) {
                     className="px-3 py-1.5 rounded-full border-2 border-on-surface bg-white text-on-surface text-sm font-bold shadow-sticker-sm press-sm"
                   >
                     👥 {companions || '和谁'} · {people}人
+                  </button>
+                  <button
+                    onClick={() => setFeelingSheet(true)}
+                    className="px-3 py-1.5 rounded-full border-2 border-on-surface bg-white text-on-surface text-sm font-bold shadow-sticker-sm press-sm max-w-[220px] truncate"
+                  >
+                    💬 {feeling || '加点评'}
                   </button>
                 </>
               )}
@@ -477,20 +492,6 @@ export default function AddScreen({ onSubmitted }: AddScreenProps) {
                       </button>
                     ))}
                   </div>
-                </div>
-
-                <div className="sticker p-3 flex items-center justify-between">
-                  <span className="font-bold">
-                    下次还想来 <span className="text-primary">❤️</span>
-                  </span>
-                  <button
-                    onClick={() => setWantAgain((a) => !a)}
-                    className={`w-14 h-8 rounded-full border-2 border-on-surface flex items-center px-0.5 transition-all ${
-                      wantAgain ? 'bg-primary justify-end' : 'bg-white justify-start'
-                    }`}
-                  >
-                    <span className="w-6 h-6 rounded-full bg-white border-2 border-on-surface" />
-                  </button>
                 </div>
 
                 <div>
@@ -647,6 +648,26 @@ export default function AddScreen({ onSubmitted }: AddScreenProps) {
             </div>
           </div>
           <StickerButton full className="mt-4" onClick={() => setTimeSheet(false)}>
+            好了
+          </StickerButton>
+        </SheetShell>
+      )}
+
+      {/* 点评 sheet（把你的原话做成可改标签） */}
+      {feelingSheet && (
+        <SheetShell onClose={() => setFeelingSheet(false)}>
+          <h3 className="font-headline text-xl mb-3">💬 加点评</h3>
+          <div className="sticker p-3">
+            <textarea
+              value={feeling}
+              onChange={(e) => setFeeling(e.target.value)}
+              rows={3}
+              autoFocus
+              placeholder="好吃在哪？想说点啥…"
+              className="w-full bg-transparent outline-none resize-none font-body text-on-surface placeholder:text-on-surface-variant/60"
+            />
+          </div>
+          <StickerButton full className="mt-4" onClick={() => setFeelingSheet(false)}>
             好了
           </StickerButton>
         </SheetShell>
