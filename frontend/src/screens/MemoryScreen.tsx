@@ -10,12 +10,19 @@ type MemoryScreenProps = Readonly<{
   onClose: () => void
 }>
 
-function Stat({ value, decimals = 0 }: { value: number; decimals?: number }) {
+function Num({ value }: { value: number }) {
   const v = useCountUp(value)
-  return <>{decimals ? v.toFixed(decimals) : Math.round(v)}</>
+  return <span className="font-num">{Math.round(v)}</span>
 }
 
-type Card = { theme: string; emoji: string; big: ReactNode; small: ReactNode }
+// 每张卡：白圆徽章 emoji + 小标签(白) + 大数值(深) + 详情(白药丸) + 可选彩色 pill
+type Card = {
+  emoji: string
+  label?: ReactNode
+  value: ReactNode
+  detail?: ReactNode
+  pills?: { text: string; tone: 'gold' | 'pink' }[]
+}
 
 function buildCards(points: Point[]): Card[] {
   const visits = points.flatMap((p) => p.visits.map((v) => ({ v, p })))
@@ -60,119 +67,103 @@ function buildCards(points: Point[]): Card[] {
   const range = dates.length ? (fmt(dates[0]) === fmt(dates[dates.length - 1]) ? fmt(dates[0]) : `${fmt(dates[0])} – ${fmt(dates[dates.length - 1])}`) : ''
 
   const cards: Card[] = []
-  cards.push({ theme: 'cover', emoji: '🍜', big: <>我们的<br />美食回忆</>, small: range })
+  cards.push({ emoji: '🍜', value: <>我们的<br />美食回忆</>, detail: range || '一起点亮的食光' })
   cards.push({
-    theme: 'sum',
     emoji: '🥢',
-    big: (
+    label: '一起吃过',
+    value: (
       <>
-        一起吃过
-        <br />
-        <span className="font-num text-7xl">
-          <Stat value={totalVisits} />
-        </span>{' '}
-        顿饭
+        <Num value={totalVisits} /> 顿饭
       </>
     ),
-    small: (
+    detail: (
       <>
-        走进 {totalStores} 家店 · 花了 ¥{Math.round(totalAmount)}
+        走进 {totalStores} 家店 · 一起花了 ¥{Math.round(totalAmount)}
       </>
     ),
+    pills: [
+      { text: '⭐ 每次都解馋', tone: 'gold' },
+      { text: '❤️ 想吃一辈子', tone: 'pink' },
+    ],
   })
   if (mostVisited && mostVisited.visit_count >= 2) {
     cards.push({
-      theme: 'fav',
       emoji: '❤️',
-      big: <>最爱的一家<br />「{mostVisited.name}」</>,
-      small: (
+      label: '最爱的一家',
+      value: <>「{mostVisited.name}」</>,
+      detail: (
         <>
-          一去再去，<Stat value={mostVisited.visit_count} /> 次
+          一去再去 <Num value={mostVisited.visit_count} /> 次
         </>
       ),
     })
   }
   if (priciest) {
     cards.push({
-      theme: 'pricey',
       emoji: '💸',
-      big: <>最奢侈的一顿<br />「{priciest.p.name}」</>,
-      small: (
+      label: '最奢侈的一顿',
+      value: <>「{priciest.p.name}」</>,
+      detail: (
         <>
-          人均 ¥<Stat value={Number(priciest.v.per_person)} />
+          人均 ¥<Num value={Number(priciest.v.per_person)} />
         </>
       ),
     })
   }
   if (topCuisines.length || topFlavors.length) {
     cards.push({
-      theme: 'taste',
       emoji: '😋',
-      big: <>你们的口味</>,
-      small: (
-        <>
-          {topCuisines.length ? (
-            <>
-              常吃 <b>{topCuisines.join(' / ')}</b>
-            </>
-          ) : null}
-          {topCuisines.length && topFlavors.length ? <br /> : null}
-          {topFlavors.length ? (
-            <>
-              偏爱 <b>{topFlavors.join(' / ')}</b>
-            </>
-          ) : null}
-        </>
-      ),
+      label: '你们的口味',
+      value: topCuisines.length ? <>{topCuisines.join(' / ')}</> : <>百味皆尝</>,
+      detail: topFlavors.length ? <>偏爱 {topFlavors.join(' / ')}</> : <>什么都爱试试</>,
     })
   }
   if (topOcc && topOcc[1] >= 2) {
     cards.push({
-      theme: 'occ',
       emoji: '💞',
-      big: <>最多是<br />「{topOcc[0]}」饭</>,
-      small: (
+      label: '最多是',
+      value: <>「{topOcc[0]}」饭</>,
+      detail: (
         <>
-          一起吃了 <Stat value={topOcc[1]} /> 顿
+          一起吃了 <Num value={topOcc[1]} /> 顿
         </>
       ),
     })
   }
   if (fulfilled > 0 || openWishes > 0) {
     cards.push({
-      theme: 'wish',
       emoji: '✨',
-      big: (
+      label: '种草兑现',
+      value: (
         <>
-          种草兑现
-          <br />
-          <Stat value={fulfilled} /> 家
+          <Num value={fulfilled} /> 家
         </>
       ),
-      small: openWishes > 0 ? <>还有 {openWishes} 家在清单上等你们</> : <>清单都清空了，厉害！</>,
+      detail: openWishes > 0 ? <>还有 {openWishes} 家在清单上等你们</> : <>清单都清空了，厉害！</>,
     })
   }
-  cards.push({ theme: 'end', emoji: '🗺️', big: <>故事还在继续</>, small: '继续点亮你们的美食地图' })
+  cards.push({ emoji: '🗺️', value: <>故事还在继续</>, detail: '继续点亮你们的美食地图' })
   return cards
 }
 
-/** 美食回忆报告：全屏可滑动卡片（暖橙渐变） */
+/** 美食回忆报告：全屏可滑动卡片（Stitch 暖橙渐变 · 白圆徽章 · 大数字 · 白药丸） */
 export default function MemoryScreen({ points, onClose }: MemoryScreenProps) {
   const cards = useMemo(() => buildCards(points), [points])
   const [i, setI] = useState(0)
 
   const shell =
-    'fixed inset-0 z-[160] bg-gradient-to-b from-primary via-[#f37a5a] to-[#ffb38a] flex flex-col items-center justify-center text-white text-center px-8'
+    'fixed inset-0 z-[160] bg-gradient-to-b from-primary via-[#f37a5a] to-[#ffb38a] flex flex-col items-center justify-center text-center px-8 overflow-hidden'
 
   if (cards.length === 0) {
     return (
       <div className={shell}>
-        <button onClick={onClose} className="absolute top-5 right-5 w-10 h-10 rounded-full border-2 border-white/70 flex items-center justify-center">
+        <Stars />
+        <button onClick={onClose} className="absolute top-5 right-5 w-10 h-10 rounded-full border-2 border-white/70 text-white flex items-center justify-center">
           <Icon name="close" />
         </button>
-        <div className="text-6xl mb-4">🍜</div>
-        <div className="font-headline text-3xl mb-2">回忆还在路上</div>
-        <div className="text-white/90">先记几顿，再来翻翻你们的故事</div>
+        <div className="w-28 h-28 rounded-full bg-white border-[3px] border-on-surface shadow-sticker flex items-center justify-center text-5xl mb-5">🍜</div>
+        <div className="font-headline text-on-surface text-3xl mb-2">回忆还在路上</div>
+        <div className="text-white/95">先记几顿，再来翻翻你们的故事</div>
       </div>
     )
   }
@@ -181,26 +172,75 @@ export default function MemoryScreen({ points, onClose }: MemoryScreenProps) {
   const last = i >= cards.length - 1
   return (
     <div className={shell}>
+      <Stars />
+
       {/* 进度 */}
-      <div className="absolute top-4 left-0 w-full px-5 flex gap-1.5">
+      <div className="absolute top-4 left-0 w-full px-5 flex gap-1.5 z-10">
         {cards.map((_, idx) => (
           <span key={idx} className={`flex-1 h-1 rounded-full ${idx <= i ? 'bg-white' : 'bg-white/30'}`} />
         ))}
       </div>
-      <button onClick={onClose} className="absolute top-8 right-5 z-10 w-10 h-10 rounded-full border-2 border-white/70 flex items-center justify-center">
+      <button onClick={onClose} className="absolute top-8 right-5 z-10 w-10 h-10 rounded-full border-2 border-white/70 text-white flex items-center justify-center">
         <Icon name="close" />
       </button>
 
-      <div key={i} className="animate-pop flex flex-col items-center">
-        <div className="text-6xl mb-5">{card.emoji}</div>
-        <div className="font-headline text-3xl leading-snug mb-4">{card.big}</div>
-        <div className="text-white/95 text-lg max-w-[300px]">{card.small}</div>
+      <div key={i} className="animate-pop flex flex-col items-center relative z-[1]">
+        {/* 白圆徽章 */}
+        <div className="w-28 h-28 rounded-full bg-white border-[3px] border-on-surface shadow-sticker flex items-center justify-center text-5xl mb-6">
+          {card.emoji}
+        </div>
+        {/* 小标签（白） */}
+        {card.label && <div className="text-white font-headline text-xl mb-1">{card.label}</div>}
+        {/* 大数值（深色，Stitch 风） */}
+        <div className="font-headline text-on-surface text-[2.75rem] leading-tight mb-5 [&_.font-num]:text-[3.75rem]">{card.value}</div>
+        {/* 详情：白贴纸药丸 */}
+        {card.detail && (
+          <div className="bg-white text-on-surface rounded-xl border-2 border-on-surface shadow-sticker px-5 py-2.5 font-bold">
+            {card.detail}
+          </div>
+        )}
+        {/* 彩色 pill */}
+        {card.pills && (
+          <div className="flex gap-2 mt-4 flex-wrap justify-center">
+            {card.pills.map((p) => (
+              <span
+                key={p.text}
+                className={`rounded-full border-2 border-on-surface px-3 py-1 text-sm font-bold ${
+                  p.tone === 'gold' ? 'bg-accent text-on-surface' : 'bg-white text-primary'
+                }`}
+              >
+                {p.text}
+              </span>
+            ))}
+          </div>
+        )}
       </div>
 
       {/* 点击区 */}
       <div className="absolute inset-y-0 left-0 w-1/3" onClick={() => setI((v) => Math.max(0, v - 1))} />
       <div className="absolute inset-y-0 right-0 w-2/3" onClick={() => (last ? onClose() : setI((v) => v + 1))} />
-      <div className="absolute bottom-8 left-0 w-full text-white/70 text-sm">{last ? '截图分享给 TA 📸 · 轻点退出' : '轻点继续 ›'}</div>
+      <div className="absolute bottom-8 left-0 w-full text-white/80 text-sm z-[1]">{last ? '截图分享给 TA 📸 · 轻点退出' : '轻点继续 ›'}</div>
     </div>
+  )
+}
+
+/** 散落的小星星装饰 */
+function Stars() {
+  const stars = [
+    { t: '12%', l: '14%', s: 'text-2xl' },
+    { t: '20%', l: '82%', s: 'text-lg' },
+    { t: '46%', l: '8%', s: 'text-base' },
+    { t: '52%', l: '88%', s: 'text-2xl' },
+    { t: '74%', l: '16%', s: 'text-lg' },
+    { t: '80%', l: '80%', s: 'text-base' },
+  ]
+  return (
+    <>
+      {stars.map((st, k) => (
+        <span key={k} className={`absolute text-white/60 ${st.s} select-none`} style={{ top: st.t, left: st.l }} aria-hidden>
+          ✦
+        </span>
+      ))}
+    </>
   )
 }
