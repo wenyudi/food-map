@@ -4,7 +4,7 @@ import TopBar, { Avatar } from '../ui/TopBar'
 import Icon from '../ui/Icon'
 import StickerButton from '../ui/StickerButton'
 import SheetShell from '../ui/SheetShell'
-import DateWheel from '../ui/WheelPicker'
+import DateTimeWheel from '../ui/WheelPicker'
 import PhotoPicker from '../components/PhotoPicker'
 import { parseText, search, upsertStore, addVisit, addWish, regeo, getStats, getPoints } from '../api'
 import type { ParsedSentence, Stats, Point } from '../api'
@@ -629,24 +629,7 @@ export default function AddScreen({ onSubmitted }: AddScreenProps) {
       {timeSheet && (
         <SheetShell onClose={() => setTimeSheet(false)}>
           <h3 className="font-headline text-xl mb-3">📅 哪天 · 哪顿</h3>
-          <div className="text-sm font-bold text-on-surface-variant mb-1">日期</div>
-          <DateWheel value={date} onChange={setDate} />
-          <div className="mt-3">
-            <label className="block text-sm font-bold text-on-surface-variant mb-1">餐段</label>
-            <div className="flex gap-2">
-              {(['早', '中', '晚'] as const).map((m) => (
-                <button
-                  key={m}
-                  onClick={() => setMeal(m)}
-                  className={`flex-1 py-2.5 rounded-xl border-2 border-on-surface font-bold press-sm ${
-                    meal === m ? 'bg-primary text-white shadow-sticker-sm' : 'bg-white'
-                  }`}
-                >
-                  {m === '早' ? '🌅 早' : m === '中' ? '☀️ 中' : '🌙 晚'}
-                </button>
-              ))}
-            </div>
-          </div>
+          <DateTimeWheel value={date} onChange={setDate} meal={meal} onMealChange={setMeal} />
           <StickerButton full className="mt-4" onClick={() => setTimeSheet(false)}>
             好了
           </StickerButton>
