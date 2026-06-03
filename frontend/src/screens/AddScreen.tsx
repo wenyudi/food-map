@@ -62,6 +62,7 @@ export default function AddScreen({ onSubmitted }: AddScreenProps) {
   const [storeSheet, setStoreSheet] = useState(false)
   const [amountSheet, setAmountSheet] = useState(false)
   const [companionsSheet, setCompanionsSheet] = useState(false)
+  const [timeSheet, setTimeSheet] = useState(false)
 
   useEffect(() => {
     getMyLocation().then((loc) => {
@@ -264,8 +265,6 @@ export default function AddScreen({ onSubmitted }: AddScreenProps) {
       n = Number(people)
     return a > 0 && n > 0 ? Math.round((a / n) * 10) / 10 : 0
   }, [amount, people])
-  const mealIcon = meal === '早' ? '🌅' : meal === '中' ? '☀️' : '🌙'
-  const cycleMeal = () => setMeal((m) => (m === '早' ? '中' : m === '中' ? '晚' : '早'))
 
   return (
     <div className="h-full flex flex-col">
@@ -418,32 +417,23 @@ export default function AddScreen({ onSubmitted }: AddScreenProps) {
               </button>
               {isVisit && (
                 <>
-                  <label className="px-3 py-1.5 rounded-full border-2 border-on-surface bg-primary text-white text-sm font-bold shadow-sticker-sm relative">
-                    📅 {(date || '').slice(5).replace('-', '/')}
-                    <input
-                      type="date"
-                      value={date}
-                      onChange={(e) => setDate(e.target.value)}
-                      className="absolute inset-0 opacity-0 cursor-pointer"
-                    />
-                  </label>
                   <button
-                    onClick={cycleMeal}
+                    onClick={() => setTimeSheet(true)}
                     className="px-3 py-1.5 rounded-full border-2 border-on-surface bg-primary text-white text-sm font-bold shadow-sticker-sm press-sm"
                   >
-                    {mealIcon} {meal}
+                    📅 {(date || '').slice(5).replace('-', '/')} · {meal}
                   </button>
                   <button
                     onClick={() => setAmountSheet(true)}
                     className="px-3 py-1.5 rounded-full border-2 border-on-surface bg-primary text-white text-sm font-bold shadow-sticker-sm press-sm"
                   >
-                    💰 {amount ? `人均¥${perPerson} · ${people}人` : '填金额'}
+                    💰 {amount ? `¥${amount}` : '填金额'}
                   </button>
                   <button
                     onClick={() => setCompanionsSheet(true)}
                     className="px-3 py-1.5 rounded-full border-2 border-on-surface bg-white text-on-surface text-sm font-bold shadow-sticker-sm press-sm"
                   >
-                    👥 {companions || '和谁'}
+                    👥 {companions || '和谁'} · {people}人
                   </button>
                 </>
               )}
@@ -460,19 +450,27 @@ export default function AddScreen({ onSubmitted }: AddScreenProps) {
                   🌶️ {f}
                 </span>
               ))}
+              {(parsed.dishes || []).map((d) => (
+                <span
+                  key={d}
+                  className="px-3 py-1.5 rounded-full border-2 border-on-surface bg-white text-on-surface-variant text-sm font-bold"
+                >
+                  🍽️ {d}
+                </span>
+              ))}
             </div>
 
             {isVisit ? (
               <div className="space-y-4">
                 <div>
                   <p className="font-headline text-lg mb-2">这一顿，好吃吗？</p>
-                  <div className="flex justify-between gap-1">
+                  <div className="flex justify-center gap-2">
                     {EMOJI_OPTIONS.map((o) => (
                       <button
                         key={o.emoji}
                         onClick={() => setEmoji(o.emoji)}
-                        className={`flex-1 aspect-square rounded-full border-2 border-on-surface flex items-center justify-center text-2xl press ${
-                          emoji === o.emoji ? 'bg-accent shadow-sticker scale-105' : 'bg-white shadow-sticker-sm opacity-55'
+                        className={`w-14 h-14 rounded-full border-2 border-on-surface flex items-center justify-center text-2xl press transition-all ${
+                          emoji === o.emoji ? 'bg-accent shadow-sticker' : 'bg-white shadow-sticker-sm opacity-60'
                         }`}
                       >
                         {o.emoji}
@@ -493,20 +491,6 @@ export default function AddScreen({ onSubmitted }: AddScreenProps) {
                   >
                     <span className="w-6 h-6 rounded-full bg-white border-2 border-on-surface" />
                   </button>
-                </div>
-
-                {/* 备注（单个，对齐 Stitch） */}
-                <div>
-                  <label className="block text-sm font-bold text-on-surface-variant mb-1">备注</label>
-                  <div className="sticker p-3">
-                    <textarea
-                      value={feeling}
-                      onChange={(e) => setFeeling(e.target.value)}
-                      rows={2}
-                      placeholder="好吃在哪？想说点啥…"
-                      className="w-full bg-transparent outline-none resize-none font-body text-on-surface placeholder:text-on-surface-variant/60"
-                    />
-                  </div>
                 </div>
 
                 <div>
@@ -590,42 +574,79 @@ export default function AddScreen({ onSubmitted }: AddScreenProps) {
       {amountSheet && (
         <SheetShell onClose={() => setAmountSheet(false)}>
           <h3 className="font-headline text-xl mb-3">💰 这顿花了多少</h3>
-          <div className="flex gap-3">
-            <Field label="总价 ¥" className="flex-1">
-              <input
-                type="number"
-                inputMode="numeric"
-                value={amount}
-                onChange={(e) => setAmount(e.target.value)}
-                autoFocus
-                className={INPUT}
-              />
-            </Field>
-            <Field label="几个人" className="flex-1">
-              <input type="number" inputMode="numeric" value={people} onChange={(e) => setPeople(e.target.value)} className={INPUT} />
-            </Field>
-          </div>
-          <div className="text-center my-3 font-bold">
-            人均 <b className="text-primary text-xl">¥{perPerson || '—'}</b>
-          </div>
-          <StickerButton full onClick={() => setAmountSheet(false)}>
+          <Field label="总价 ¥">
+            <input
+              type="number"
+              inputMode="numeric"
+              value={amount}
+              onChange={(e) => setAmount(e.target.value)}
+              autoFocus
+              className={INPUT}
+            />
+          </Field>
+          {!!amount && Number(people) > 0 && (
+            <div className="text-center my-3 font-bold">
+              人均 <b className="text-primary text-xl">¥{perPerson || '—'}</b> · {people}人
+            </div>
+          )}
+          <StickerButton full className="mt-4" onClick={() => setAmountSheet(false)}>
             好了
           </StickerButton>
         </SheetShell>
       )}
 
-      {/* 和谁 sheet */}
+      {/* 和谁 sheet（含人数） */}
       {companionsSheet && (
         <SheetShell onClose={() => setCompanionsSheet(false)}>
           <h3 className="font-headline text-xl mb-3">👥 和谁一起</h3>
-          <input
-            value={companions}
-            onChange={(e) => setCompanions(e.target.value)}
-            placeholder="比如：饼饼 / 同事 / 一个人"
-            autoFocus
-            className={INPUT}
-          />
+          <Field label="和谁">
+            <input
+              value={companions}
+              onChange={(e) => setCompanions(e.target.value)}
+              placeholder="比如：饼饼 / 同事 / 一个人"
+              autoFocus
+              className={INPUT}
+            />
+          </Field>
+          <Field label="几个人" className="mt-3">
+            <input
+              type="number"
+              inputMode="numeric"
+              value={people}
+              onChange={(e) => setPeople(e.target.value)}
+              className={INPUT}
+            />
+          </Field>
           <StickerButton full className="mt-4" onClick={() => setCompanionsSheet(false)}>
+            好了
+          </StickerButton>
+        </SheetShell>
+      )}
+
+      {/* 时间 sheet：日期 + 餐段 */}
+      {timeSheet && (
+        <SheetShell onClose={() => setTimeSheet(false)}>
+          <h3 className="font-headline text-xl mb-3">📅 哪天 · 哪顿</h3>
+          <Field label="日期">
+            <input type="date" value={date} onChange={(e) => setDate(e.target.value)} className={INPUT} />
+          </Field>
+          <div className="mt-3">
+            <label className="block text-sm font-bold text-on-surface-variant mb-1">餐段</label>
+            <div className="flex gap-2">
+              {(['早', '中', '晚'] as const).map((m) => (
+                <button
+                  key={m}
+                  onClick={() => setMeal(m)}
+                  className={`flex-1 py-2.5 rounded-xl border-2 border-on-surface font-bold press-sm ${
+                    meal === m ? 'bg-primary text-white shadow-sticker-sm' : 'bg-white'
+                  }`}
+                >
+                  {m === '早' ? '🌅 早' : m === '中' ? '☀️ 中' : '🌙 晚'}
+                </button>
+              ))}
+            </div>
+          </div>
+          <StickerButton full className="mt-4" onClick={() => setTimeSheet(false)}>
             好了
           </StickerButton>
         </SheetShell>
