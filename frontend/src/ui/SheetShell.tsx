@@ -10,7 +10,7 @@ type SheetShellProps = Readonly<{
 export default function SheetShell({ children, onClose, className = '' }: SheetShellProps) {
   return (
     <div
-      className="fixed inset-0 z-[100] bg-on-surface/40 flex items-end justify-center"
+      className="fixed inset-0 z-[1200] bg-on-surface/40 flex items-end justify-center"
       onClick={onClose}
     >
       <div

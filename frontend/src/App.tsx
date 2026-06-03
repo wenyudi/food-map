@@ -124,7 +124,7 @@ function Lightbox() {
   if (!src) return null
   return (
     <div
-      className="fixed inset-0 z-[200] bg-black/85 flex flex-col items-center justify-center gap-3 p-4"
+      className="fixed inset-0 z-[2000] bg-black/85 flex flex-col items-center justify-center gap-3 p-4"
       onClick={() => setSrc(null)}
     >
       <img src={src} alt="" className="max-w-full max-h-[82vh] rounded-xl border-2 border-white/20" />

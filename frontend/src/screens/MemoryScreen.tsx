@@ -152,7 +152,7 @@ export default function MemoryScreen({ points, onClose }: MemoryScreenProps) {
   const [i, setI] = useState(0)
 
   const shell =
-    'fixed inset-0 z-[160] bg-gradient-to-b from-primary via-[#f37a5a] to-[#ffb38a] flex flex-col items-center justify-center text-center px-8 overflow-hidden'
+    'fixed inset-0 z-[1300] bg-gradient-to-b from-primary via-[#f37a5a] to-[#ffb38a] flex flex-col items-center justify-center text-center px-8 overflow-hidden'
 
   if (cards.length === 0) {
     return (
