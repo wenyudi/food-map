@@ -23,7 +23,7 @@ type TabBarProps = Readonly<{
  */
 export default function TabBar({ active, onChange }: TabBarProps) {
   return (
-    <nav className="relative w-full z-50 flex justify-around items-center px-2 py-3 bg-surface rounded-t-xl border-t-2 border-on-surface shadow-sticker-top pb-safe shrink-0">
+    <nav className="relative w-full z-[1100] flex justify-around items-center px-2 py-3 bg-surface rounded-t-xl border-t-2 border-on-surface shadow-sticker-top pb-safe shrink-0">
       {TABS.map((t) =>
         t.key === 'add' ? (
           <div key={t.key} className="relative -top-6 w-16 flex justify-center">
