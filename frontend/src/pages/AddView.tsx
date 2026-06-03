@@ -95,13 +95,12 @@ function RecordHero() {
 }
 
 export default function AddView({ onSubmitted }: Props) {
-  const [step, setStep] = useState<'input' | 'pick' | 'confirm'>('input')
   const [text, setText] = useState('')
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [celebrate, setCelebrate] = useState<Celebration | null>(null)  // 高光时刻：兑现 / 里程碑
-  const [parsed, setParsed] = useState<ParsedSentence | null>(null)
-  const [intent, setIntent] = useState<'visit' | 'wish'>('visit')  // 确认页可改；手动录入靠它
+  const [parsed, setParsed] = useState<ParsedSentence | null>(null)     // null=输入态，非空=解析后标签态
+  const [intent, setIntent] = useState<'visit' | 'wish'>('visit')
   const [pois, setPois] = useState<any[]>([])
   const [selectedPoi, setSelectedPoi] = useState<any>(null)
   const [city, setCity] = useState(() => localStorage.getItem(LS_CITY) || '重庆')
@@ -112,7 +111,7 @@ export default function AddView({ onSubmitted }: Props) {
   const [nearby, setNearby] = useState<Point | null>(null)   // 你正站在某家已知店附近
   const [photos, setPhotos] = useState<string[]>([])
 
-  // 确认阶段的表单状态
+  // 解析后可改的字段
   const [amount, setAmount] = useState('')
   const [people, setPeople] = useState('2')
   const [emoji, setEmoji] = useState<Mood>('🤤')
@@ -121,8 +120,12 @@ export default function AddView({ onSubmitted }: Props) {
   const [companions, setCompanions] = useState(() => localStorage.getItem(LS_COMPANIONS) || '')
   const [source, setSource] = useState('小红书')
   const [reason, setReason] = useState('')
-  const [date, setDate] = useState('')              // 确认页可改的日期
-  const [meal, setMeal] = useState<'早' | '中' | '晚'>('中')  // 早 / 中 / 晚
+  const [date, setDate] = useState('')
+  const [meal, setMeal] = useState<'早' | '中' | '晚'>('中')
+
+  // 弹层：选店 / 金额
+  const [storeSheet, setStoreSheet] = useState(false)
+  const [amountSheet, setAmountSheet] = useState(false)
 
   // 进入页面就异步拿定位（不阻塞 UI；失败/拒绝就没事，fallback 到城市搜）
   useEffect(() => {
@@ -161,9 +164,9 @@ export default function AddView({ onSubmitted }: Props) {
       const locStr = myLocation ? `${myLocation.lng},${myLocation.lat}` : undefined
       const ps = await search(p.store_hint, city, locStr)
       setPois(ps)
-      if (ps.length > 0) setSelectedPoi(ps[0])
+      setSelectedPoi(ps.length > 0 ? ps[0] : null)
 
-      // 用 AI 结果预填表单（同行人：AI 没识别就回退到上次填的）
+      // 用 AI 结果预填字段（同行人：AI 没识别就回退到上次填的）
       setAmount(p.amount?.toString() || '')
       setPeople(p.people_count?.toString() || '2')
       if (p.mood_emoji) setEmoji(p.mood_emoji)
@@ -174,8 +177,6 @@ export default function AddView({ onSubmitted }: Props) {
       setReason(p.reason || '')
       setDate(p.date || new Date().toISOString().slice(0, 10))
       setMeal((p.meal_period as '早' | '中' | '晚') || guessMealPeriod())
-
-      setStep('pick')
     } catch (e: any) {
       setError('解析失败：' + (e?.response?.data?.detail || e?.message || e))
     } finally {
@@ -195,10 +196,10 @@ export default function AddView({ onSubmitted }: Props) {
       pname: '', cityname: city, adname: '',
       address: loc ? '手动添加 · 当前位置' : '手动添加 · 未定位',
     })
-    setStep('confirm')
+    setStoreSheet(false)
   }
 
-  // 位置魔法：一键记下"就在附近"的已知店——直接跳确认页（店已在库，确认即写）
+  // 位置魔法：一键记下"就在附近"的已知店——直接进解析态（店已在库，确认即写）
   function recordNearby(p: Point) {
     setSelectedPoi({
       id: p.poi_id,
@@ -211,11 +212,11 @@ export default function AddView({ onSubmitted }: Props) {
     setParsed({ intent: 'visit', store_hint: p.name, date: null, meal_period: null,
       companions: null, amount: null, people_count: null, feeling: null,
       mood_emoji: null, want_again: null, source: null, reason: null })
+    setPois([])
     setIntent('visit')
     setAmount(''); setPeople('2'); setEmoji('🤤'); setWantAgain(true)
     setFeeling(''); setCompanions(localStorage.getItem(LS_COMPANIONS) || '')
     setDate(new Date().toISOString().slice(0, 10)); setMeal(guessMealPeriod())
-    setStep('confirm')
   }
 
   async function handleSubmit() {
@@ -277,7 +278,6 @@ export default function AddView({ onSubmitted }: Props) {
   }
 
   function reset() {
-    setStep('input')
     setText('')
     setError(null)
     setParsed(null)
@@ -285,133 +285,21 @@ export default function AddView({ onSubmitted }: Props) {
     setPois([])
     setSelectedPoi(null)
     setPhotos([])
+    setStoreSheet(false)
+    setAmountSheet(false)
   }
 
-  if (step === 'input') {
-    return (
-      <div className="page add-input">
-        <RecordHero />
-
-        {nearby && (
-          <button className="nearby-card" onClick={() => recordNearby(nearby)}>
-            <div className="nearby-ico">{nearby.visit_count > 0 ? '📍' : '💘'}</div>
-            <div className="nearby-text">
-              <div className="nearby-title">就在「{nearby.name}」附近</div>
-              <div className="nearby-sub">
-                {nearby.visit_count > 0 ? '又来啦？一键再记一笔' : '你想去的店就在眼前 · 点一下直接打卡'}
-              </div>
-            </div>
-            <div className="nearby-go">记这家 →</div>
-          </button>
-        )}
-
-        <p className="hint">
-          把刚吃的、或想去的店随口说一句，AI 自动认出店名、金额和心情。
-          {myLocation && <span className="geo-tip"> · 📍 已定位，优先搜附近</span>}
-        </p>
-        <textarea
-          value={text}
-          onChange={e => setText(e.target.value)}
-          placeholder="例如：今晚和朋友去家川菜馆，人均 80，水煮鱼挺嫩"
-          rows={4}
-        />
-        <div className="ex-hint">不知道怎么写？点一条直接套用 👇</div>
-        <div className="examples">
-          {EXAMPLES.map((ex, i) => (
-            <button key={i} className="ex-chip" onClick={() => setText(ex.text)}>
-              <span className={'ex-tag ' + ex.kind}>{ex.kind === 'eat' ? '吃过' : '种草'}</span>
-              <span className="ex-text">{ex.text}</span>
-            </button>
-          ))}
-        </div>
-        <div className="row">
-          <label>城市</label>
-          <input
-            value={city}
-            onChange={e => { cityTouched.current = true; setCity(e.target.value) }}
-            placeholder="如：重庆"
-          />
-        </div>
-        {error && <div className="add-error">{error}</div>}
-        <button className="primary" disabled={busy || !text.trim()} onClick={handleParse}>
-          {busy ? '解析中…' : '✨ 让 AI 解析'}
-        </button>
-      </div>
-    )
-  }
-
-  if (step === 'pick') {
-    const isVisit = parsed?.intent === 'visit'
-    return (
-      <div className="page add-pick">
-        <div className="pick-scroll">
-        <div className="step-head">
-          <button className="step-back" onClick={reset} aria-label="返回">←</button>
-          <div className="step-head-text">
-            <div className="step-title">是哪一家？</div>
-            <div className="step-sub">
-              <span className={'ex-tag ' + (isVisit ? 'eat' : 'wish')}>{isVisit ? '吃过' : '种草'}</span>
-              <b>{parsed?.store_hint}</b>
-              {myLocation && <span className="step-sub-dim">· 已按距离排序</span>}
-            </div>
-          </div>
-        </div>
-
-        {pois.length === 0 ? (
-          <div className="empty">
-            高德没搜到「{parsed?.store_hint}」<br />路边摊 / 家里做的店本来就查不到<br />
-            <button className="primary manual-add-btn" onClick={addManualStore}>✍️ 自己加这家</button>
-            <button className="link-btn" onClick={reset}>← 换个店名重搜</button>
-          </div>
-        ) : (
-          <>
-          <div className="poi-list">
-            {pois.map((p, i) => {
-              const sel = selectedPoi?.id === p.id
-              const tag = cleanTag(p.business?.tag)
-              return (
-                <button
-                  key={p.id}
-                  className={'poi-card' + (sel ? ' selected' : '')}
-                  style={{ animationDelay: `${Math.min(i, 6) * 40}ms` }}
-                  onClick={() => setSelectedPoi(p)}
-                >
-                  <div className="poi-main">
-                    <div className="poi-name">{p.name}</div>
-                    <div className="poi-meta">
-                      {tag && <span>{tag}</span>}
-                      {p.business?.rating && <span>⭐ {p.business.rating}</span>}
-                      {p.business?.cost && <span>¥{p.business.cost}/人</span>}
-                      {p.distance && <span>📍 {fmtDist(p.distance)}</span>}
-                    </div>
-                    <div className="poi-addr">{p.adname} · {p.address}</div>
-                  </div>
-                  <span className="poi-check">{sel ? '✓' : ''}</span>
-                </button>
-              )
-            })}
-          </div>
-          <button className="link-btn" onClick={addManualStore}>都不是？✍️ 自己加「{parsed?.store_hint}」</button>
-          </>
-        )}
-        </div>
-
-        {pois.length > 0 && (
-          <div className="confirm-footer">
-            <button className="primary" disabled={!selectedPoi} onClick={() => setStep('confirm')}>
-              就是这家 →
-            </button>
-          </div>
-        )}
-      </div>
-    )
-  }
-
-  // confirm
   const isVisit = intent === 'visit'
   const isManual = !!(selectedPoi?.id && String(selectedPoi.id).startsWith('m_'))
+  const perPerson = (() => {
+    const a = Number(amount), n = Number(people)
+    return a > 0 && n > 0 ? Math.round((a / n) * 10) / 10 : 0
+  })()
+  const mealIcon = meal === '早' ? '🌅' : meal === '中' ? '☀️' : '🌙'
+  function cycleMeal() { setMeal(m => (m === '早' ? '中' : m === '中' ? '晚' : '早')) }
+
   return (
-    <div className="page add-confirm">
+    <div className="page add-input">
       {celebrate && (
         <div className="celebrate-overlay">
           <Confetti />
@@ -423,115 +311,209 @@ export default function AddView({ onSubmitted }: Props) {
         </div>
       )}
 
-      <div className="confirm-scroll">
-      <div className="step-head">
-        <button className="step-back" onClick={() => setStep('pick')} aria-label="改店">←</button>
-        <div className="step-head-text">
-          <div className="step-title">{isVisit ? '记下这一顿' : '加进想去清单'}</div>
-          {isManual ? (
-            <input
-              className="confirm-store-edit"
-              value={selectedPoi?.name || ''}
-              onChange={e => setSelectedPoi({ ...selectedPoi, name: e.target.value })}
-              placeholder="店名"
-            />
-          ) : (
-            <div className="step-sub"><span className="confirm-store">🍴 {selectedPoi?.name}</span></div>
-          )}
-        </div>
-      </div>
+      {!parsed && <RecordHero />}
 
-      {isManual && (
-        <div className="manual-note">
-          ✍️ 手动添加 · {selectedPoi?.location ? '已用当前定位，会显示在地图上' : '未定位，先只进列表'}
-        </div>
+      {!parsed && nearby && (
+        <button className="nearby-card" onClick={() => recordNearby(nearby)}>
+          <div className="nearby-ico">{nearby.visit_count > 0 ? '📍' : '💘'}</div>
+          <div className="nearby-text">
+            <div className="nearby-title">就在「{nearby.name}」附近</div>
+            <div className="nearby-sub">
+              {nearby.visit_count > 0 ? '又来啦？一键再记一笔' : '你想去的店就在眼前 · 点一下直接打卡'}
+            </div>
+          </div>
+          <div className="nearby-go">记这家 →</div>
+        </button>
       )}
 
-      <div className="intent-toggle">
-        <button className={isVisit ? 'selected' : ''} onClick={() => setIntent('visit')}>🍴 吃过</button>
-        <button className={!isVisit ? 'selected' : ''} onClick={() => setIntent('wish')}>🌱 种草</button>
+      {/* 一句话输入框 · 永远在最上面 */}
+      <div className="say-box">
+        <textarea
+          value={text}
+          onChange={e => setText(e.target.value)}
+          placeholder="例如：今晚和朋友去家川菜馆，人均 80，水煮鱼挺嫩"
+          rows={parsed ? 2 : 4}
+        />
+        <div className="say-foot">
+          {!parsed && (
+            <div className="say-city">
+              <span>城市</span>
+              <input value={city} onChange={e => { cityTouched.current = true; setCity(e.target.value) }} placeholder="重庆" />
+            </div>
+          )}
+          <button className="say-parse" disabled={busy || !text.trim()} onClick={handleParse}>
+            {busy ? '解析中…' : parsed ? '↻ 重新解析' : '✨ 解析'}
+          </button>
+        </div>
       </div>
 
-      {isVisit ? (
+      {!parsed && (
         <>
-          <div className="form-row">
-            <label>时间</label>
-            <div className="datetime-row">
-              <input type="date" value={date} onChange={e => setDate(e.target.value)} />
-              <div className="meal-toggle">
-                {(['早', '中', '晚'] as const).map(m => (
-                  <button key={m} className={meal === m ? 'selected' : ''} onClick={() => setMeal(m)}>{m}</button>
-                ))}
-              </div>
-            </div>
+          <div className="ex-hint">不知道怎么写？点一条直接套用 👇</div>
+          <div className="examples">
+            {EXAMPLES.map((ex, i) => (
+              <button key={i} className="ex-chip" onClick={() => setText(ex.text)}>
+                <span className={'ex-tag ' + ex.kind}>{ex.kind === 'eat' ? '吃过' : '种草'}</span>
+                <span className="ex-text">{ex.text}</span>
+              </button>
+            ))}
           </div>
-          <div className="form-duo">
-            <div className="form-cell">
-              <label>金额 ¥</label>
-              <input type="number" inputMode="numeric" value={amount} onChange={e => setAmount(e.target.value)} />
-            </div>
-            <div className="form-cell">
-              <label>人数</label>
-              <input type="number" inputMode="numeric" value={people} onChange={e => setPeople(e.target.value)} />
-            </div>
-          </div>
-          <div className="form-row">
-            <label>感受</label>
-            <input value={feeling} onChange={e => setFeeling(e.target.value)} placeholder="好吃在哪？一句话" />
-          </div>
-          <div className="form-row">
-            <label>评分</label>
-            <div className="emoji-picker">
-              {EMOJI_OPTIONS.map(o => (
-                <button
-                  key={o.emoji}
-                  className={emoji === o.emoji ? 'selected' : ''}
-                  onClick={() => setEmoji(o.emoji)}
-                >
-                  <span className={'mood-glyph ' + MOOD_ANIM[o.emoji]}>{o.emoji}</span>
-                  <span>{o.label}</span>
+          {myLocation && <p className="geo-tip">📍 已定位，优先搜附近</p>}
+        </>
+      )}
+
+      {parsed && (
+        <div className="parsed">
+          <div className="parsed-head">AI 认出了这些 👇 点一下可改</div>
+          <div className="p-tags">
+            <button className="p-tag accent" onClick={() => setIntent(isVisit ? 'wish' : 'visit')}>
+              {isVisit ? '🍴 吃过' : '🌱 想去'}
+            </button>
+            <button className="p-tag store" onClick={() => setStoreSheet(true)}>
+              🏪 {selectedPoi?.name || '选店 / 手动加'}<span className="p-more">换</span>
+            </button>
+            {isVisit && (
+              <>
+                <label className="p-tag">
+                  📅 {(date || '').slice(5).replace('-', '/')}
+                  <input type="date" className="p-hidden-date" value={date} onChange={e => setDate(e.target.value)} />
+                </label>
+                <button className="p-tag" onClick={cycleMeal}>{mealIcon} {meal}</button>
+                <button className="p-tag" onClick={() => setAmountSheet(true)}>
+                  💰 {amount ? `人均¥${perPerson} · ${people}人` : '填金额'}
                 </button>
-              ))}
-            </div>
-          </div>
-          <div className="form-row">
-            <label>想再来</label>
-            <div className="toggle">
-              <button className={wantAgain ? 'selected' : ''} onClick={() => setWantAgain(true)}>⭐ 想</button>
-              <button className={!wantAgain ? 'selected' : ''} onClick={() => setWantAgain(false)}>不想</button>
-            </div>
-          </div>
-          <div className="form-row">
-            <label>和谁</label>
-            <input value={companions} onChange={e => setCompanions(e.target.value)} placeholder="和谁一起？" />
+              </>
+            )}
+            {parsed.cuisine && <span className="p-tag static">{parsed.cuisine}</span>}
+            {(parsed.flavors || []).map(f => <span key={f} className="p-tag static">🌶️ {f}</span>)}
           </div>
 
-          <div className="form-block">
-            <label>📷 照片</label>
-            <PhotoPicker photos={photos} onChange={setPhotos} max={5} />
-          </div>
-        </>
-      ) : (
-        <>
-          <div className="form-row">
-            <label>来源</label>
-            <input value={source} onChange={e => setSource(e.target.value)} placeholder="小红书 / 抖音 / 朋友推荐" />
-          </div>
-          <div className="form-row">
-            <label>理由</label>
-            <input value={reason} onChange={e => setReason(e.target.value)} placeholder="为什么想去？一句话" />
-          </div>
-        </>
+          {isManual && (
+            <div className="form-row">
+              <label>店名</label>
+              <input value={selectedPoi?.name || ''} onChange={e => setSelectedPoi({ ...selectedPoi, name: e.target.value })} placeholder="店名" />
+            </div>
+          )}
+
+          {isVisit ? (
+            <>
+              <div className="form-row">
+                <label>评分</label>
+                <div className="emoji-picker">
+                  {EMOJI_OPTIONS.map(o => (
+                    <button key={o.emoji} className={emoji === o.emoji ? 'selected' : ''} onClick={() => setEmoji(o.emoji)}>
+                      <span className={'mood-glyph ' + MOOD_ANIM[o.emoji]}>{o.emoji}</span>
+                      <span>{o.label}</span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+              <div className="form-row">
+                <label>想再来</label>
+                <div className="toggle">
+                  <button className={wantAgain ? 'selected' : ''} onClick={() => setWantAgain(true)}>⭐ 想</button>
+                  <button className={!wantAgain ? 'selected' : ''} onClick={() => setWantAgain(false)}>不想</button>
+                </div>
+              </div>
+              <div className="form-row">
+                <label>感受</label>
+                <input value={feeling} onChange={e => setFeeling(e.target.value)} placeholder="好吃在哪？一句话" />
+              </div>
+              <div className="form-row">
+                <label>和谁</label>
+                <input value={companions} onChange={e => setCompanions(e.target.value)} placeholder="和谁一起？" />
+              </div>
+              <div className="form-block">
+                <label>📷 照片</label>
+                <PhotoPicker photos={photos} onChange={setPhotos} max={5} />
+              </div>
+            </>
+          ) : (
+            <>
+              <div className="form-row">
+                <label>来源</label>
+                <input value={source} onChange={e => setSource(e.target.value)} placeholder="小红书 / 抖音 / 朋友推荐" />
+              </div>
+              <div className="form-row">
+                <label>理由</label>
+                <input value={reason} onChange={e => setReason(e.target.value)} placeholder="为什么想去？一句话" />
+              </div>
+            </>
+          )}
+        </div>
       )}
 
       {error && <div className="add-error">{error}</div>}
-      </div>
 
-      <div className="confirm-footer">
-        <button className="primary" disabled={busy} onClick={handleSubmit}>
-          {busy ? '提交中…' : isVisit ? '✓ 存进地图' : '✓ 收藏想去'}
-        </button>
-      </div>
+      {parsed && (
+        <div className="confirm-footer">
+          <button className="primary" disabled={busy || !selectedPoi} onClick={handleSubmit}>
+            {busy ? '提交中…' : isVisit ? '✓ 记下这一顿' : '✓ 收藏想去'}
+          </button>
+        </div>
+      )}
+
+      {/* 选店 sheet：高德候选 + 手动加 */}
+      {storeSheet && (
+        <div className="sheet-backdrop" onClick={() => setStoreSheet(false)}>
+          <div className="sheet" onClick={e => e.stopPropagation()}>
+            <div className="sheet-handle" />
+            <div className="sheet-title">🏪 选哪一家</div>
+            {pois.length === 0 ? (
+              <div className="empty">高德没搜到「{parsed?.store_hint}」<br />路边摊 / 家里做的本来就查不到</div>
+            ) : (
+              <div className="poi-list">
+                {pois.map(p => {
+                  const sel = selectedPoi?.id === p.id
+                  const tag = cleanTag(p.business?.tag)
+                  return (
+                    <button
+                      key={p.id}
+                      className={'poi-card' + (sel ? ' selected' : '')}
+                      onClick={() => { setSelectedPoi(p); setStoreSheet(false) }}
+                    >
+                      <div className="poi-main">
+                        <div className="poi-name">{p.name}</div>
+                        <div className="poi-meta">
+                          {tag && <span>{tag}</span>}
+                          {p.business?.rating && <span>⭐ {p.business.rating}</span>}
+                          {p.business?.cost && <span>¥{p.business.cost}/人</span>}
+                          {p.distance && <span>📍 {fmtDist(p.distance)}</span>}
+                        </div>
+                        <div className="poi-addr">{p.adname} · {p.address}</div>
+                      </div>
+                      <span className="poi-check">{sel ? '✓' : ''}</span>
+                    </button>
+                  )
+                })}
+              </div>
+            )}
+            <button className="link-btn" onClick={addManualStore}>都不是？✍️ 自己加「{parsed?.store_hint}」</button>
+          </div>
+        </div>
+      )}
+
+      {/* 金额 popup：人数 + 总价 → 自动算人均 */}
+      {amountSheet && (
+        <div className="sheet-backdrop" onClick={() => setAmountSheet(false)}>
+          <div className="sheet amount-sheet" onClick={e => e.stopPropagation()}>
+            <div className="sheet-handle" />
+            <div className="sheet-title">💰 这顿花了多少</div>
+            <div className="amount-fields">
+              <div className="form-cell">
+                <label>总价 ¥</label>
+                <input type="number" inputMode="numeric" value={amount} onChange={e => setAmount(e.target.value)} autoFocus />
+              </div>
+              <div className="form-cell">
+                <label>几个人</label>
+                <input type="number" inputMode="numeric" value={people} onChange={e => setPeople(e.target.value)} />
+              </div>
+            </div>
+            <div className="amount-pp">人均 <b>¥{perPerson || '—'}</b></div>
+            <button className="primary" onClick={() => setAmountSheet(false)}>好了</button>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
