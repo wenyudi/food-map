@@ -4,6 +4,7 @@ import TopBar, { Avatar } from '../ui/TopBar'
 import Icon from '../ui/Icon'
 import StickerButton from '../ui/StickerButton'
 import SheetShell from '../ui/SheetShell'
+import DateWheel from '../ui/WheelPicker'
 import PhotoPicker from '../components/PhotoPicker'
 import { parseText, search, upsertStore, addVisit, addWish, regeo, getStats, getPoints } from '../api'
 import type { ParsedSentence, Stats, Point } from '../api'
@@ -628,9 +629,8 @@ export default function AddScreen({ onSubmitted }: AddScreenProps) {
       {timeSheet && (
         <SheetShell onClose={() => setTimeSheet(false)}>
           <h3 className="font-headline text-xl mb-3">📅 哪天 · 哪顿</h3>
-          <Field label="日期">
-            <input type="date" value={date} onChange={(e) => setDate(e.target.value)} className={INPUT} />
-          </Field>
+          <div className="text-sm font-bold text-on-surface-variant mb-1">日期</div>
+          <DateWheel value={date} onChange={setDate} />
           <div className="mt-3">
             <label className="block text-sm font-bold text-on-surface-variant mb-1">餐段</label>
             <div className="flex gap-2">

@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import SheetShell from '../ui/SheetShell'
 import StickerButton from '../ui/StickerButton'
+import DateWheel from '../ui/WheelPicker'
 import PhotoPicker from '../components/PhotoPicker'
 import { updateVisit, deleteVisit, updateWish, deleteWish } from '../api'
 
@@ -85,19 +86,17 @@ export default function EditRecordSheet({ kind, data, storeName, onClose, onChan
       {kind === 'visit' ? (
         <div className="space-y-3">
           <Row label="时间">
-            <div className="flex gap-2">
-              <input type="date" value={date} onChange={(e) => setDate(e.target.value)} className={input} />
-              <div className="flex rounded-xl border-2 border-on-surface overflow-hidden shrink-0 shadow-sticker-sm">
-                {(['早', '中', '晚'] as const).map((m) => (
-                  <button
-                    key={m}
-                    onClick={() => setMeal(m)}
-                    className={`px-3 py-2 font-bold ${meal === m ? 'bg-primary text-white' : 'bg-white'}`}
-                  >
-                    {m}
-                  </button>
-                ))}
-              </div>
+            <DateWheel value={date} onChange={setDate} />
+            <div className="flex rounded-xl border-2 border-on-surface overflow-hidden shadow-sticker-sm mt-2">
+              {(['早', '中', '晚'] as const).map((m) => (
+                <button
+                  key={m}
+                  onClick={() => setMeal(m)}
+                  className={`flex-1 px-3 py-2 font-bold ${meal === m ? 'bg-primary text-white' : 'bg-white'}`}
+                >
+                  {m}
+                </button>
+              ))}
             </div>
           </Row>
           <div className="flex gap-2">
