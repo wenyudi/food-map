@@ -31,3 +31,6 @@ Thumbs.db
 data/饼饼地图.html
 data/饼饼の美食地图.xlsx
 amap_poi_test.py
+
+# Stitch 设计参考稿（本地，不提交）
+.stitch/

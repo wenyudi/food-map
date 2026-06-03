@@ -1,5 +1,6 @@
 import { useRef, useState } from 'react'
 import axios from 'axios'
+import Icon from '../ui/Icon'
 
 interface Props {
   photos: string[]
@@ -7,7 +8,7 @@ interface Props {
   max?: number
 }
 
-const MAX_DIM = 1280  // 长边压到 1280px
+const MAX_DIM = 1280 // 长边压到 1280px
 
 export default function PhotoPicker({ photos, onChange, max = 5 }: Props) {
   const inputRef = useRef<HTMLInputElement>(null)
@@ -15,89 +16,89 @@ export default function PhotoPicker({ photos, onChange, max = 5 }: Props) {
 
   async function handlePick(e: React.ChangeEvent<HTMLInputElement>) {
     const files = Array.from(e.target.files || [])
-    e.target.value = ''  // 允许重选同一张
+    e.target.value = ''
     if (!files.length) return
-
     const room = max - photos.length
     const toUpload = files.slice(0, room)
     setUploading(toUpload.length)
-
     const urls: string[] = []
     for (const f of toUpload) {
       try {
         const blob = await compress(f, MAX_DIM)
         const form = new FormData()
-        form.append('file', blob, `pic.jpg`)
+        form.append('file', blob, 'pic.jpg')
         const r = await axios.post<{ url: string }>('/api/upload', form)
         urls.push(r.data.url)
       } catch (err) {
         console.error('upload failed', err)
       }
-      setUploading(c => c - 1)
+      setUploading((c) => c - 1)
     }
     onChange([...photos, ...urls])
   }
 
   function remove(u: string) {
-    onChange(photos.filter(x => x !== u))
+    onChange(photos.filter((x) => x !== u))
   }
 
   return (
-    <div className="photo-picker">
-      <div className="photo-grid">
-        {photos.map(u => (
-          <div className="photo-tile" key={u}>
-            <img src={u} />
-            <button className="remove" onClick={() => remove(u)}>✕</button>
-          </div>
-        ))}
-        {Array.from({ length: uploading }).map((_, i) => (
-          <div className="photo-tile uploading" key={`u${i}`}>↑</div>
-        ))}
-        {photos.length + uploading < max && (
-          <button className="photo-tile add" onClick={() => inputRef.current?.click()}>
-            <span>📷</span>
-            <small>{photos.length === 0 ? '拍照 / 选图' : '加一张'}</small>
+    <div className="flex flex-wrap gap-2">
+      {photos.map((u) => (
+        <div className="relative w-20 h-20" key={u}>
+          <img src={u} className="w-full h-full object-cover rounded-lg border-2 border-on-surface" />
+          <button
+            onClick={() => remove(u)}
+            className="absolute -top-1.5 -right-1.5 w-5 h-5 rounded-full bg-on-surface text-white text-xs flex items-center justify-center border-2 border-white"
+          >
+            ✕
           </button>
-        )}
-      </div>
-      {/* 不加 capture：手机会弹原生选择菜单（拍照 / 相册 / 浏览），两者都能用 */}
-      <input
-        ref={inputRef}
-        type="file"
-        accept="image/*"
-        multiple
-        onChange={handlePick}
-        style={{ display: 'none' }}
-      />
+        </div>
+      ))}
+      {Array.from({ length: uploading }).map((_, i) => (
+        <div
+          key={`u${i}`}
+          className="w-20 h-20 rounded-lg border-2 border-dashed border-on-surface/40 flex items-center justify-center text-on-surface-variant animate-pulse"
+        >
+          ↑
+        </div>
+      ))}
+      {photos.length + uploading < max && (
+        <button
+          onClick={() => inputRef.current?.click()}
+          className="w-20 h-20 rounded-lg border-2 border-dashed border-on-surface/50 bg-white/50 flex flex-col items-center justify-center text-on-surface-variant press-sm"
+        >
+          <Icon name="add_a_photo" className="text-xl" />
+          <span className="text-[10px] font-bold mt-0.5">{photos.length === 0 ? '拍照 / 选图' : '加一张'}</span>
+        </button>
+      )}
+      <input ref={inputRef} type="file" accept="image/*" multiple onChange={handlePick} className="hidden" />
     </div>
   )
 }
 
 async function compress(file: File, maxDim: number): Promise<Blob> {
-  // 不是图就原样
   if (!file.type.startsWith('image/')) return file
-
   const img = await loadImage(file)
   const scale = Math.min(1, maxDim / Math.max(img.width, img.height))
-  if (scale === 1 && file.size < 600 * 1024) return file  // 小图不压
-
+  if (scale === 1 && file.size < 600 * 1024) return file
   const canvas = document.createElement('canvas')
   canvas.width = Math.round(img.width * scale)
   canvas.height = Math.round(img.height * scale)
   const ctx = canvas.getContext('2d')
   if (!ctx) return file
   ctx.drawImage(img, 0, 0, canvas.width, canvas.height)
-
-  return new Promise<Blob>(resolve => {
-    canvas.toBlob(b => resolve(b || file), 'image/jpeg', 0.85)
+  return new Promise<Blob>((resolve) => {
+    canvas.toBlob((b) => resolve(b || file), 'image/jpeg', 0.85)
   })
 }
 
 function loadImage(file: File): Promise<HTMLImageElement> {
   return new Promise((resolve, reject) => {
     const img = new Image()
-    img.onload = () => { URL.revokeObjectURL(img.src); resolve(img) }
+    img.onload = () => {
+      URL.revokeObjectURL(img.src)
+      resolve(img)
+    }
     img.onerror = reject
     img.src = URL.createObjectURL(file)
   })
