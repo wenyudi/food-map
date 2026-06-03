@@ -282,6 +282,7 @@ export default function AddScreen({ onSubmitted }: AddScreenProps) {
       <TopBar
         title="记一笔"
         subtitle="一句话，记下这一顿"
+        icon="edit"
         right={<Avatar emoji="😋" />}
         onBack={parsed ? () => setParsed(null) : undefined}
       />

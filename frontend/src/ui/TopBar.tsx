@@ -28,7 +28,7 @@ export default function TopBar({ title, subtitle, icon = 'restaurant', right, on
           {title ? (
             <h1 className="font-headline text-2xl text-on-surface leading-none">{title}</h1>
           ) : (
-            <Wordmark className="text-xl" />
+            <Wordmark className="text-2xl" />
           )}
           {subtitle && (
             <span className="text-[11px] font-bold text-on-surface-variant truncate mt-1">{subtitle}</span>
@@ -60,7 +60,7 @@ export function Avatar({ emoji = '😋', onClick }: AvatarProps) {
   return (
     <button
       onClick={onClick}
-      className="w-10 h-10 rounded-full border-2 border-on-surface bg-accent flex items-center justify-center shadow-sticker text-xl press shrink-0"
+      className="w-10 h-10 rounded-full border-2 border-on-surface bg-accent flex items-center justify-center shadow-sticker-sm text-xl press-sm shrink-0"
     >
       {emoji}
     </button>
