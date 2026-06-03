@@ -3062,3 +3062,27 @@ button.primary:disabled {
   padding-bottom: calc(env(safe-area-inset-bottom) + 12px);
   z-index: 5;
 }
+
+/* —— Stitch 风导航：激活填充药丸 + 记一笔抬起圆钮 + 圆角硬上沿 —— */
+.tabs {
+  border-radius: 20px 20px 0 0;
+  box-shadow: 0 -3px 0 var(--ink);
+  align-items: center;
+  overflow: visible;
+}
+.tabs button.active:not(.tab-add) {
+  background: var(--primary);
+  color: #fff;
+  border: 2px solid var(--ink);
+  box-shadow: var(--sh-st1);
+  border-radius: 12px;
+  padding: 6px 16px;
+}
+.tabs button.active:not(.tab-add) span { color: #fff; }
+.tabs button.tab-add .tab-add-circle {
+  width: 54px;
+  height: 54px;
+  margin-top: -26px;
+  box-shadow: var(--sh-st2);
+}
+.tabs button.tab-add .tab-add-circle svg { width: 26px; height: 26px; }
