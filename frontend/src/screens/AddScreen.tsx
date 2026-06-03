@@ -281,7 +281,7 @@ export default function AddScreen({ onSubmitted }: AddScreenProps) {
 
       <TopBar right={<Avatar emoji="😋" />} />
 
-      <div className="flex-1 min-h-0 overflow-y-auto px-4 pt-3 pb-4">
+      <div className="flex-1 min-h-0 overflow-y-auto px-4 pt-3 pb-8">
         <h2 className="font-headline text-3xl">记一笔</h2>
         <p className="text-on-surface-variant font-bold text-sm mb-3">一句话，记下这一顿</p>
 
@@ -496,7 +496,7 @@ export default function AddScreen({ onSubmitted }: AddScreenProps) {
 
       {/* 底栏 */}
       {parsed && (
-        <div className="shrink-0 px-4 pt-2 pb-3 bg-gradient-to-t from-surface via-surface to-transparent">
+        <div className="shrink-0 px-4 pt-2 pb-6 bg-gradient-to-t from-surface via-surface to-transparent">
           <StickerButton full disabled={busy || !selectedPoi} className="py-4 text-lg" onClick={handleSubmit}>
             <Icon name="edit_note" className="text-2xl" /> {busy ? '提交中…' : isVisit ? '记下这一顿' : '收藏想去'}
           </StickerButton>

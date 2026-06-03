@@ -32,6 +32,8 @@ export default function MapScreen({ refreshKey, focusPoiId, onConsumeFocus, onJu
   const [suggestFocus, setSuggestFocus] = useState<string | null>(null)
   const [trayOpen, setTrayOpen] = useState(false)
   const markerRefs = useRef<Record<string, L.Marker>>({})
+  const mapRef = useRef<L.Map | null>(null)
+  const [hereBusy, setHereBusy] = useState(false)
 
   const [areaMode, setAreaMode] = useState(false)
   const [activeArea, setActiveArea] = useState<Area | null>(null)
@@ -68,6 +70,28 @@ export default function MapScreen({ refreshKey, focusPoiId, onConsumeFocus, onJu
       setAreaTitles(r.areas || {})
     } finally {
       setRerolling(false)
+    }
+  }
+
+  async function goToMyLocation() {
+    const map = mapRef.current
+    if (!map) return
+    setHereBusy(true)
+    try {
+      const loc = await getMyLocation()
+      if (!loc) {
+        alert('定位失败 —— 可能没授权，或在 HTTP 局域网下浏览器不允许')
+        return
+      }
+      map.flyTo([loc.lat, loc.lng], 15, { duration: 0.8 })
+      const marker = L.marker([loc.lat, loc.lng], {
+        icon: L.divIcon({ html: '<div class="here-pulse"></div>', className: '', iconSize: [22, 22], iconAnchor: [11, 11] }),
+        interactive: false,
+        keyboard: false,
+      }).addTo(map)
+      setTimeout(() => marker.remove(), 5000)
+    } finally {
+      setHereBusy(false)
     }
   }
 
@@ -125,7 +149,7 @@ export default function MapScreen({ refreshKey, focusPoiId, onConsumeFocus, onJu
                 eventHandlers={{ click: () => setActiveArea(a) }}
               />
             ))}
-          <HereButton />
+          <MapRefBinder mapRef={mapRef} />
         </MapContainer>
 
         {/* 顶部统计卡浮层 */}
@@ -179,8 +203,8 @@ export default function MapScreen({ refreshKey, focusPoiId, onConsumeFocus, onJu
           </div>
         )}
 
-        {/* 浮动操作 */}
-        <div className="absolute bottom-5 left-0 w-full px-4 flex justify-between items-end z-[450] pointer-events-none">
+        {/* 浮动操作（抬高 bottom-8 避开凸起的记一笔钮；奖杯 + 定位同列） */}
+        <div className="absolute bottom-8 left-0 w-full px-4 flex justify-between items-end z-[450] pointer-events-none">
           <div className="w-12" />
           {!loading && points.length > 0 && (
             <button
@@ -198,10 +222,22 @@ export default function MapScreen({ refreshKey, focusPoiId, onConsumeFocus, onJu
                 className={`w-12 h-12 rounded-full border-2 border-on-surface shadow-sticker flex items-center justify-center press ${
                   areaMode ? 'bg-primary text-white' : 'bg-white'
                 }`}
+                title="片区版图"
               >
                 <Icon name={areaMode ? 'close' : 'emoji_events'} />
               </button>
             )}
+            <button
+              onClick={goToMyLocation}
+              className="w-12 h-12 bg-white rounded-full border-2 border-on-surface shadow-sticker flex items-center justify-center press"
+              title="定位到我的位置"
+            >
+              {hereBusy ? (
+                <span className="text-on-surface-variant">…</span>
+              ) : (
+                <Icon name="my_location" className="text-primary" />
+              )}
+            </button>
           </div>
         </div>
       </main>
@@ -299,37 +335,13 @@ function FocusFlyer({
   return null
 }
 
-function HereButton() {
+/** 把 leaflet 地图实例绑到外部 ref，供浮层里的定位按钮调用 */
+function MapRefBinder({ mapRef }: { mapRef: React.MutableRefObject<L.Map | null> }) {
   const map = useMap()
-  const [busy, setBusy] = useState(false)
-  async function handleClick() {
-    setBusy(true)
-    try {
-      const loc = await getMyLocation()
-      if (!loc) {
-        alert('定位失败 —— 可能没授权，或在 HTTP 局域网下浏览器不允许')
-        return
-      }
-      map.flyTo([loc.lat, loc.lng], 15, { duration: 0.8 })
-      const marker = L.marker([loc.lat, loc.lng], {
-        icon: L.divIcon({ html: '<div class="here-pulse"></div>', className: '', iconSize: [22, 22], iconAnchor: [11, 11] }),
-        interactive: false,
-        keyboard: false,
-      }).addTo(map)
-      setTimeout(() => marker.remove(), 5000)
-    } finally {
-      setBusy(false)
-    }
-  }
-  return (
-    <button
-      onClick={handleClick}
-      className="absolute bottom-5 right-4 z-[450] w-12 h-12 bg-white rounded-full border-2 border-on-surface shadow-sticker flex items-center justify-center press"
-      title="定位到我的位置"
-    >
-      {busy ? <span className="text-on-surface-variant">…</span> : <Icon name="my_location" className="text-primary" />}
-    </button>
-  )
+  useEffect(() => {
+    mapRef.current = map
+  }, [map, mapRef])
+  return null
 }
 
 function PopupContent({ point: p }: { point: Point }) {

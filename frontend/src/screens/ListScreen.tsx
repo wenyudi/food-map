@@ -157,7 +157,7 @@ export default function ListScreen({ refreshKey, focusPoiId, onPickStore, onJump
     <div className="h-full flex flex-col">
       <TopBar subtitle="你俩一起吃过的好味道" right={<Avatar emoji="🤤" />} />
 
-      <div className="flex-1 min-h-0 overflow-y-auto px-4 pt-4 pb-6">
+      <div className="flex-1 min-h-0 overflow-y-auto px-4 pt-4 pb-12">
         <h2 className="font-headline text-3xl mb-3">食光清单</h2>
 
         {/* 搜索 + 问地图 */}
@@ -190,7 +190,7 @@ export default function ListScreen({ refreshKey, focusPoiId, onPickStore, onJump
 
         {/* 筛选 chips */}
         {points.length > 0 && (
-          <div className="flex gap-2 my-3 overflow-x-auto hide-scrollbar">
+          <div className="flex flex-wrap gap-2 my-3">
             {FILTERS.map((f) => {
               const n = counts[f.key]
               const active = filter === f.key

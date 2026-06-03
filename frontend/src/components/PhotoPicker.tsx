@@ -1,6 +1,6 @@
 import { useRef, useState } from 'react'
-import axios from 'axios'
 import Icon from '../ui/Icon'
+import { uploadPhoto } from '../api'
 
 interface Props {
   photos: string[]
@@ -27,8 +27,8 @@ export default function PhotoPicker({ photos, onChange, max = 5 }: Props) {
         const blob = await compress(f, MAX_DIM)
         const form = new FormData()
         form.append('file', blob, 'pic.jpg')
-        const r = await axios.post<{ url: string }>('/api/upload', form)
-        urls.push(r.data.url)
+        const { url } = await uploadPhoto(form)
+        urls.push(url)
       } catch (err) {
         console.error('upload failed', err)
       }

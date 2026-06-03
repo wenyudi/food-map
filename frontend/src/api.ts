@@ -195,6 +195,10 @@ export const regeo = (location: string) =>
 export const parseText = (text: string) =>
   api.post<ParsedSentence>('/parse', { text }).then(r => r.data)
 
+// 照片上传：必须走带 token 拦截器的 api 实例（/api/upload 需要鉴权）
+export const uploadPhoto = (form: FormData) =>
+  api.post<{ url: string }>('/upload', form).then(r => r.data)
+
 export const upsertStore = (poi: any) =>
   api.post('/store', { poi }).then(r => r.data)
 
