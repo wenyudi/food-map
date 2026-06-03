@@ -238,7 +238,7 @@ function StatBar({ stats }: { stats: Stats }) {
     <div className="map-stat-bar">
       <span><span className="stat-ico">📍</span><b>{Math.round(visits)}</b><small>次</small></span>
       <span><span className="stat-ico">🏠</span><b>{Math.round(stores)}</b><small>家</small></span>
-      <span><span className="stat-ico">🤍</span><b>{Math.round(wishes)}</b><small>想去</small></span>
+      <span><span className="stat-ico">❤️</span><b>{Math.round(wishes)}</b><small>想去</small></span>
       <span><span className="stat-ico">💵</span><b>¥{Math.round(amount)}</b><small>总花</small></span>
     </div>
   )
@@ -425,7 +425,7 @@ function PopupContent({ point: p }: { point: Point }) {
       <div className="popup-timeline">
         {events.map((e, i) => e.type === 'wish' ? (
           <div className="pt-row" key={i}>
-            <span className="pt-emoji">🤍</span>
+            <span className="pt-emoji">❤️</span>
             <div className="pt-text-wrap">
               <div className="pt-line">
                 <span className="pt-date">{e.date.slice(5).replace('-', '/')}</span>

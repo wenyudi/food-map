@@ -304,7 +304,7 @@ def get_points(user: dict = Depends(current_user)):
             **store,
             "status": "visited" if my_visits else "want",
             "color": EMOJI_COLOR.get(emoji, "#a4b0be"),
-            "emoji": emoji or "🤍",
+            "emoji": emoji or "❤️",
             "visit_count": len(my_visits),
             "visits": my_visits,
             "wish": wishes_by_poi.get(poi_id),

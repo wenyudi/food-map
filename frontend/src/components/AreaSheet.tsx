@@ -73,7 +73,7 @@ export default function AreaSheet({
             <div className="as-group-t">想去还没去 {area.want.length} 家</div>
             {area.want.map(p => (
               <button key={p.poi_id} className="as-store want" onClick={() => onPickStore(p.poi_id)}>
-                <span className="as-emoji">🤍</span>
+                <span className="as-emoji">❤️</span>
                 <span className="as-name">{p.name}</span>
                 <span className="as-go">›</span>
               </button>

@@ -2972,3 +2972,16 @@ button.primary:disabled {
 .here-btn svg, .area-toggle svg { width: 24px; height: 24px; display: block; }
 .here-btn.busy { font-size: 18px; }
 .area-toggle.on { font-size: 20px; }
+
+/* —— 列表 · 搜索 + 问地图 并一行 —— */
+.search-row { display: flex; gap: 9px; align-items: stretch; margin-bottom: 12px; }
+.search-row .list-search { flex: 1; margin-bottom: 0; }
+.ask-btn {
+  display: flex; align-items: center; gap: 6px;
+  background: var(--primary); color: #fff;
+  border: 2px solid var(--ink); border-radius: 999px;
+  box-shadow: var(--sh-st1);
+  padding: 0 15px; font-weight: 700; font-size: 13px;
+  flex-shrink: 0; white-space: nowrap;
+}
+.ask-btn svg { width: 18px; height: 18px; flex-shrink: 0; }

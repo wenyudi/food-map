@@ -18,7 +18,7 @@ interface StoreStatus {
 function getStatus(p: Point): StoreStatus {
   const visitCount = p.visit_count
   const everWished = p.wish != null
-  if (visitCount === 0) return { key: 'want', icon: '🤍', label: '种草中' }
+  if (visitCount === 0) return { key: 'want', icon: '❤️', label: '种草中' }
   if (visitCount >= 2) return { key: 'repeat', icon: '🔁', label: '二刷' }
   if (everWished) return { key: 'fulfilled', icon: '✨', label: '已兑现' }
   return { key: 'direct', icon: '📍', label: '直奔' }
@@ -196,15 +196,15 @@ export default function ListView({ refreshKey, focusPoiId, onPickStore, onJumpTo
       <MonthlySummary points={points} refreshKey={refreshKey} />
 
       {points.length > 0 && (
-        <button className="ask-bar" onClick={() => setAskOpen(true)}>
-          🔮 问问这张地图…
-        </button>
-      )}
-
-      {points.length > 0 && (
-        <div className="list-search">
-          <input value={query} onChange={e => setQuery(e.target.value)} placeholder="🔍 搜店名…" />
-          {query && <button className="ls-clear" onClick={() => setQuery('')} aria-label="清除">✕</button>}
+        <div className="search-row">
+          <div className="list-search">
+            <input value={query} onChange={e => setQuery(e.target.value)} placeholder="🔍 搜店名…" />
+            {query && <button className="ls-clear" onClick={() => setQuery('')} aria-label="清除">✕</button>}
+          </div>
+          <button className="ask-btn" onClick={() => setAskOpen(true)} aria-label="问地图">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 3a9 9 0 1 0 4.5 16.8L21 21l-1.2-4.5A9 9 0 0 0 12 3z" /><path d="M9 11h.01M12 11h.01M15 11h.01" /></svg>
+            <span>问地图</span>
+          </button>
         </div>
       )}
 
@@ -217,7 +217,7 @@ export default function ListView({ refreshKey, focusPoiId, onPickStore, onJumpTo
             ⭐ 想再来 <em>{counts.fav}</em>
           </Chip>
           <Chip active={filter === 'want'} onClick={() => setFilter('want')}>
-            🤍 想去 <em>{counts.want}</em>
+            ❤️ 想去 <em>{counts.want}</em>
           </Chip>
           <Chip active={filter === 'fulfilled'} onClick={() => setFilter('fulfilled')}>
             ✨ 已兑现 <em>{counts.fulfilled}</em>
@@ -374,7 +374,7 @@ function StoreCard({ point, status, flashing, cardRef, onClick, onEdit, onShare,
   index: number
 }) {
   const timeline = buildTimeline(point)
-  const headEmoji = point.visit_count > 0 ? point.emoji : '🤍'
+  const headEmoji = point.visit_count > 0 ? point.emoji : '❤️'
   const isManual = String(point.poi_id).startsWith('m_')
   const hasCoords = !!(point.lng && point.lat)
 
@@ -442,7 +442,7 @@ function TimelineRow({ event, isLast, onEdit, showAuthor, myUsername }: {
     return (
       <div className="tl-row">
         <div className="tl-axis">
-          <div className="tl-dot wish">🤍</div>
+          <div className="tl-dot wish">❤️</div>
           {!isLast && <div className="tl-line" />}
         </div>
         <div className="tl-body">
@@ -538,11 +538,11 @@ function MonthlySummary({ points, refreshKey }: { points: Point[]; refreshKey: n
   const [storyLoading, setStoryLoading] = useState(false)
   const [storyError, setStoryError] = useState<string | null>(null)
 
-  // 折叠状态：默认展开，用户点折叠后记 localStorage，下次进入恢复；新数据来了自动展开
+  // 折叠状态：默认收起，用户点展开后记 localStorage（'open'）下次恢复；新数据来了自动展开
   const lsKey = `ms_collapsed_${data.yearMonth}`
   const [collapsed, setCollapsed] = useState<boolean>(() => {
-    if (typeof window === 'undefined') return false
-    return localStorage.getItem(lsKey) === '1'
+    if (typeof window === 'undefined') return true
+    return localStorage.getItem(lsKey) !== 'open'
   })
 
   // refreshKey 变化（>0 表示用户提交了新数据） → 自动展开
@@ -556,8 +556,8 @@ function MonthlySummary({ points, refreshKey }: { points: Point[]; refreshKey: n
     setCollapsed(prev => {
       const next = !prev
       try {
-        if (next) localStorage.setItem(lsKey, '1')
-        else localStorage.removeItem(lsKey)
+        if (next) localStorage.removeItem(lsKey)
+        else localStorage.setItem(lsKey, 'open')
       } catch {}
       return next
     })
