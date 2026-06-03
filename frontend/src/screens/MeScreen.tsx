@@ -94,11 +94,9 @@ export default function MeScreen({ me, onLogout }: MeScreenProps) {
 
   return (
     <div className="h-full flex flex-col">
-      <TopBar right={<IconBtn icon="settings" />} />
+      <TopBar title="我的" right={<IconBtn icon="settings" />} />
 
       <div className="flex-1 min-h-0 overflow-y-auto px-5 pt-6 pb-10 space-y-5">
-        <h2 className="font-headline text-4xl">我的</h2>
-
         {/* 资料卡 */}
         <div className="sticker rounded-2xl p-5 flex items-center gap-4">
           <div className="w-20 h-20 rounded-full border-2 border-on-surface bg-accent flex items-center justify-center font-headline text-3xl shrink-0">

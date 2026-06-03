@@ -155,11 +155,9 @@ export default function ListScreen({ refreshKey, focusPoiId, onPickStore, onJump
 
   return (
     <div className="h-full flex flex-col">
-      <TopBar subtitle="你俩一起吃过的好味道" right={<Avatar emoji="🤤" />} />
+      <TopBar title="食光清单" right={<Avatar emoji="🤤" />} />
 
       <div className="flex-1 min-h-0 overflow-y-auto px-4 pt-4 pb-12">
-        <h2 className="font-headline text-3xl mb-3">食光清单</h2>
-
         {/* 搜索 + 问地图 */}
         <div className="flex gap-2 mb-3">
           <div className="flex-1 flex items-center gap-2 rounded-full border-2 border-on-surface bg-white px-4 py-2.5 shadow-sticker-sm">
