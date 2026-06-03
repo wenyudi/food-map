@@ -21,6 +21,14 @@ const EMOJI_OPTIONS: Array<{ emoji: Mood; label: string }> = [
   { emoji: '😐', label: '不咋地' },
   { emoji: '🤮', label: '踩雷' },
 ]
+// 选中那颗的 CSS 动效（在 tailwind.css 里定义）
+const MOOD_ANIM: Record<Mood, string> = {
+  '😋': 'm-yum',
+  '🤤': 'm-drool',
+  '😂': 'm-laugh',
+  '😐': 'm-meh',
+  '🤮': 'm-vomit',
+}
 
 const LS_CITY = 'last_city'
 const LS_COMPANIONS = 'last_companions'
@@ -480,16 +488,16 @@ export default function AddScreen({ onSubmitted }: AddScreenProps) {
               <div className="space-y-4">
                 <div>
                   <p className="font-headline text-lg mb-2">这一顿，好吃吗？</p>
-                  <div className="flex justify-center gap-2">
+                  <div className="flex justify-between">
                     {EMOJI_OPTIONS.map((o) => (
                       <button
                         key={o.emoji}
                         onClick={() => setEmoji(o.emoji)}
-                        className={`w-14 h-14 rounded-full border-2 border-on-surface flex items-center justify-center text-2xl press transition-all ${
+                        className={`w-14 h-14 rounded-full border-2 border-on-surface flex items-center justify-center text-[26px] press transition-all ${
                           emoji === o.emoji ? 'bg-accent shadow-sticker' : 'bg-white shadow-sticker-sm opacity-60'
                         }`}
                       >
-                        {o.emoji}
+                        <span className={`mood-glyph ${emoji === o.emoji ? MOOD_ANIM[o.emoji] : ''}`}>{o.emoji}</span>
                       </button>
                     ))}
                   </div>
