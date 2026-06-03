@@ -38,20 +38,15 @@ export default function TabBar({ active, onChange }: TabBarProps) {
               {t.label}
             </span>
           </div>
-        ) : active === t.key ? (
-          <button
-            key={t.key}
-            onClick={() => onChange(t.key)}
-            className="flex flex-col items-center justify-center bg-primary text-white rounded-lg border-2 border-on-surface px-4 py-1.5 shadow-sticker-sm press-sm"
-          >
-            <Icon name={t.icon} />
-            <span className="font-label font-bold text-xs mt-0.5">{t.label}</span>
-          </button>
         ) : (
           <button
             key={t.key}
             onClick={() => onChange(t.key)}
-            className="flex flex-col items-center justify-center text-on-surface-variant px-3 py-1 press-sm"
+            className={`flex flex-col items-center justify-center px-4 py-1.5 rounded-lg border-2 transition-all ${
+              active === t.key
+                ? 'bg-primary text-white border-on-surface shadow-sticker-sm'
+                : 'text-on-surface-variant border-transparent'
+            }`}
           >
             <Icon name={t.icon} />
             <span className="font-label font-bold text-xs mt-0.5">{t.label}</span>
