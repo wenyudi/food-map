@@ -61,6 +61,7 @@ export default function AddScreen({ onSubmitted }: AddScreenProps) {
 
   const [storeSheet, setStoreSheet] = useState(false)
   const [amountSheet, setAmountSheet] = useState(false)
+  const [companionsSheet, setCompanionsSheet] = useState(false)
 
   useEffect(() => {
     getMyLocation().then((loc) => {
@@ -373,19 +374,47 @@ export default function AddScreen({ onSubmitted }: AddScreenProps) {
               <Icon name="auto_awesome" className="text-accent" /> AI 认出了这些 👇 点一下可改
             </p>
 
-            {/* AI 标签 */}
-            <div className="flex flex-wrap gap-2 mb-4">
+            {/* 店铺卡（Stitch 风：emoji 头 + 名称 + 菜系评分 + 换一家） */}
+            <div className="sticker p-3 mb-3 flex items-center gap-3">
+              <span className="w-11 h-11 rounded-full border-2 border-on-surface bg-accent flex items-center justify-center text-xl shrink-0">
+                🍲
+              </span>
+              <div className="min-w-0 flex-1">
+                <div className="font-headline text-lg leading-tight truncate">{selectedPoi?.name || '还没选店'}</div>
+                <div className="text-xs font-bold text-on-surface-variant truncate">
+                  {[
+                    selectedPoi?.adname || selectedPoi?.business?.business_area,
+                    cleanTag(selectedPoi?.business?.tag),
+                    selectedPoi?.business?.rating && `⭐${selectedPoi.business.rating}`,
+                  ]
+                    .filter(Boolean)
+                    .join(' · ') || '点「换一家」选一个'}
+                </div>
+              </div>
+              <button
+                onClick={() => setStoreSheet(true)}
+                className="shrink-0 text-sm font-bold border-2 border-on-surface rounded-full px-3 py-1 bg-white shadow-sticker-sm press-sm"
+              >
+                换一家
+              </button>
+            </div>
+
+            {isManual && (
+              <input
+                value={selectedPoi?.name || ''}
+                onChange={(e) => setSelectedPoi({ ...selectedPoi, name: e.target.value })}
+                placeholder="手动店名"
+                className={INPUT + ' mb-3'}
+              />
+            )}
+
+            {/* 信息 chips（点一下可改） */}
+            <div className="flex flex-wrap gap-2 mb-5">
               <button
                 onClick={() => setIntent(isVisit ? 'wish' : 'visit')}
                 className="px-3 py-1.5 rounded-full border-2 border-on-surface bg-accent text-on-surface text-sm font-bold shadow-sticker-sm press-sm"
               >
                 {isVisit ? '🍴 吃过' : '🌱 想去'}
-              </button>
-              <button
-                onClick={() => setStoreSheet(true)}
-                className="px-3 py-1.5 rounded-full border-2 border-on-surface bg-primary text-white text-sm font-bold shadow-sticker-sm press-sm inline-flex items-center gap-1"
-              >
-                🏪 {selectedPoi?.name || '选店 / 手动加'} <span className="opacity-80 underline">换</span>
               </button>
               {isVisit && (
                 <>
@@ -410,6 +439,12 @@ export default function AddScreen({ onSubmitted }: AddScreenProps) {
                   >
                     💰 {amount ? `人均¥${perPerson} · ${people}人` : '填金额'}
                   </button>
+                  <button
+                    onClick={() => setCompanionsSheet(true)}
+                    className="px-3 py-1.5 rounded-full border-2 border-on-surface bg-white text-on-surface text-sm font-bold shadow-sticker-sm press-sm"
+                  >
+                    👥 {companions || '和谁'}
+                  </button>
                 </>
               )}
               {parsed.cuisine && (
@@ -426,17 +461,6 @@ export default function AddScreen({ onSubmitted }: AddScreenProps) {
                 </span>
               ))}
             </div>
-
-            {isManual && (
-              <Field label="店名">
-                <input
-                  value={selectedPoi?.name || ''}
-                  onChange={(e) => setSelectedPoi({ ...selectedPoi, name: e.target.value })}
-                  placeholder="店名"
-                  className={INPUT}
-                />
-              </Field>
-            )}
 
             {isVisit ? (
               <div className="space-y-4">
@@ -471,15 +495,24 @@ export default function AddScreen({ onSubmitted }: AddScreenProps) {
                   </button>
                 </div>
 
-                <Field label="感受">
-                  <input value={feeling} onChange={(e) => setFeeling(e.target.value)} placeholder="好吃在哪？一句话" className={INPUT} />
-                </Field>
-                <Field label="和谁">
-                  <input value={companions} onChange={(e) => setCompanions(e.target.value)} placeholder="和谁一起？" className={INPUT} />
-                </Field>
-                <Field label="📷 照片">
+                {/* 备注（单个，对齐 Stitch） */}
+                <div>
+                  <label className="block text-sm font-bold text-on-surface-variant mb-1">备注</label>
+                  <div className="sticker p-3">
+                    <textarea
+                      value={feeling}
+                      onChange={(e) => setFeeling(e.target.value)}
+                      rows={2}
+                      placeholder="好吃在哪？想说点啥…"
+                      className="w-full bg-transparent outline-none resize-none font-body text-on-surface placeholder:text-on-surface-variant/60"
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-bold text-on-surface-variant mb-1">📷 照片</label>
                   <PhotoPicker photos={photos} onChange={setPhotos} max={5} />
-                </Field>
+                </div>
               </div>
             ) : (
               <div className="space-y-4">
@@ -576,6 +609,23 @@ export default function AddScreen({ onSubmitted }: AddScreenProps) {
             人均 <b className="text-primary text-xl">¥{perPerson || '—'}</b>
           </div>
           <StickerButton full onClick={() => setAmountSheet(false)}>
+            好了
+          </StickerButton>
+        </SheetShell>
+      )}
+
+      {/* 和谁 sheet */}
+      {companionsSheet && (
+        <SheetShell onClose={() => setCompanionsSheet(false)}>
+          <h3 className="font-headline text-xl mb-3">👥 和谁一起</h3>
+          <input
+            value={companions}
+            onChange={(e) => setCompanions(e.target.value)}
+            placeholder="比如：饼饼 / 同事 / 一个人"
+            autoFocus
+            className={INPUT}
+          />
+          <StickerButton full className="mt-4" onClick={() => setCompanionsSheet(false)}>
             好了
           </StickerButton>
         </SheetShell>
