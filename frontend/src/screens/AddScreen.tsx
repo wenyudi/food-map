@@ -300,10 +300,7 @@ export default function AddScreen({ onSubmitted }: AddScreenProps) {
       <div className="flex-1 min-h-0 overflow-y-auto px-4 pt-[calc(env(safe-area-inset-top)_+_1rem)] pb-8">
         {!parsed && (
           <>
-            {/* 问候卡（Stitch） */}
-            <RecordHero />
-
-            {/* 主输入卡（Stitch：大 textarea + 虚线分隔 + 城市药丸 + ✨解析） */}
+            {/* 主输入卡（输入框置顶；Stitch 样式：大 textarea + 虚线分隔 + 城市药丸 + ✨解析） */}
             <div className="bg-white border-2 border-on-surface rounded-2xl shadow-sticker overflow-hidden mb-4">
               <textarea
                 value={text}
@@ -312,7 +309,7 @@ export default function AddScreen({ onSubmitted }: AddScreenProps) {
                 rows={4}
                 className="w-full p-4 bg-transparent outline-none resize-none font-body font-bold text-on-surface placeholder:font-medium placeholder:text-on-surface-variant/60"
               />
-              <div className="flex items-center justify-between gap-2 px-3 py-3 bg-surface/50 border-t-2 border-dashed border-on-surface">
+              <div className="flex items-center justify-between gap-2 px-3 py-3 bg-accent/15 border-t-2 border-dashed border-on-surface">
                 <label className="flex items-center gap-1 bg-white border-2 border-on-surface rounded-full pl-2.5 pr-1 py-1 shadow-sticker-sm">
                   <Icon name="location_on" className="text-primary text-base" />
                   <span className="text-xs font-bold text-on-surface-variant">城市</span>
@@ -336,6 +333,9 @@ export default function AddScreen({ onSubmitted }: AddScreenProps) {
               </div>
             </div>
 
+            {/* 问候卡（Stitch，暖色渐变） */}
+            <RecordHero />
+
             {/* 附近一键记（保留功能） */}
             {nearby && (
               <button
@@ -353,23 +353,25 @@ export default function AddScreen({ onSubmitted }: AddScreenProps) {
               </button>
             )}
 
-            {/* 示例（Stitch：横滑卡 + 旋转角标） */}
+            {/* 示例（Stitch 旋转角标；竖排避免横向溢出 + 暖色卡） */}
             <div className="text-sm font-black text-on-surface-variant mb-3">不知道怎么写？点一条直接套用 👇</div>
-            <div className="flex gap-3 overflow-x-auto hide-scrollbar snap-x pt-2 pb-3">
+            <div className="flex flex-col gap-3 pt-1.5 mb-2">
               {EXAMPLES.map((ex, i) => (
                 <button
                   key={i}
                   onClick={() => setText(ex.text)}
-                  className="relative shrink-0 snap-center w-[240px] text-left bg-white border-2 border-on-surface rounded-2xl shadow-sticker-sm p-4 press-sm"
+                  className={`relative w-full text-left border-2 border-on-surface rounded-2xl shadow-sticker-sm p-4 press-sm ${
+                    ex.kind === 'eat' ? 'bg-[#fff5dd]' : 'bg-[#fdece9]'
+                  }`}
                 >
                   <span
-                    className={`absolute -top-1.5 -right-1.5 border-2 border-on-surface rounded-lg px-2 py-0.5 text-[10px] font-black shadow-sticker-sm ${
+                    className={`absolute -top-2 -right-1.5 border-2 border-on-surface rounded-lg px-2 py-0.5 text-[10px] font-black shadow-sticker-sm ${
                       ex.kind === 'eat' ? 'bg-accent text-on-surface rotate-3' : 'bg-tertiary text-on-surface -rotate-3'
                     }`}
                   >
                     {ex.kind === 'eat' ? '吃过' : '种草'}
                   </span>
-                  <p className="text-sm font-bold text-on-surface leading-relaxed">{ex.text}</p>
+                  <p className="text-sm font-bold text-on-surface leading-relaxed pr-10">{ex.text}</p>
                 </button>
               ))}
             </div>
@@ -743,7 +745,7 @@ function RecordHero() {
       ? ['🌤️', '下午好', '下午茶 / 加餐也算一笔']
       : ['🌙', '晚上好', '今晚吃了点啥？']
   return (
-    <div className="relative bg-white border-2 border-on-surface rounded-2xl shadow-sticker p-5 -rotate-1 mb-5">
+    <div className="relative bg-gradient-to-br from-[#ffeccb] to-[#fce1da] border-2 border-on-surface rounded-2xl shadow-sticker p-5 -rotate-1 mb-5">
       <Icon name="auto_awesome" className="absolute top-4 right-4 text-primary/20 text-4xl" />
       <h2 className="font-headline text-2xl mb-1">
         {hEmoji} {greet}
