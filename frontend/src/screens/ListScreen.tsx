@@ -362,7 +362,6 @@ function StoreCard({
   const headPhoto = (point.amap_photos || '').split('|').filter(Boolean)[0]
   const isManual = String(point.poi_id).startsWith('m_')
   const hasCoords = !!(point.lng && point.lat)
-  const lastVisit = point.visits.length ? [...point.visits].sort((a, b) => a.date.localeCompare(b.date)).slice(-1)[0] : null
 
   return (
     <div
@@ -394,11 +393,6 @@ function StoreCard({
               .join(' · ')}
           </div>
         </button>
-        <span
-          className={`shrink-0 inline-flex items-center gap-1 px-2 py-0.5 rounded-full border-2 border-on-surface text-xs font-bold shadow-sticker-sm ${STATUS_TONE[status.key]}`}
-        >
-          {status.icon} {status.label}
-        </span>
       </div>
 
       {/* 时间线（吃过行 + 种草虚线框；每天记录用虚线隔开） */}
@@ -421,11 +415,9 @@ function StoreCard({
           {hasCoords ? '看在地图上 →' : '📍 未定位'}
         </button>
         <div className="justify-self-center">
-          {lastVisit && (
-            <span className={`text-xs font-bold ${lastVisit.want_again ? 'text-primary' : 'text-on-surface-variant'}`}>
-              {lastVisit.want_again ? '想再来' : '不想再来'}
-            </span>
-          )}
+          <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full border-2 border-on-surface text-xs font-bold shadow-sticker-sm ${STATUS_TONE[status.key]}`}>
+            {status.icon} {status.label}
+          </span>
         </div>
         <button
           onClick={(e) => {
@@ -496,6 +488,7 @@ function TimelineRow({
             <span className="text-xs font-bold text-on-surface-variant">
               {prettyDate(v.date)} {v.meal_period}
             </span>
+            {!!v.want_again && <span className="text-xs font-bold bg-primary/15 text-primary rounded px-1">想再来 ❤️</span>}
             {v.wish_id && <span className="text-xs font-bold bg-primary/15 text-primary rounded px-1">兑现 ✨</span>}
             {authorTag}
           </div>
