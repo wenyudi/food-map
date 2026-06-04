@@ -117,7 +117,7 @@ export default function EditRecordSheet({ kind, data, storeName, onClose, onChan
               <button
                 key={o}
                 onClick={() => setEmoji(o)}
-                className={`w-12 h-12 rounded-full bg-white flex items-center justify-center text-2xl press transition-all ${
+                className={`w-16 h-16 rounded-full bg-white flex items-center justify-center text-[32px] press transition-all ${
                   emoji === o ? 'border-[3px] border-primary shadow-sticker' : 'border-2 border-on-surface shadow-sticker-sm opacity-70'
                 }`}
               >
@@ -129,9 +129,9 @@ export default function EditRecordSheet({ kind, data, storeName, onClose, onChan
           {/* 时间滚轮（无文案） */}
           <DateTimeWheel value={date} onChange={setDate} meal={meal} onMealChange={setMeal} />
 
-          {/* 花费(人均在框内右侧) + 人数步进，两列对齐 */}
-          <div className="flex gap-2 items-end">
-            <Row label="💰 花费" className="flex-1">
+          {/* 花费/人数 · 点评/和谁：两行两列网格 → 左列(花费=点评)同宽、右列(人数=和谁)同宽 */}
+          <div className="grid grid-cols-[1fr_116px] gap-x-2 gap-y-1.5 items-end">
+            <Row label="💰 花费">
               <div className="relative">
                 <input type="number" inputMode="numeric" value={amount} onChange={(e) => setAmount(e.target.value)} placeholder="总价 ¥" className={`${input} pr-[86px]`} />
                 {!!amount && Number(people) > 0 && (
@@ -141,22 +141,18 @@ export default function EditRecordSheet({ kind, data, storeName, onClose, onChan
                 )}
               </div>
             </Row>
-            <Row label="👥 人数" className="shrink-0">
-              <div className="flex items-center gap-1.5 rounded-xl border-2 border-on-surface bg-white px-1.5 py-1.5 shadow-sticker-sm">
+            <Row label="👥 人数">
+              <div className="flex items-center justify-between rounded-xl border-2 border-on-surface bg-white px-1.5 py-1.5 shadow-sticker-sm">
                 <button onClick={() => setPeople(String(Math.max(1, (Number(people) || 1) - 1)))} className="w-7 h-7 rounded-full border-2 border-on-surface bg-white text-lg font-bold leading-none press-sm">−</button>
-                <span className="w-9 text-center font-bold font-num">{Number(people) || 1}人</span>
+                <span className="font-bold font-num">{Number(people) || 1}人</span>
                 <button onClick={() => setPeople(String(Math.min(20, (Number(people) || 1) + 1)))} className="w-7 h-7 rounded-full border-2 border-on-surface bg-accent text-lg font-bold leading-none press-sm">+</button>
               </div>
             </Row>
-          </div>
-
-          {/* 和谁 + 点评，两列并排 */}
-          <div className="flex gap-2">
-            <Row label="和谁" className="flex-1">
-              <input value={companions} onChange={(e) => setCompanions(e.target.value)} placeholder="饼饼 / 同事" className={input} />
-            </Row>
-            <Row label="💬 点评" className="flex-1">
+            <Row label="💬 点评">
               <input value={feeling} onChange={(e) => setFeeling(e.target.value)} placeholder="好吃在哪" className={input} />
+            </Row>
+            <Row label="和谁">
+              <input value={companions} onChange={(e) => setCompanions(e.target.value)} placeholder="饼饼" className={input} />
             </Row>
           </div>
 
@@ -179,7 +175,7 @@ export default function EditRecordSheet({ kind, data, storeName, onClose, onChan
       {err && <div className="text-primary font-bold text-sm bg-primary/10 border-2 border-primary/25 rounded-lg px-3 py-2 mt-3">{err}</div>}
 
       {!confirmDel ? (
-        <div className="flex gap-2 mt-3">
+        <div className="grid grid-cols-2 gap-2 mt-3">
           <button
             onClick={() => setConfirmDel(true)}
             className="px-4 py-2 rounded-full border-2 border-on-surface bg-white text-primary font-bold press-sm"
