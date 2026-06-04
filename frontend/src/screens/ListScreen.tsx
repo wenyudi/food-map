@@ -8,7 +8,8 @@ import EditRecordSheet from './EditRecordSheet'
 import { getPoints } from '../api'
 import type { Point } from '../api'
 import { cleanTag } from '../lib/format'
-import { TimelineRow, buildTimeline } from '../components/StoreTimeline'
+import { TimelineRow, buildTimeline, getStatus, STATUS_TONE } from '../components/StoreTimeline'
+import type { StoreStatus } from '../components/StoreTimeline'
 
 type Mood = '😋' | '🤤' | '😂' | '😐' | '🤮'
 const MOODS: Mood[] = ['😋', '🤤', '😂', '😐', '🤮']
@@ -23,14 +24,7 @@ const STATUS_OPTS: { key: StatusKey; label: string; icon: string }[] = [
 /** 多维筛选：维度内多选(OR)，跨维度 AND；空 = 不筛 */
 type Filters = { moods: Mood[]; status: StatusKey[]; cuisines: string[] }
 type EditTarget = { kind: 'visit' | 'wish'; data: any; storeName: string }
-type StoreStatus = { key: 'want' | 'fulfilled' | 'repeat' | 'direct'; icon: string; label: string }
 
-function getStatus(p: Point): StoreStatus {
-  if (p.visit_count === 0) return { key: 'want', icon: '❤️', label: '种草中' }
-  if (p.visit_count >= 2) return { key: 'repeat', icon: '🔁', label: '二刷' }
-  if (p.wish != null) return { key: 'fulfilled', icon: '✨', label: '已兑现' }
-  return { key: 'direct', icon: '📍', label: '直奔' }
-}
 /** 某店是否命中某个「状态」筛选项 */
 function matchStatus(p: Point, key: StatusKey): boolean {
   if (key === 'fav') return p.visits.some((v) => v.want_again)
@@ -52,12 +46,6 @@ function buildShareText(p: Point): string {
   return lines.join('\n')
 }
 
-const STATUS_TONE: Record<StoreStatus['key'], string> = {
-  want: 'bg-tertiary text-on-surface',
-  repeat: 'bg-accent text-on-surface',
-  fulfilled: 'bg-green-accent text-white',
-  direct: 'bg-white text-on-surface-variant',
-}
 // 卡片底色按状态微微上色（让列表更有颜色，与状态标签同色系）
 const STATUS_CARD: Record<StoreStatus['key'], string> = {
   want: 'bg-gradient-to-br from-tertiary/50 to-white',

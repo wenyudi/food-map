@@ -12,7 +12,7 @@ import type { Area } from '../lib/areas'
 import { getMyLocation } from '../lib/geo'
 import { cleanTag } from '../lib/format'
 import { useCountUp } from '../lib/useCountUp'
-import { TimelineRow, buildTimeline } from '../components/StoreTimeline'
+import { TimelineRow, buildTimeline, getStatus, STATUS_COLOR } from '../components/StoreTimeline'
 
 const esc = (s: string) =>
   s.replace(/[&<>"]/g, (c) => (c === '&' ? '&amp;' : c === '<' ? '&lt;' : c === '>' ? '&gt;' : '&quot;'))
@@ -118,8 +118,8 @@ export default function MapScreen({ refreshKey, focusPoiId, onConsumeFocus, onJu
                   if (ref) markerRefs.current[p.poi_id] = ref
                 }}
                 icon={L.divIcon({
-                  html: `<div class="marker-dot${p.status === 'want' ? ' want' : ''}" style="--ring:${
-                    p.status === 'visited' ? p.color : '#f48fb1'
+                  html: `<div class="marker-dot${getStatus(p).key === 'want' ? ' want' : ''}" style="--ring:${
+                    STATUS_COLOR[getStatus(p).key]
                   }">${p.emoji}</div>`,
                   className: '',
                   iconSize: [38, 38],
@@ -343,30 +343,28 @@ function MapRefBinder({ mapRef }: { mapRef: React.MutableRefObject<L.Map | null>
 }
 
 function PopupContent({ point: p }: { point: Point }) {
-  const headPhoto = (p.amap_photos || '').split('|').filter(Boolean)[0]
-  const headEmoji = p.visit_count > 0 ? p.emoji : '❤️'
-  const timeline = buildTimeline(p)
+  const photos = (p.amap_photos || '').split('|').filter(Boolean).slice(0, 3)
+  const timeline = buildTimeline(p).slice(-2) // 最多展示最新两次记录
   return (
     <div className="min-w-[220px]">
-      {/* 头部：圆头像 + 店名 + meta（与列表卡片同款） */}
-      <div className="flex items-start gap-2.5">
-        {headPhoto ? (
-          <img src={headPhoto} alt="" className="w-12 h-12 rounded-full border-2 border-on-surface object-cover shrink-0 bg-white" />
-        ) : (
-          <span className="w-12 h-12 rounded-full border-2 border-on-surface bg-white flex items-center justify-center text-2xl shrink-0">{headEmoji}</span>
-        )}
-        <div className="min-w-0">
-          <div className="font-headline text-lg leading-tight">{p.name}</div>
-          <div className="text-xs font-bold text-on-surface-variant mt-0.5">
-            {[p.business_area, cleanTag(p.tag), p.rating && `⭐${p.rating}`, p.cost && `¥${p.cost}/人`].filter(Boolean).join(' · ')}
-          </div>
-        </div>
+      {/* 头部：店名 + meta */}
+      <div className="font-headline text-lg leading-tight">{p.name}</div>
+      <div className="text-xs font-bold text-on-surface-variant mt-0.5">
+        {[p.business_area, cleanTag(p.tag), p.rating && `⭐${p.rating}`, p.cost && `¥${p.cost}/人`].filter(Boolean).join(' · ')}
       </div>
-      {/* 时间线：复用列表 TimelineRow（弹窗不进编辑、不展示作者标，仅图片可点开大图） */}
+      {/* 店铺照片：最多 3 张高德图，完整展示 */}
+      {photos.length > 0 && (
+        <div className="grid grid-cols-3 gap-1.5 mt-2">
+          {photos.map((u) => (
+            <img key={u} src={u} className="zoomable aspect-square w-full object-cover rounded-lg border-2 border-on-surface" />
+          ))}
+        </div>
+      )}
+      {/* 时间线：复用列表 TimelineRow；弹窗不进编辑、不显作者标与用户照片，仅店铺图 */}
       <div className="mt-3 flex flex-col">
         {timeline.map((e, i) => (
           <div key={i} className={i > 0 ? 'mt-3 pt-3 border-t-2 border-dashed border-on-surface/10' : ''}>
-            <TimelineRow event={e} onEdit={() => {}} showAuthor={false} />
+            <TimelineRow event={e} onEdit={() => {}} showAuthor={false} hidePhotos />
           </div>
         ))}
         {timeline.length === 0 && <div className="text-on-surface-variant text-sm mt-2">还没数据</div>}

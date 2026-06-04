@@ -23,6 +23,33 @@ export function prettyDate(s?: string): string {
   return d.replace(/-/g, '/')
 }
 
+/** 店铺状态（与列表标签一致） */
+export type StoreStatus = { key: 'want' | 'fulfilled' | 'repeat' | 'direct'; icon: string; label: string }
+
+/** 由到访次数 / 种草推断店铺状态 */
+export function getStatus(p: Point): StoreStatus {
+  if (p.visit_count === 0) return { key: 'want', icon: '❤️', label: '种草中' }
+  if (p.visit_count >= 2) return { key: 'repeat', icon: '🔁', label: '二刷' }
+  if (p.wish != null) return { key: 'fulfilled', icon: '✨', label: '已兑现' }
+  return { key: 'direct', icon: '📍', label: '直奔' }
+}
+
+/** 状态标签配色（Tailwind class，列表底栏药丸用） */
+export const STATUS_TONE: Record<StoreStatus['key'], string> = {
+  want: 'bg-tertiary text-on-surface',
+  repeat: 'bg-accent text-on-surface',
+  fulfilled: 'bg-green-accent text-white',
+  direct: 'bg-white text-on-surface-variant',
+}
+
+/** 状态对应色值（地图 marker 圆圈用，取自同一调色板） */
+export const STATUS_COLOR: Record<StoreStatus['key'], string> = {
+  want: '#f9c8c0',
+  repeat: '#ffc857',
+  fulfilled: '#4CAF50',
+  direct: '#ffffff',
+}
+
 /**
  * 单条时间线行（列表 / 地图弹窗共用）
  * - 种草：虚线便签框
@@ -34,11 +61,13 @@ export function TimelineRow({
   onEdit,
   showAuthor,
   myUsername,
+  hidePhotos = false,
 }: {
   event: TimelineEvent
   onEdit: () => void
   showAuthor: boolean
   myUsername?: string
+  hidePhotos?: boolean
 }) {
   const by = event.data.recorded_by
   const authorTag =
@@ -51,7 +80,7 @@ export function TimelineRow({
   if (event.type === 'wish') {
     const w = event.data
     return (
-      <div onClick={onEdit} className="border-2 border-dashed border-on-surface/25 rounded-xl px-3 py-2 bg-surface/40 cursor-pointer transition-opacity active:opacity-70">
+      <div onClick={onEdit} className="border-2 border-dashed border-on-surface/25 rounded-xl px-3 py-1.5 bg-surface/40 cursor-pointer transition-opacity active:opacity-70">
         <p className="text-sm leading-relaxed">
           <span className="font-bold text-on-surface-variant">{w.source}种草</span>
           {w.reason && <> · {w.reason}</>}
@@ -65,6 +94,7 @@ export function TimelineRow({
 
   const v = event.data
   const photos = (v.my_photos || '').split('|').filter(Boolean)
+  const showPhotos = !hidePhotos && photos.length > 0
   const flavors = (v.flavors || '').split(/[,，、]/).map((s) => s.trim()).filter(Boolean)
   const dishes = (v.dishes || '').split(/[,，、]/).map((s) => s.trim()).filter(Boolean)
   const metaText = [v.companions, `¥${v.per_person}/人`, v.value_label].filter(Boolean).join(' · ')
@@ -99,7 +129,7 @@ export function TimelineRow({
         </div>
       </div>
       {/* 备注框：顶边从药丸正中穿过（药丸压在上层）；图片也放进框里 */}
-      {(v.feeling || flavors.length > 0 || dishes.length > 0 || photos.length > 0) && (
+      {(v.feeling || flavors.length > 0 || dishes.length > 0 || showPhotos) && (
         <div
           onClick={(e) => {
             // 点图片 = 看大图（交给 Lightbox）；点其它文字/标签 = 编辑
@@ -114,7 +144,7 @@ export function TimelineRow({
           {dishes.map((d) => (
             <span key={'d' + d} className={chip}>🍽️ {d}</span>
           ))}
-          {photos.length > 0 && (
+          {showPhotos && (
             <div className={`flex flex-wrap gap-1.5 ${v.feeling || flavors.length > 0 || dishes.length > 0 ? 'mt-2' : ''}`}>
               {photos.slice(0, 4).map((u) => (
                 <img key={u} src={u} className="zoomable w-16 h-16 object-cover rounded-lg border-2 border-on-surface" />
