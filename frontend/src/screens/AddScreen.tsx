@@ -33,7 +33,7 @@ const LS_CITY = 'last_city'
 const LS_COMPANIONS = 'last_companions'
 
 const EXAMPLES: Array<{ kind: 'eat' | 'wish'; text: string }> = [
-  { kind: 'eat', text: '中午和同事去 XX 烤鱼，人均 45，香辣过瘾还想再来' },
+  { kind: 'eat', text: '中午和同事去 XX 烤鱼，一共 90，香辣过瘾还想来' },
   { kind: 'wish', text: '小红书种草 XX 面包店，可颂据说一绝' },
 ]
 
