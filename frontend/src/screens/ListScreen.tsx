@@ -388,7 +388,7 @@ function StoreCard({
             {point.name}
             {isManual && <span className="ml-1 text-[10px] font-bold text-on-surface-variant align-middle">手动</span>}
           </div>
-          <div className="text-xs font-bold text-on-surface-variant truncate">
+          <div className="text-xs font-bold text-on-surface-variant">
             {[point.business_area, cleanTag(point.tag), point.rating && `⭐${point.rating}`, point.cost && `¥${point.cost}/人`]
               .filter(Boolean)
               .join(' · ')}
@@ -500,18 +500,17 @@ function TimelineRow({
             {v.wish_id && <span className="text-[10px] font-bold bg-primary/15 text-primary rounded px-1">兑现 ✨</span>}
             {authorTag}
           </div>
-          {/* 点评 + 口味/菜品/菜系/场合 标签 */}
-          {(v.feeling || flavors.length > 0 || dishes.length > 0 || v.cuisine || v.occasion) && (
+          {/* 点评单独一行（主角） */}
+          {v.feeling && <p className="text-sm text-on-surface mt-1.5 leading-relaxed">「{v.feeling}」</p>}
+          {/* 口味 / 菜品 小标签 */}
+          {(flavors.length > 0 || dishes.length > 0) && (
             <div className="flex flex-wrap gap-1.5 mt-1.5">
-              {v.feeling && <span className={chip}>💬 {v.feeling}</span>}
               {flavors.map((f) => (
                 <span key={'f' + f} className={chip}>🌶️ {f}</span>
               ))}
               {dishes.map((d) => (
                 <span key={'d' + d} className={chip}>🍽️ {d}</span>
               ))}
-              {v.cuisine && <span className={chip}>{v.cuisine}</span>}
-              {v.occasion && <span className={chip}>{v.occasion}</span>}
             </div>
           )}
         </div>
