@@ -483,31 +483,32 @@ function TimelineRow({
   const chip = 'inline-flex items-center align-middle ml-1.5 text-xs font-bold text-on-surface-variant bg-white border border-on-surface/15 rounded-full px-2 py-0.5'
   return (
     <div className="relative">
-      {/* 表情 + 日期（日期对齐表情上方；整体往右挪一点 ml-2） */}
-      <div className="flex items-start gap-2.5 ml-2">
+      {/* 表情 + 右列：日期对齐表情顶、药丸对齐表情底；药丸与日期左对齐、z-10 压在虚线框上层；整体右移 ml-2 */}
+      <div className="flex items-stretch gap-2.5 ml-2">
         <span
           onClick={onEdit}
           className="relative z-10 w-10 h-10 rounded-full border-2 border-on-surface bg-white flex items-center justify-center text-xl shrink-0 shadow-sticker-sm cursor-pointer"
         >
           {v.mood_emoji}
         </span>
-        <div onClick={onEdit} className="min-w-0 pt-1 flex flex-wrap items-center gap-1.5 cursor-pointer transition-opacity active:opacity-70">
-          <span className="text-xs font-bold text-on-surface-variant">
-            {prettyDate(v.date)} {v.meal_period}
-          </span>
-          {v.wish_id && <span className="text-xs font-bold bg-primary/15 text-primary rounded px-1">兑现 ✨</span>}
-          {authorTag}
+        <div className="min-w-0 flex flex-col justify-between">
+          <div onClick={onEdit} className="flex flex-wrap items-center gap-1.5 cursor-pointer transition-opacity active:opacity-70">
+            <span className="text-xs font-bold text-on-surface-variant">
+              {prettyDate(v.date)} {v.meal_period}
+            </span>
+            {v.wish_id && <span className="text-xs font-bold bg-primary/15 text-primary rounded px-1">兑现 ✨</span>}
+            {authorTag}
+          </div>
+          {metaText && (
+            <div
+              onClick={onEdit}
+              className="relative z-10 self-start inline-flex items-center text-xs font-bold text-on-surface-variant bg-surface border border-on-surface/15 rounded-full px-2 py-0.5 cursor-pointer"
+            >
+              {metaText}
+            </div>
+          )}
         </div>
       </div>
-      {/* 药丸：表情下方、往右挪一点；z-10 压在虚线框上层 */}
-      {metaText && (
-        <div
-          onClick={onEdit}
-          className="relative z-10 ml-2 mt-1.5 inline-flex items-center text-xs font-bold text-on-surface-variant bg-surface border border-on-surface/15 rounded-full px-2 py-0.5 cursor-pointer"
-        >
-          {metaText}
-        </div>
-      )}
       {/* 备注框：顶边从药丸正中穿过（药丸压在上层）；图片也放进框里 */}
       {(v.feeling || flavors.length > 0 || dishes.length > 0 || photos.length > 0) && (
         <div
