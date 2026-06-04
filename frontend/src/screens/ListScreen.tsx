@@ -11,6 +11,7 @@ import { cleanTag } from '../lib/format'
 
 type Mood = '😋' | '🤤' | '😂' | '😐' | '🤮'
 const MOODS: Mood[] = ['😋', '🤤', '😂', '😐', '🤮']
+const MOOD_LABEL: Record<Mood, string> = { '😋': '太好吃', '🤤': '好吃', '😂': '一般', '😐': '不咋地', '🤮': '踩雷' }
 type StatusKey = 'fav' | 'want' | 'fulfilled' | 'repeat'
 const STATUS_OPTS: { key: StatusKey; label: string; icon: string }[] = [
   { key: 'fav', label: '想再来', icon: 'star' },
@@ -239,10 +240,10 @@ export default function ListScreen({ refreshKey, focusPoiId, onPickStore, onJump
               <ActiveChip key={s} label={STATUS_OPTS.find((o) => o.key === s)?.label || s} onRemove={() => toggleStatus(s)} />
             ))}
             {filters.moods.map((m) => (
-              <ActiveChip key={m} label={m} onRemove={() => toggleMood(m)} />
+              <ActiveChip key={m} label={`${m} ${MOOD_LABEL[m]}`} onRemove={() => toggleMood(m)} />
             ))}
             {filters.cuisines.map((c) => (
-              <ActiveChip key={c} label={c} onRemove={() => toggleCuisine(c)} />
+              <ActiveChip key={c} label={c} variant="white" onRemove={() => toggleCuisine(c)} />
             ))}
             <button onClick={clearFilters} className="text-xs font-bold text-on-surface-variant px-2 py-1 underline">
               清空
@@ -392,25 +393,34 @@ function StoreCard({
         </span>
       </div>
 
-      {/* 时间线（竖线 + 圆点） */}
+      {/* 时间线：吃过=竖线+圆点；种草=虚线框（无圆点） */}
       <div className="mt-3 relative">
-        {timeline.length > 1 && <div className="absolute left-[7px] top-2 bottom-2 w-[2px] bg-on-surface/12" />}
+        {timeline.filter((e) => e.type === 'visit').length > 1 && (
+          <div className="absolute left-[7px] top-2 bottom-2 w-[2px] bg-on-surface/12" />
+        )}
         <div className="flex flex-col gap-3">
-          {timeline.map((e, i) => (
-            <div key={i} className="relative pl-6">
-              <span
-                className={`absolute left-0 top-1.5 w-3.5 h-3.5 rounded-full border-2 border-on-surface ${
-                  i === timeline.length - 1 ? 'bg-primary' : 'bg-white'
-                }`}
-              />
+          {timeline.map((e, i) => {
+            const row = (
               <TimelineRow
                 event={e}
                 onEdit={() => onEdit({ kind: e.type, data: e.data, storeName: point.name })}
                 showAuthor={showAuthor}
                 myUsername={myUsername}
               />
-            </div>
-          ))}
+            )
+            return e.type === 'visit' ? (
+              <div key={i} className="relative pl-6">
+                <span
+                  className={`absolute left-0 top-1.5 w-3.5 h-3.5 rounded-full border-2 border-on-surface ${
+                    i === timeline.length - 1 ? 'bg-primary' : 'bg-white'
+                  }`}
+                />
+                {row}
+              </div>
+            ) : (
+              <div key={i}>{row}</div>
+            )
+          })}
         </div>
       </div>
 
@@ -455,25 +465,21 @@ function TimelineRow({
   if (event.type === 'wish') {
     const w = event.data
     return (
-      <div className="flex gap-2 items-start group">
-        <span className="text-lg shrink-0">❤️</span>
-        <div className="flex-1 min-w-0">
-          <div className="text-xs font-bold text-on-surface-variant flex flex-wrap items-center gap-1">
-            {prettyDate(w.created_at)} · {w.source}种草
-            {w.status === 'visited' && (
-              <span className="bg-green-accent/15 text-green-accent rounded px-1">已兑现</span>
-            )}
-            {authorTag}
-          </div>
-          {w.reason && (
-            <div className="mt-1 text-sm border-2 border-dashed border-on-surface/25 rounded-lg px-2.5 py-1.5 bg-surface/40">
-              {w.reason}
-            </div>
-          )}
+      <div className="border-2 border-dashed border-on-surface/25 rounded-xl px-3 py-2 bg-surface/40">
+        <div className="flex items-start gap-2">
+          <p className="flex-1 min-w-0 text-sm">
+            <span className="font-bold text-on-surface-variant">{w.source}种草</span>
+            {w.reason && <> · {w.reason}</>}
+          </p>
+          <button onClick={onEdit} className="shrink-0 text-on-surface-variant opacity-60">
+            <Icon name="edit" className="text-base" />
+          </button>
         </div>
-        <button onClick={onEdit} className="shrink-0 text-on-surface-variant opacity-60">
-          <Icon name="edit" className="text-base" />
-        </button>
+        <div className="mt-1 text-[10px] font-bold text-on-surface-variant/70 flex flex-wrap items-center gap-1">
+          {prettyDate(w.created_at)}
+          {w.status === 'visited' && <span className="bg-green-accent/15 text-green-accent rounded px-1">已兑现</span>}
+          {authorTag}
+        </div>
       </div>
     )
   }
@@ -490,10 +496,12 @@ function TimelineRow({
           {!!v.want_again && <span>⭐</span>}
           {authorTag}
         </div>
-        <div className="text-xs text-on-surface-variant">
-          {[v.companions, `¥${v.per_person}/人`, v.value_label].filter(Boolean).join(' · ')}
-        </div>
-        {v.feeling && <div className="text-sm">{v.feeling}</div>}
+        {[v.companions, `¥${v.per_person}/人`, v.value_label].filter(Boolean).length > 0 && (
+          <span className="inline-block mt-1 text-[11px] font-bold text-on-surface-variant bg-surface border border-on-surface/10 rounded-full px-2 py-0.5">
+            {[v.companions, `¥${v.per_person}/人`, v.value_label].filter(Boolean).join(' · ')}
+          </span>
+        )}
+        {v.feeling && <div className="text-sm mt-1">「{v.feeling}」</div>}
         {photos.length > 0 && (
           <div className="flex gap-1.5 mt-1.5">
             {photos.slice(0, 4).map((u) => (
@@ -619,9 +627,13 @@ function FilterChip({
   )
 }
 
-function ActiveChip({ label, onRemove }: { label: string; onRemove: () => void }) {
+function ActiveChip({ label, onRemove, variant = 'filled' }: { label: string; onRemove: () => void; variant?: 'filled' | 'white' }) {
   return (
-    <span className="inline-flex items-center gap-0.5 rounded-full border-2 border-on-surface bg-primary text-white text-xs font-bold pl-2.5 pr-1 py-1 shadow-sticker-sm">
+    <span
+      className={`inline-flex items-center gap-0.5 rounded-full border-2 border-on-surface text-xs font-bold pl-2.5 pr-1 py-1 shadow-sticker-sm ${
+        variant === 'white' ? 'bg-white text-on-surface' : 'bg-primary text-white'
+      }`}
+    >
       {label}
       <button onClick={onRemove} aria-label="移除" className="press-sm">
         <Icon name="close" className="text-sm" />
