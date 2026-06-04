@@ -480,7 +480,7 @@ function TimelineRow({
   const flavors = (v.flavors || '').split(/[,，、]/).map((s) => s.trim()).filter(Boolean)
   const dishes = (v.dishes || '').split(/[,，、]/).map((s) => s.trim()).filter(Boolean)
   const metaText = [v.companions, `¥${v.per_person}/人`, v.value_label].filter(Boolean).join(' · ')
-  const chip = 'text-[11px] font-bold text-on-surface-variant bg-surface border border-on-surface/15 rounded-full px-2 py-0.5'
+  const chip = 'inline-flex items-center align-middle ml-1.5 text-[11px] font-bold text-on-surface-variant bg-white border border-on-surface/15 rounded-full px-2 py-0.5'
   return (
     <div className="flex gap-2 items-start">
       <span className="text-lg shrink-0">{v.mood_emoji}</span>
@@ -500,20 +500,16 @@ function TimelineRow({
             {v.wish_id && <span className="text-[10px] font-bold bg-primary/15 text-primary rounded px-1">兑现 ✨</span>}
             {authorTag}
           </div>
-          {/* 备注虚线框：备注 + 口味/菜品标签（标签右对齐） */}
+          {/* 备注虚线框：备注文字 + 标签内联在文字后面（一排，文字长了自动换行） */}
           {(v.feeling || flavors.length > 0 || dishes.length > 0) && (
-            <div className="border-2 border-dashed border-on-surface/25 rounded-xl px-3 py-2 bg-surface/40 mt-2">
-              {v.feeling && <div className="text-sm">{v.feeling}</div>}
-              {(flavors.length > 0 || dishes.length > 0) && (
-                <div className="flex flex-wrap justify-end gap-1.5 mt-1.5">
-                  {flavors.map((f) => (
-                    <span key={'f' + f} className={chip}>🌶️ {f}</span>
-                  ))}
-                  {dishes.map((d) => (
-                    <span key={'d' + d} className={chip}>🍽️ {d}</span>
-                  ))}
-                </div>
-              )}
+            <div className="border-2 border-dashed border-on-surface/25 rounded-xl px-3 py-2 bg-surface/40 mt-2 text-sm text-on-surface leading-relaxed">
+              {v.feeling}
+              {flavors.map((f) => (
+                <span key={'f' + f} className={chip}>🌶️ {f}</span>
+              ))}
+              {dishes.map((d) => (
+                <span key={'d' + d} className={chip}>🍽️ {d}</span>
+              ))}
             </div>
           )}
         </div>
