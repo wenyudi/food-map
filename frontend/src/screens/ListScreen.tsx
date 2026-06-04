@@ -487,7 +487,7 @@ function TimelineRow({
       <div className="flex-1 min-w-0">
         {/* 点文字即可编辑 */}
         <div onClick={onEdit} className="cursor-pointer">
-          {/* 时间 + 浅色药丸（药丸在时间后） */}
+          {/* 时间 + 药丸 + 口味/菜品标签 同一行（标签放在「比官方便宜」药丸后面） */}
           <div className="flex flex-wrap items-center gap-1.5">
             <span className="text-xs font-bold text-on-surface-variant">
               {prettyDate(v.date)} {v.meal_period}
@@ -498,19 +498,18 @@ function TimelineRow({
               </span>
             )}
             {v.wish_id && <span className="text-[10px] font-bold bg-primary/15 text-primary rounded px-1">兑现 ✨</span>}
+            {flavors.map((f) => (
+              <span key={'f' + f} className={chip}>🌶️ {f}</span>
+            ))}
+            {dishes.map((d) => (
+              <span key={'d' + d} className={chip}>🍽️ {d}</span>
+            ))}
             {authorTag}
           </div>
-          {/* 点评单独一行（主角） */}
-          {v.feeling && <p className="text-sm text-on-surface mt-1.5 leading-relaxed">「{v.feeling}」</p>}
-          {/* 口味 / 菜品 小标签 */}
-          {(flavors.length > 0 || dishes.length > 0) && (
-            <div className="flex flex-wrap gap-1.5 mt-1.5">
-              {flavors.map((f) => (
-                <span key={'f' + f} className={chip}>🌶️ {f}</span>
-              ))}
-              {dishes.map((d) => (
-                <span key={'d' + d} className={chip}>🍽️ {d}</span>
-              ))}
+          {/* 备注做成虚线框（与种草框同样式） */}
+          {v.feeling && (
+            <div className="border-2 border-dashed border-on-surface/25 rounded-xl px-3 py-2 bg-surface/40 text-sm mt-2">
+              {v.feeling}
             </div>
           )}
         </div>
