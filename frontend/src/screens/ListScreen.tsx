@@ -393,11 +393,8 @@ function StoreCard({
         </span>
       </div>
 
-      {/* 时间线：吃过=竖线+圆点；种草=虚线框（无圆点） */}
-      <div className="mt-3 relative">
-        {timeline.filter((e) => e.type === 'visit').length > 1 && (
-          <div className="absolute left-[7px] top-2 bottom-2 w-[2px] bg-on-surface/12" />
-        )}
+      {/* 时间线：吃过行用 ❤️/🤍 标记想不想再来；种草=虚线框 */}
+      <div className="mt-3">
         <div className="flex flex-col gap-3">
           {timeline.map((e, i) => {
             const row = (
@@ -409,12 +406,10 @@ function StoreCard({
               />
             )
             return e.type === 'visit' ? (
-              <div key={i} className="relative pl-6">
-                <span
-                  className={`absolute left-0 top-1.5 w-3.5 h-3.5 rounded-full border-2 border-on-surface ${
-                    i === timeline.length - 1 ? 'bg-primary' : 'bg-white'
-                  }`}
-                />
+              <div key={i} className="relative pl-7">
+                <span className="absolute left-0 top-0.5 text-base leading-none" title={e.data.want_again ? '还想再来' : '没想再来'}>
+                  {e.data.want_again ? '❤️' : '🤍'}
+                </span>
                 {row}
               </div>
             ) : (
@@ -503,15 +498,12 @@ function TimelineRow({
             </span>
           )}
           {v.wish_id && <span className="text-[10px] font-bold bg-primary/15 text-primary rounded px-1">兑现 ✨</span>}
-          {!!v.want_again && <span className="text-xs">⭐</span>}
           {authorTag}
         </div>
         {/* 点评 + 口味/菜品/菜系/场合 标签 */}
         {(v.feeling || flavors.length > 0 || dishes.length > 0 || v.cuisine || v.occasion) && (
           <div className="flex flex-wrap gap-1.5 mt-1.5">
-            {v.feeling && (
-              <span className="text-xs text-on-surface bg-surface border border-on-surface/15 rounded-lg px-2.5 py-1">💬 {v.feeling}</span>
-            )}
+            {v.feeling && <span className={chip}>💬 {v.feeling}</span>}
             {flavors.map((f) => (
               <span key={'f' + f} className={chip}>🌶️ {f}</span>
             ))}
