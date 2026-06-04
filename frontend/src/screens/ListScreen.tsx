@@ -76,10 +76,10 @@ const STATUS_TONE: Record<StoreStatus['key'], string> = {
 }
 // 卡片底色按状态微微上色（让列表更有颜色，与状态标签同色系）
 const STATUS_CARD: Record<StoreStatus['key'], string> = {
-  want: 'bg-tertiary/30',
-  repeat: 'bg-accent/20',
-  fulfilled: 'bg-green-accent/15',
-  direct: 'bg-white',
+  want: 'bg-gradient-to-br from-tertiary/50 to-white',
+  repeat: 'bg-gradient-to-br from-accent/40 to-white',
+  fulfilled: 'bg-gradient-to-br from-green-accent/30 to-white',
+  direct: 'bg-gradient-to-br from-surface to-white',
 }
 
 type ListScreenProps = Readonly<{
@@ -362,6 +362,7 @@ function StoreCard({
   const headPhoto = (point.amap_photos || '').split('|').filter(Boolean)[0]
   const isManual = String(point.poi_id).startsWith('m_')
   const hasCoords = !!(point.lng && point.lat)
+  const lastVisit = point.visits.length ? [...point.visits].sort((a, b) => a.date.localeCompare(b.date)).slice(-1)[0] : null
 
   return (
     <div
@@ -400,33 +401,41 @@ function StoreCard({
         </span>
       </div>
 
-      {/* 时间线（吃过行 + 种草虚线框） */}
-      <div className="mt-3 flex flex-col gap-3">
+      {/* 时间线（吃过行 + 种草虚线框；每天记录用虚线隔开） */}
+      <div className="mt-3 flex flex-col">
         {timeline.map((e, i) => (
-          <TimelineRow
-            key={i}
-            event={e}
-            onEdit={() => onEdit({ kind: e.type, data: e.data, storeName: point.name })}
-            showAuthor={showAuthor}
-            myUsername={myUsername}
-          />
+          <div key={i} className={i > 0 ? 'mt-3 pt-3 border-t-2 border-dashed border-on-surface/10' : ''}>
+            <TimelineRow
+              event={e}
+              onEdit={() => onEdit({ kind: e.type, data: e.data, storeName: point.name })}
+              showAuthor={showAuthor}
+              myUsername={myUsername}
+            />
+          </div>
         ))}
       </div>
 
       {/* 底部 */}
-      <div className="flex items-center justify-between mt-2 pt-2 border-t-2 border-dashed border-on-surface/15">
+      <div className="flex items-center justify-between mt-3 pt-2 border-t-2 border-dashed border-on-surface/15">
         <button onClick={hasCoords ? onClick : undefined} className="text-xs font-bold text-on-surface-variant">
           {hasCoords ? '看在地图上 →' : '📍 未定位'}
         </button>
-        <button
-          onClick={(e) => {
-            e.stopPropagation()
-            onShare()
-          }}
-          className="text-xs font-bold text-primary flex items-center gap-0.5"
-        >
-          <Icon name="ios_share" className="text-sm" /> 分享
-        </button>
+        <div className="flex items-center gap-3">
+          {lastVisit && (
+            <span className={`text-xs font-bold ${lastVisit.want_again ? 'text-primary' : 'text-on-surface-variant/70'}`}>
+              {lastVisit.want_again ? '想再来' : '不想再来'}
+            </span>
+          )}
+          <button
+            onClick={(e) => {
+              e.stopPropagation()
+              onShare()
+            }}
+            className="text-xs font-bold text-primary flex items-center gap-0.5"
+          >
+            <Icon name="ios_share" className="text-sm" /> 分享
+          </button>
+        </div>
       </div>
     </div>
   )
@@ -454,19 +463,14 @@ function TimelineRow({
   if (event.type === 'wish') {
     const w = event.data
     return (
-      <div className="border-2 border-dashed border-on-surface/25 rounded-xl px-3 py-2 bg-surface/40">
-        <div className="flex items-start gap-2">
-          <p className="flex-1 min-w-0 text-sm">
-            <span className="font-bold text-on-surface-variant">{w.source}种草</span>
-            {w.reason && <> · {w.reason}</>}
-            <span className="text-[11px] font-bold text-on-surface-variant/60"> · {prettyDate(w.created_at)}</span>
-            {w.status === 'visited' && <span className="ml-1 text-[10px] font-bold bg-green-accent/15 text-green-accent rounded px-1">已兑现</span>}
-            {authorTag}
-          </p>
-          <button onClick={onEdit} className="shrink-0 text-on-surface-variant opacity-60">
-            <Icon name="edit" className="text-base" />
-          </button>
-        </div>
+      <div onClick={onEdit} className="border-2 border-dashed border-on-surface/25 rounded-xl px-3 py-2 bg-surface/40 cursor-pointer">
+        <p className="text-sm">
+          <span className="font-bold text-on-surface-variant">{w.source}种草</span>
+          {w.reason && <> · {w.reason}</>}
+          <span className="text-[11px] font-bold text-on-surface-variant/60"> · {prettyDate(w.created_at)}</span>
+          {w.status === 'visited' && <span className="ml-1 text-[10px] font-bold bg-green-accent/15 text-green-accent rounded px-1">已兑现</span>}
+          {authorTag}
+        </p>
       </div>
     )
   }
@@ -481,36 +485,36 @@ function TimelineRow({
     <div className="flex gap-2 items-start">
       <span className="text-lg shrink-0">{v.mood_emoji}</span>
       <div className="flex-1 min-w-0">
-        {/* 时间 + 浅色药丸（药丸挪到时间后） + 标记 */}
-        <div className="flex flex-wrap items-center gap-1.5">
-          <span className="text-xs font-bold text-on-surface-variant">
-            {prettyDate(v.date)} {v.meal_period}
-          </span>
-          <span className="text-sm leading-none" title={v.want_again ? '还想再来' : '没想再来'}>
-            {v.want_again ? '❤️' : '🤍'}
-          </span>
-          {metaText && (
-            <span className="text-[11px] font-bold text-on-surface-variant bg-surface border border-on-surface/15 rounded-full px-2 py-0.5">
-              {metaText}
+        {/* 点文字即可编辑 */}
+        <div onClick={onEdit} className="cursor-pointer">
+          {/* 时间 + 浅色药丸（药丸在时间后） */}
+          <div className="flex flex-wrap items-center gap-1.5">
+            <span className="text-xs font-bold text-on-surface-variant">
+              {prettyDate(v.date)} {v.meal_period}
             </span>
-          )}
-          {v.wish_id && <span className="text-[10px] font-bold bg-primary/15 text-primary rounded px-1">兑现 ✨</span>}
-          {authorTag}
-        </div>
-        {/* 点评 + 口味/菜品/菜系/场合 标签 */}
-        {(v.feeling || flavors.length > 0 || dishes.length > 0 || v.cuisine || v.occasion) && (
-          <div className="flex flex-wrap gap-1.5 mt-1.5">
-            {v.feeling && <span className={chip}>💬 {v.feeling}</span>}
-            {flavors.map((f) => (
-              <span key={'f' + f} className={chip}>🌶️ {f}</span>
-            ))}
-            {dishes.map((d) => (
-              <span key={'d' + d} className={chip}>🍽️ {d}</span>
-            ))}
-            {v.cuisine && <span className={chip}>{v.cuisine}</span>}
-            {v.occasion && <span className={chip}>{v.occasion}</span>}
+            {metaText && (
+              <span className="text-[11px] font-bold text-on-surface-variant bg-surface border border-on-surface/15 rounded-full px-2 py-0.5">
+                {metaText}
+              </span>
+            )}
+            {v.wish_id && <span className="text-[10px] font-bold bg-primary/15 text-primary rounded px-1">兑现 ✨</span>}
+            {authorTag}
           </div>
-        )}
+          {/* 点评 + 口味/菜品/菜系/场合 标签 */}
+          {(v.feeling || flavors.length > 0 || dishes.length > 0 || v.cuisine || v.occasion) && (
+            <div className="flex flex-wrap gap-1.5 mt-1.5">
+              {v.feeling && <span className={chip}>💬 {v.feeling}</span>}
+              {flavors.map((f) => (
+                <span key={'f' + f} className={chip}>🌶️ {f}</span>
+              ))}
+              {dishes.map((d) => (
+                <span key={'d' + d} className={chip}>🍽️ {d}</span>
+              ))}
+              {v.cuisine && <span className={chip}>{v.cuisine}</span>}
+              {v.occasion && <span className={chip}>{v.occasion}</span>}
+            </div>
+          )}
+        </div>
         {photos.length > 0 && (
           <div className="flex gap-1.5 mt-1.5">
             {photos.slice(0, 4).map((u) => (
@@ -519,9 +523,6 @@ function TimelineRow({
           </div>
         )}
       </div>
-      <button onClick={onEdit} className="shrink-0 text-on-surface-variant opacity-60">
-        <Icon name="edit" className="text-base" />
-      </button>
     </div>
   )
 }
