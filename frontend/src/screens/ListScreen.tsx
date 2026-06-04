@@ -470,15 +470,13 @@ function TimelineRow({
           <p className="flex-1 min-w-0 text-sm">
             <span className="font-bold text-on-surface-variant">{w.source}种草</span>
             {w.reason && <> · {w.reason}</>}
+            <span className="text-[11px] font-bold text-on-surface-variant/60"> · {prettyDate(w.created_at)}</span>
+            {w.status === 'visited' && <span className="ml-1 text-[10px] font-bold bg-green-accent/15 text-green-accent rounded px-1">已兑现</span>}
+            {authorTag}
           </p>
           <button onClick={onEdit} className="shrink-0 text-on-surface-variant opacity-60">
             <Icon name="edit" className="text-base" />
           </button>
-        </div>
-        <div className="mt-1 text-[10px] font-bold text-on-surface-variant/70 flex flex-wrap items-center gap-1">
-          {prettyDate(w.created_at)}
-          {w.status === 'visited' && <span className="bg-green-accent/15 text-green-accent rounded px-1">已兑现</span>}
-          {authorTag}
         </div>
       </div>
     )
@@ -486,22 +484,44 @@ function TimelineRow({
 
   const v = event.data
   const photos = (v.my_photos || '').split('|').filter(Boolean)
+  const flavors = (v.flavors || '').split(/[,，、]/).map((s) => s.trim()).filter(Boolean)
+  const dishes = (v.dishes || '').split(/[,，、]/).map((s) => s.trim()).filter(Boolean)
+  const metaText = [v.companions, `¥${v.per_person}/人`, v.value_label].filter(Boolean).join(' · ')
+  const chip = 'text-[11px] font-bold text-on-surface-variant bg-surface border border-on-surface/15 rounded-full px-2 py-0.5'
   return (
     <div className="flex gap-2 items-start">
       <span className="text-lg shrink-0">{v.mood_emoji}</span>
       <div className="flex-1 min-w-0">
-        <div className="text-xs font-bold text-on-surface-variant flex flex-wrap items-center gap-1">
-          {prettyDate(v.date)} {v.meal_period}
-          {v.wish_id && <span className="bg-primary/15 text-primary rounded px-1">兑现 ✨</span>}
-          {!!v.want_again && <span>⭐</span>}
+        {/* 时间 + 浅色药丸（药丸挪到时间后） + 标记 */}
+        <div className="flex flex-wrap items-center gap-1.5">
+          <span className="text-xs font-bold text-on-surface-variant">
+            {prettyDate(v.date)} {v.meal_period}
+          </span>
+          {metaText && (
+            <span className="text-[11px] font-bold text-on-surface-variant bg-surface border border-on-surface/15 rounded-full px-2 py-0.5">
+              {metaText}
+            </span>
+          )}
+          {v.wish_id && <span className="text-[10px] font-bold bg-primary/15 text-primary rounded px-1">兑现 ✨</span>}
+          {!!v.want_again && <span className="text-xs">⭐</span>}
           {authorTag}
         </div>
-        {[v.companions, `¥${v.per_person}/人`, v.value_label].filter(Boolean).length > 0 && (
-          <span className="inline-block mt-1 text-[11px] font-bold text-on-surface-variant bg-surface border border-on-surface/10 rounded-full px-2 py-0.5">
-            {[v.companions, `¥${v.per_person}/人`, v.value_label].filter(Boolean).join(' · ')}
-          </span>
+        {/* 点评 + 口味/菜品/菜系/场合 标签 */}
+        {(v.feeling || flavors.length > 0 || dishes.length > 0 || v.cuisine || v.occasion) && (
+          <div className="flex flex-wrap gap-1.5 mt-1.5">
+            {v.feeling && (
+              <span className="text-xs text-on-surface bg-surface border border-on-surface/15 rounded-lg px-2.5 py-1">💬 {v.feeling}</span>
+            )}
+            {flavors.map((f) => (
+              <span key={'f' + f} className={chip}>🌶️ {f}</span>
+            ))}
+            {dishes.map((d) => (
+              <span key={'d' + d} className={chip}>🍽️ {d}</span>
+            ))}
+            {v.cuisine && <span className={chip}>{v.cuisine}</span>}
+            {v.occasion && <span className={chip}>{v.occasion}</span>}
+          </div>
         )}
-        {v.feeling && <div className="text-sm mt-1">「{v.feeling}」</div>}
         {photos.length > 0 && (
           <div className="flex gap-1.5 mt-1.5">
             {photos.slice(0, 4).map((u) => (
