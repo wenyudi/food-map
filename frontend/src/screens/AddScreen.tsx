@@ -735,7 +735,7 @@ function RecordHero({ points }: { points: Point[] }) {
       ? ['🌤️', '下午好', '下午茶 / 加餐也算一笔']
       : ['🌙', '晚上好', '今晚吃了点啥？']
   return (
-    <div className="relative bg-gradient-to-br from-[#ffeccb] to-[#fce1da] border-2 border-on-surface rounded-2xl shadow-sticker p-5 -rotate-1 mb-5">
+    <div className="relative bg-gradient-to-br from-[#ffeccb] to-[#fce1da] border-2 border-on-surface rounded-2xl shadow-sticker p-5 mb-5">
       <Icon name="auto_awesome" className="absolute top-4 right-4 text-primary/20 text-4xl" />
       <h2 className="font-headline text-2xl mb-1">
         {hEmoji} {greet}
