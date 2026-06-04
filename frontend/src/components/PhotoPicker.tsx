@@ -10,7 +10,7 @@ interface Props {
 
 const MAX_DIM = 1280 // 长边压到 1280px
 
-export default function PhotoPicker({ photos, onChange, max = 5 }: Props) {
+export default function PhotoPicker({ photos, onChange, max = 4 }: Props) {
   const inputRef = useRef<HTMLInputElement>(null)
   const [uploading, setUploading] = useState(0)
 
@@ -42,7 +42,7 @@ export default function PhotoPicker({ photos, onChange, max = 5 }: Props) {
   }
 
   return (
-    <div className="grid grid-cols-5 gap-2">
+    <div className="grid grid-cols-4 gap-2">
       {photos.map((u) => (
         <div className="relative aspect-square" key={u}>
           <img src={u} className="w-full h-full object-cover rounded-lg border-2 border-on-surface" />

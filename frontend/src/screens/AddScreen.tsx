@@ -536,7 +536,7 @@ export default function AddScreen({ onSubmitted }: AddScreenProps) {
 
                 <div>
                   <label className="block text-sm font-bold text-on-surface-variant mb-1">📷 照片</label>
-                  <PhotoPicker photos={photos} onChange={setPhotos} max={5} />
+                  <PhotoPicker photos={photos} onChange={setPhotos} max={4} />
                 </div>
               </div>
             ) : (

@@ -128,7 +128,7 @@ export default function EditRecordSheet({ kind, data, storeName, onClose, onChan
             <input value={companions} onChange={(e) => setCompanions(e.target.value)} placeholder="和谁一起？" className={input} />
           </Row>
           <Row label="📷 照片">
-            <PhotoPicker photos={photos} onChange={setPhotos} max={5} />
+            <PhotoPicker photos={photos} onChange={setPhotos} max={4} />
           </Row>
         </div>
       ) : (
