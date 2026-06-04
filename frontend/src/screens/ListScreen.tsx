@@ -1,5 +1,4 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import TopBar, { Avatar } from '../ui/TopBar'
 import Icon from '../ui/Icon'
 import AskSheet from './AskSheet'
 import EditRecordSheet from './EditRecordSheet'
@@ -155,14 +154,7 @@ export default function ListScreen({ refreshKey, focusPoiId, onPickStore, onJump
 
   return (
     <div className="h-full flex flex-col">
-      <TopBar
-        title="食光清单"
-        subtitle="你俩一起吃过的好味道"
-        icon="format_list_bulleted"
-        right={<Avatar emoji="🤤" />}
-      />
-
-      <div className="flex-1 min-h-0 overflow-y-auto px-4 pt-4 pb-12">
+      <div className="flex-1 min-h-0 overflow-y-auto px-4 pt-[calc(env(safe-area-inset-top)_+_1rem)] pb-12">
         {/* 搜索 + 问地图 */}
         <div className="flex gap-2 mb-3">
           <div className="flex-1 flex items-center gap-2 rounded-full border-2 border-on-surface bg-white px-4 py-2.5 shadow-sticker-sm">

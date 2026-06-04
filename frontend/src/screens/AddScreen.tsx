@@ -1,6 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import type { ReactNode } from 'react'
-import TopBar, { Avatar } from '../ui/TopBar'
 import Icon from '../ui/Icon'
 import StickerButton from '../ui/StickerButton'
 import SheetShell from '../ui/SheetShell'
@@ -289,34 +288,8 @@ export default function AddScreen({ onSubmitted }: AddScreenProps) {
         </div>
       )}
 
-      <TopBar
-        title="记一笔"
-        subtitle="一句话，记下这一顿"
-        icon="edit"
-        right={<Avatar emoji="😋" />}
-        onBack={parsed ? () => setParsed(null) : undefined}
-      />
-
-      <div className="flex-1 min-h-0 overflow-y-auto px-4 pt-4 pb-8">
-        {!parsed && <RecordHero />}
-
-        {!parsed && nearby && (
-          <button
-            onClick={() => recordNearby(nearby)}
-            className="w-full text-left sticker p-3 mb-3 flex items-center gap-3 press"
-          >
-            <span className="text-2xl shrink-0">{nearby.visit_count > 0 ? '📍' : '💘'}</span>
-            <div className="flex-1 min-w-0">
-              <div className="font-bold">就在「{nearby.name}」附近</div>
-              <div className="text-xs text-on-surface-variant">
-                {nearby.visit_count > 0 ? '又来啦？一键再记一笔' : '你想去的店就在眼前 · 点一下直接打卡'}
-              </div>
-            </div>
-            <span className="text-primary font-bold text-sm shrink-0">记这家 →</span>
-          </button>
-        )}
-
-        {/* 对话框 */}
+      <div className="flex-1 min-h-0 overflow-y-auto px-4 pt-[calc(env(safe-area-inset-top)_+_1rem)] pb-8">
+        {/* 对话框 —— 录入起始页：输入框放最上面（进页面第一眼就能写） */}
         <div className="sticker p-3 mb-4">
           <textarea
             value={text}
@@ -351,6 +324,24 @@ export default function AddScreen({ onSubmitted }: AddScreenProps) {
             </button>
           </div>
         </div>
+
+        {!parsed && <RecordHero />}
+
+        {!parsed && nearby && (
+          <button
+            onClick={() => recordNearby(nearby)}
+            className="w-full text-left sticker p-3 mb-3 flex items-center gap-3 press"
+          >
+            <span className="text-2xl shrink-0">{nearby.visit_count > 0 ? '📍' : '💘'}</span>
+            <div className="flex-1 min-w-0">
+              <div className="font-bold">就在「{nearby.name}」附近</div>
+              <div className="text-xs text-on-surface-variant">
+                {nearby.visit_count > 0 ? '又来啦？一键再记一笔' : '你想去的店就在眼前 · 点一下直接打卡'}
+              </div>
+            </div>
+            <span className="text-primary font-bold text-sm shrink-0">记这家 →</span>
+          </button>
+        )}
 
         {!parsed && (
           <>
@@ -524,12 +515,21 @@ export default function AddScreen({ onSubmitted }: AddScreenProps) {
         {error && <div className="text-primary font-bold text-sm bg-primary/10 border-2 border-primary/25 rounded-lg px-3 py-2 mt-3">{error}</div>}
       </div>
 
-      {/* 底栏 */}
+      {/* 底栏：← 返回（回到输入）+ 记下这一顿 */}
       {parsed && (
         <div className="shrink-0 px-4 pt-2 pb-6 bg-gradient-to-t from-surface via-surface to-transparent">
-          <StickerButton full disabled={busy || !selectedPoi} className="py-4 text-lg" onClick={handleSubmit}>
-            <Icon name="edit_note" className="text-2xl" /> {busy ? '提交中…' : isVisit ? '记下这一顿' : '收藏想去'}
-          </StickerButton>
+          <div className="flex items-center gap-3">
+            <button
+              onClick={() => setParsed(null)}
+              aria-label="返回重新输入"
+              className="shrink-0 w-14 h-14 rounded-full border-2 border-on-surface bg-white flex items-center justify-center shadow-sticker press"
+            >
+              <Icon name="arrow_back" className="text-2xl" />
+            </button>
+            <StickerButton full disabled={busy || !selectedPoi} className="py-4 text-lg" onClick={handleSubmit}>
+              <Icon name="edit_note" className="text-2xl" /> {busy ? '提交中…' : isVisit ? '记下这一顿' : '收藏想去'}
+            </StickerButton>
+          </div>
         </div>
       )}
 

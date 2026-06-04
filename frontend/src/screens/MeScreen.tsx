@@ -1,5 +1,4 @@
 import { useEffect, useState } from 'react'
-import TopBar, { IconBtn } from '../ui/TopBar'
 import Icon from '../ui/Icon'
 import SheetShell from '../ui/SheetShell'
 import StickerButton from '../ui/StickerButton'
@@ -94,14 +93,7 @@ export default function MeScreen({ me, onLogout }: MeScreenProps) {
 
   return (
     <div className="h-full flex flex-col">
-      <TopBar
-        title="我的"
-        subtitle="你的吃货档案"
-        icon="person"
-        right={<IconBtn icon="settings" />}
-      />
-
-      <div className="flex-1 min-h-0 overflow-y-auto px-5 pt-6 pb-10 space-y-5">
+      <div className="flex-1 min-h-0 overflow-y-auto px-5 pt-[calc(env(safe-area-inset-top)_+_1.5rem)] pb-10 space-y-5">
         {/* 资料卡 */}
         <div className="sticker rounded-2xl p-5 flex items-center gap-4">
           <div className="w-20 h-20 rounded-full border-2 border-on-surface bg-accent flex items-center justify-center font-headline text-3xl shrink-0">

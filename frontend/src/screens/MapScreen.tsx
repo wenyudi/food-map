@@ -1,7 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { MapContainer, TileLayer, Marker, Popup, useMap } from 'react-leaflet'
 import L from 'leaflet'
-import TopBar, { Avatar } from '../ui/TopBar'
 import Icon from '../ui/Icon'
 import StatTile from '../ui/StatTile'
 import SuggestSheet from './TodaySheet'
@@ -97,8 +96,6 @@ export default function MapScreen({ refreshKey, focusPoiId, onConsumeFocus, onJu
 
   return (
     <div className="h-full flex flex-col">
-      <TopBar subtitle="你俩一起点亮的食光地图" right={<Avatar emoji="😋" />} />
-
       <main className="flex-1 relative overflow-hidden">
         {/* 地图 */}
         <MapContainer center={center} zoom={13} className="absolute inset-0 h-full w-full" zoomControl={false}>
@@ -153,7 +150,7 @@ export default function MapScreen({ refreshKey, focusPoiId, onConsumeFocus, onJu
         </MapContainer>
 
         {/* 顶部统计卡浮层 */}
-        <div className="absolute top-0 left-0 w-full z-[400] px-4 pt-3 pb-6 bg-gradient-to-b from-surface via-surface/80 to-transparent pointer-events-none">
+        <div className="absolute top-0 left-0 w-full z-[400] px-4 pt-[calc(env(safe-area-inset-top)_+_0.75rem)] pb-6 bg-gradient-to-b from-surface via-surface/80 to-transparent pointer-events-none">
           <div className="flex gap-2">
             {stats && <StatBar stats={stats} />}
             {loading &&
