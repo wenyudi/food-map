@@ -81,13 +81,13 @@ export function TimelineRow({
     const w = event.data
     return (
       <div onClick={onEdit} className="border-2 border-dashed border-on-surface/25 rounded-xl px-3 py-1.5 bg-surface/40 cursor-pointer transition-opacity active:opacity-70">
-        <p className="text-sm leading-relaxed">
+        <div className="text-sm leading-relaxed">
           <span className="font-bold text-on-surface-variant">{w.source}种草</span>
           {w.reason && <> · {w.reason}</>}
           <span className="text-xs font-bold text-on-surface-variant"> · {prettyDate(w.created_at)}</span>
           {w.status === 'visited' && <span className="ml-1 text-xs font-bold bg-green-accent/15 text-green-accent rounded px-1">已兑现</span>}
           {authorTag}
-        </p>
+        </div>
       </div>
     )
   }
