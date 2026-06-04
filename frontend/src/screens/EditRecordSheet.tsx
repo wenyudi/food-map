@@ -126,8 +126,10 @@ export default function EditRecordSheet({ kind, data, storeName, onClose, onChan
             ))}
           </div>
 
-          {/* 时间滚轮（无文案） */}
-          <DateTimeWheel value={date} onChange={setDate} meal={meal} onMealChange={setMeal} />
+          {/* 时间滚轮 */}
+          <Row label="📅 哪天 · 哪顿">
+            <DateTimeWheel value={date} onChange={setDate} meal={meal} onMealChange={setMeal} />
+          </Row>
 
           {/* 花费/人数 · 点评/和谁：两行两列网格 → 左列(花费=点评)同宽、右列(人数=和谁)同宽 */}
           <div className="grid grid-cols-[1fr_116px] gap-x-2 gap-y-1.5 items-end">
@@ -175,14 +177,14 @@ export default function EditRecordSheet({ kind, data, storeName, onClose, onChan
       {err && <div className="text-primary font-bold text-sm bg-primary/10 border-2 border-primary/25 rounded-lg px-3 py-2 mt-3">{err}</div>}
 
       {!confirmDel ? (
-        <div className="grid grid-cols-2 gap-2 mt-3">
+        <div className="flex gap-2 mt-3">
           <button
             onClick={() => setConfirmDel(true)}
-            className="px-4 py-2 rounded-full border-2 border-on-surface bg-white text-primary font-bold press-sm"
+            className="shrink-0 px-5 py-2 rounded-full border-2 border-on-surface bg-white text-primary font-bold press-sm"
           >
             删除
           </button>
-          <StickerButton full disabled={busy} onClick={save} className="!py-2">
+          <StickerButton disabled={busy} onClick={save} className="flex-1 !py-2">
             {busy ? '保存中…' : '保存'}
           </StickerButton>
         </div>
