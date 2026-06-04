@@ -92,54 +92,57 @@ export default function EditRecordSheet({ kind, data, storeName, onClose, onChan
 
   return (
     <SheetShell onClose={onClose}>
-      <h3 className="font-headline text-xl leading-tight">{kind === 'visit' ? '编辑这次记录' : '编辑想去'}</h3>
-      <p className="text-xs text-on-surface-variant mb-3">{storeName}</p>
+      <div className="flex items-start justify-between gap-2 mb-3">
+        <div className="min-w-0">
+          <h3 className="font-headline text-xl leading-tight">{kind === 'visit' ? '编辑这次记录' : '编辑想去'}</h3>
+          <p className="text-xs text-on-surface-variant">{storeName}</p>
+        </div>
+        {kind === 'visit' && (
+          <button
+            onClick={() => setWantAgain((a) => !a)}
+            className={`shrink-0 px-3 py-1 rounded-full border-2 border-on-surface text-xs font-bold shadow-sticker-sm press-sm ${
+              wantAgain ? 'bg-primary text-white' : 'bg-white text-on-surface-variant'
+            }`}
+          >
+            {wantAgain ? '❤️ 还想来' : '🤍 还想来'}
+          </button>
+        )}
+      </div>
 
       {kind === 'visit' ? (
         <div className="space-y-1.5">
-          {/* 心情 + 想再来：同一行标题，省一行 */}
-          <div>
-            <div className="flex items-center justify-between mb-1.5">
-              <p className="font-headline text-lg">这一顿，好吃吗？</p>
+          {/* 心情：5 个表情圈 */}
+          <div className="flex justify-between">
+            {EMOJI_OPTIONS.map((o) => (
               <button
-                onClick={() => setWantAgain((a) => !a)}
-                className={`shrink-0 px-3 py-1 rounded-full border-2 border-on-surface text-xs font-bold shadow-sticker-sm press-sm ${
-                  wantAgain ? 'bg-primary text-white' : 'bg-white text-on-surface-variant'
+                key={o}
+                onClick={() => setEmoji(o)}
+                className={`w-12 h-12 rounded-full bg-white flex items-center justify-center text-2xl press transition-all ${
+                  emoji === o ? 'border-[3px] border-primary shadow-sticker' : 'border-2 border-on-surface shadow-sticker-sm opacity-70'
                 }`}
               >
-                {wantAgain ? '❤️ 还想来' : '🤍 还想来'}
+                <span className={`mood-glyph ${emoji === o ? MOOD_ANIM[o] : ''}`}>{o}</span>
               </button>
-            </div>
-            <div className="flex justify-between">
-              {EMOJI_OPTIONS.map((o) => (
-                <button
-                  key={o}
-                  onClick={() => setEmoji(o)}
-                  className={`w-12 h-12 rounded-full bg-white flex items-center justify-center text-2xl press transition-all ${
-                    emoji === o ? 'border-[3px] border-primary shadow-sticker' : 'border-2 border-on-surface shadow-sticker-sm opacity-70'
-                  }`}
-                >
-                  <span className={`mood-glyph ${emoji === o ? MOOD_ANIM[o] : ''}`}>{o}</span>
-                </button>
-              ))}
-            </div>
+            ))}
           </div>
 
-          {/* 时间滚轮 */}
-          <Row label="📅 哪天 · 哪顿">
-            <DateTimeWheel value={date} onChange={setDate} meal={meal} onMealChange={setMeal} />
-          </Row>
+          {/* 时间滚轮（无文案） */}
+          <DateTimeWheel value={date} onChange={setDate} meal={meal} onMealChange={setMeal} />
 
-          {/* 花费(含人均) + 人数步进，两列并排 */}
+          {/* 花费(人均在框内右侧) + 人数步进，两列对齐 */}
           <div className="flex gap-2 items-end">
             <Row label="💰 花费" className="flex-1">
-              <input type="number" inputMode="numeric" value={amount} onChange={(e) => setAmount(e.target.value)} placeholder="总价 ¥" className={input} />
-              <div className="text-xs font-bold mt-1 text-on-surface-variant">
-                人均 <b className="text-primary text-sm">¥{perPerson || '—'}</b>
+              <div className="relative">
+                <input type="number" inputMode="numeric" value={amount} onChange={(e) => setAmount(e.target.value)} placeholder="总价 ¥" className={`${input} pr-[86px]`} />
+                {!!amount && Number(people) > 0 && (
+                  <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-bold text-on-surface-variant pointer-events-none">
+                    人均 <b className="text-primary">¥{perPerson || '—'}</b>
+                  </span>
+                )}
               </div>
             </Row>
             <Row label="👥 人数" className="shrink-0">
-              <div className="flex items-center gap-1.5 rounded-xl border-2 border-on-surface bg-white px-1.5 py-[7px] shadow-sticker-sm">
+              <div className="flex items-center gap-1.5 rounded-xl border-2 border-on-surface bg-white px-1.5 py-1.5 shadow-sticker-sm">
                 <button onClick={() => setPeople(String(Math.max(1, (Number(people) || 1) - 1)))} className="w-7 h-7 rounded-full border-2 border-on-surface bg-white text-lg font-bold leading-none press-sm">−</button>
                 <span className="w-9 text-center font-bold font-num">{Number(people) || 1}人</span>
                 <button onClick={() => setPeople(String(Math.min(20, (Number(people) || 1) + 1)))} className="w-7 h-7 rounded-full border-2 border-on-surface bg-accent text-lg font-bold leading-none press-sm">+</button>
@@ -179,11 +182,11 @@ export default function EditRecordSheet({ kind, data, storeName, onClose, onChan
         <div className="flex gap-2 mt-3">
           <button
             onClick={() => setConfirmDel(true)}
-            className="px-4 py-3 rounded-full border-2 border-on-surface bg-white text-primary font-bold press-sm"
+            className="px-4 py-2 rounded-full border-2 border-on-surface bg-white text-primary font-bold press-sm"
           >
             删除
           </button>
-          <StickerButton full disabled={busy} onClick={save}>
+          <StickerButton full disabled={busy} onClick={save} className="!py-2">
             {busy ? '保存中…' : '保存'}
           </StickerButton>
         </div>
