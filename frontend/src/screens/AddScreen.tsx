@@ -5,6 +5,7 @@ import StickerButton from '../ui/StickerButton'
 import SheetShell from '../ui/SheetShell'
 import DateTimeWheel from '../ui/WheelPicker'
 import PhotoPicker from '../components/PhotoPicker'
+import MonthlySummary from './MonthlySummary'
 import { parseText, search, upsertStore, addVisit, addWish, regeo, getStats, getPoints } from '../api'
 import type { ParsedSentence, Stats, Point } from '../api'
 import { getMyLocation, haversine } from '../lib/geo'
@@ -54,6 +55,7 @@ export default function AddScreen({ onSubmitted }: AddScreenProps) {
   const cityTouched = useRef<boolean>(!!localStorage.getItem(LS_CITY))
   const [myLocation, setMyLocation] = useState<MyLocation | null>(null)
   const [nearby, setNearby] = useState<Point | null>(null)
+  const [allPoints, setAllPoints] = useState<Point[]>([])
   const [photos, setPhotos] = useState<string[]>([])
 
   const [amount, setAmount] = useState('')
@@ -73,6 +75,12 @@ export default function AddScreen({ onSubmitted }: AddScreenProps) {
   const [timeSheet, setTimeSheet] = useState(false)
   const [feelingSheet, setFeelingSheet] = useState(false)
 
+  // 所有点（本月小结 + 附近推荐共用）——与定位解耦，没授权定位也能出小结
+  useEffect(() => {
+    getPoints().then(setAllPoints).catch(() => {})
+  }, [])
+
+  // 定位 + 反查城市
   useEffect(() => {
     getMyLocation().then((loc) => {
       if (!loc) return
@@ -84,23 +92,24 @@ export default function AddScreen({ onSubmitted }: AddScreenProps) {
           })
           .catch(() => {})
       }
-      getPoints()
-        .then((pts) => {
-          let best: Point | null = null
-          let bestD = 250
-          for (const p of pts) {
-            if (!p.lng || !p.lat) continue
-            const d = haversine(loc.lng, loc.lat, p.lng, p.lat)
-            if (d < bestD) {
-              bestD = d
-              best = p
-            }
-          }
-          setNearby(best)
-        })
-        .catch(() => {})
     })
   }, [])
+
+  // 附近推荐：定位 + 点都就绪后，挑 250m 内最近的一家
+  useEffect(() => {
+    if (!myLocation || allPoints.length === 0) return
+    let best: Point | null = null
+    let bestD = 250
+    for (const p of allPoints) {
+      if (!p.lng || !p.lat) continue
+      const d = haversine(myLocation.lng, myLocation.lat, p.lng, p.lat)
+      if (d < bestD) {
+        bestD = d
+        best = p
+      }
+    }
+    setNearby(best)
+  }, [myLocation, allPoints])
 
   async function handleParse() {
     if (!text.trim()) return
@@ -365,6 +374,11 @@ export default function AddScreen({ onSubmitted }: AddScreenProps) {
               ))}
             </div>
             {myLocation && <p className="text-xs text-on-surface-variant mt-2">📍 已定位，优先搜附近</p>}
+
+            {/* 本月小结：填一下录入页底部空白；与列表共享折叠状态 */}
+            <div className="mt-5">
+              <MonthlySummary points={allPoints} refreshKey={0} />
+            </div>
           </>
         )}
 
