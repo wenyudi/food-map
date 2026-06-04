@@ -3,7 +3,7 @@ import type { ReactNode } from 'react'
 import Icon from '../ui/Icon'
 import StickerButton from '../ui/StickerButton'
 import SheetShell from '../ui/SheetShell'
-import DateTimeWheel from '../ui/WheelPicker'
+import DateTimeWheel, { NumberWheel } from '../ui/WheelPicker'
 import PhotoPicker from '../components/PhotoPicker'
 import MonthlySummary from './MonthlySummary'
 import { parseText, search, upsertStore, addVisit, addWish, regeo, getPoints } from '../api'
@@ -659,13 +659,7 @@ export default function AddScreen({ onSubmitted }: AddScreenProps) {
             />
           </Field>
           <Field label="几个人" className="mt-3">
-            <input
-              type="number"
-              inputMode="numeric"
-              value={people}
-              onChange={(e) => setPeople(e.target.value)}
-              className={INPUT}
-            />
+            <NumberWheel value={Number(people) || 1} onChange={(v) => setPeople(String(v))} min={1} max={20} unit="人" />
           </Field>
           <StickerButton full className="mt-4" onClick={() => setCompanionsSheet(false)}>
             好了

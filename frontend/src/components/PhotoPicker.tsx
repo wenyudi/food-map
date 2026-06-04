@@ -42,9 +42,9 @@ export default function PhotoPicker({ photos, onChange, max = 5 }: Props) {
   }
 
   return (
-    <div className="flex flex-wrap gap-2">
+    <div className="grid grid-cols-5 gap-2">
       {photos.map((u) => (
-        <div className="relative w-20 h-20" key={u}>
+        <div className="relative aspect-square" key={u}>
           <img src={u} className="w-full h-full object-cover rounded-lg border-2 border-on-surface" />
           <button
             onClick={() => remove(u)}
@@ -57,7 +57,7 @@ export default function PhotoPicker({ photos, onChange, max = 5 }: Props) {
       {Array.from({ length: uploading }).map((_, i) => (
         <div
           key={`u${i}`}
-          className="w-20 h-20 rounded-lg border-2 border-dashed border-on-surface/40 flex items-center justify-center text-on-surface-variant animate-pulse"
+          className="aspect-square w-full rounded-lg border-2 border-dashed border-on-surface/40 flex items-center justify-center text-on-surface-variant animate-pulse"
         >
           ↑
         </div>
@@ -65,7 +65,7 @@ export default function PhotoPicker({ photos, onChange, max = 5 }: Props) {
       {photos.length + uploading < max && (
         <button
           onClick={() => inputRef.current?.click()}
-          className="w-20 h-20 rounded-lg border-2 border-dashed border-on-surface/50 bg-white/50 flex flex-col items-center justify-center text-on-surface-variant press-sm"
+          className="aspect-square w-full rounded-lg border-2 border-dashed border-on-surface/50 bg-white/50 flex flex-col items-center justify-center text-on-surface-variant press-sm"
         >
           <Icon name="add_a_photo" className="text-xl" />
           <span className="text-[10px] font-bold mt-0.5">{photos.length === 0 ? '拍照 / 选图' : '加一张'}</span>

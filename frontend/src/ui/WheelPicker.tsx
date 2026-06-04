@@ -62,6 +62,29 @@ function Column({ items, value, onChange }: { items: Item[]; value: string | num
   )
 }
 
+/** 单列数字滚轮（如人数 1–N，复用 Column + 居中高亮带） */
+export function NumberWheel({
+  value,
+  onChange,
+  min = 1,
+  max = 20,
+  unit = '',
+}: {
+  value: number
+  onChange: (v: number) => void
+  min?: number
+  max?: number
+  unit?: string
+}) {
+  const items: Item[] = range(min, max).map((v) => ({ v, label: `${v}${unit}` }))
+  return (
+    <div className="relative flex bg-white rounded-xl border-2 border-on-surface overflow-hidden">
+      <div className="absolute left-1.5 right-1.5 top-1/2 -translate-y-1/2 h-[38px] rounded-lg bg-primary/10 border-2 border-primary/25 pointer-events-none" />
+      <Column items={items} value={value} onChange={(v) => onChange(Number(v))} />
+    </div>
+  )
+}
+
 type Meal = '早' | '中' | '晚'
 
 type Props = Readonly<{
