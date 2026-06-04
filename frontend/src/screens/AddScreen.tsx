@@ -298,92 +298,116 @@ export default function AddScreen({ onSubmitted }: AddScreenProps) {
       )}
 
       <div className="flex-1 min-h-0 overflow-y-auto px-4 pt-[calc(env(safe-area-inset-top)_+_1rem)] pb-8">
-        {/* 对话框 —— 录入起始页：输入框放最上面（进页面第一眼就能写） */}
-        <div className="sticker p-3 mb-4">
-          <textarea
-            value={text}
-            onChange={(e) => setText(e.target.value)}
-            placeholder="例如：今晚和朋友去家川菜馆，人均 80，水煮鱼挺嫩"
-            rows={parsed ? 2 : 4}
-            className="w-full bg-transparent outline-none resize-none font-body text-on-surface placeholder:text-on-surface-variant/55"
-          />
-          <div className="flex items-center justify-between gap-2 pt-1">
-            {!parsed ? (
-              <label className="flex items-center gap-1 text-xs font-bold text-on-surface-variant">
-                城市
-                <input
-                  value={city}
-                  onChange={(e) => {
-                    cityTouched.current = true
-                    setCity(e.target.value)
-                  }}
-                  placeholder="重庆"
-                  className="w-16 bg-white border-2 border-on-surface rounded-full px-2 py-0.5 outline-none text-center"
-                />
-              </label>
-            ) : (
-              <span />
-            )}
-            <button
-              disabled={busy || !text.trim()}
-              onClick={handleParse}
-              className="flex items-center gap-1 text-sm font-bold text-white bg-primary border-2 border-on-surface rounded-full px-4 py-1.5 shadow-sticker-sm press-sm disabled:opacity-50"
-            >
-              {busy ? '解析中…' : parsed ? '↻ 重新识别' : '✨ 解析'}
-            </button>
-          </div>
-        </div>
-
-        {!parsed && <RecordHero />}
-
-        {!parsed && nearby && (
-          <button
-            onClick={() => recordNearby(nearby)}
-            className="w-full text-left sticker p-3 mb-3 flex items-center gap-3 press"
-          >
-            <span className="text-2xl shrink-0">{nearby.visit_count > 0 ? '📍' : '💘'}</span>
-            <div className="flex-1 min-w-0">
-              <div className="font-bold">就在「{nearby.name}」附近</div>
-              <div className="text-xs text-on-surface-variant">
-                {nearby.visit_count > 0 ? '又来啦？一键再记一笔' : '你想去的店就在眼前 · 点一下直接打卡'}
-              </div>
-            </div>
-            <span className="text-primary font-bold text-sm shrink-0">记这家 →</span>
-          </button>
-        )}
-
         {!parsed && (
           <>
-            <div className="text-xs font-bold text-on-surface-variant mb-2">不知道怎么写？点一条直接套用 👇</div>
-            <div className="flex flex-col gap-2">
+            {/* 问候卡（Stitch） */}
+            <RecordHero />
+
+            {/* 主输入卡（Stitch：大 textarea + 虚线分隔 + 城市药丸 + ✨解析） */}
+            <div className="bg-white border-2 border-on-surface rounded-2xl shadow-sticker overflow-hidden mb-4">
+              <textarea
+                value={text}
+                onChange={(e) => setText(e.target.value)}
+                placeholder="例如：今晚和朋友去家川菜馆，人均 80，水煮鱼挺嫩"
+                rows={4}
+                className="w-full p-4 bg-transparent outline-none resize-none font-body font-bold text-on-surface placeholder:font-medium placeholder:text-on-surface-variant/60"
+              />
+              <div className="flex items-center justify-between gap-2 px-3 py-3 bg-surface/50 border-t-2 border-dashed border-on-surface">
+                <label className="flex items-center gap-1 bg-white border-2 border-on-surface rounded-full pl-2.5 pr-1 py-1 shadow-sticker-sm">
+                  <Icon name="location_on" className="text-primary text-base" />
+                  <span className="text-xs font-bold text-on-surface-variant">城市</span>
+                  <input
+                    value={city}
+                    onChange={(e) => {
+                      cityTouched.current = true
+                      setCity(e.target.value)
+                    }}
+                    placeholder="重庆"
+                    className="w-10 bg-transparent outline-none text-xs font-bold text-on-surface text-center"
+                  />
+                </label>
+                <button
+                  disabled={busy || !text.trim()}
+                  onClick={handleParse}
+                  className="bg-primary text-white font-headline font-bold text-sm px-6 py-2.5 rounded-full border-2 border-on-surface shadow-sticker press disabled:opacity-50"
+                >
+                  {busy ? '解析中…' : '✨ 解析'}
+                </button>
+              </div>
+            </div>
+
+            {/* 附近一键记（保留功能） */}
+            {nearby && (
+              <button
+                onClick={() => recordNearby(nearby)}
+                className="w-full text-left sticker p-3 mb-4 flex items-center gap-3 press"
+              >
+                <span className="text-2xl shrink-0">{nearby.visit_count > 0 ? '📍' : '💘'}</span>
+                <div className="flex-1 min-w-0">
+                  <div className="font-bold">就在「{nearby.name}」附近</div>
+                  <div className="text-xs text-on-surface-variant">
+                    {nearby.visit_count > 0 ? '又来啦？一键再记一笔' : '你想去的店就在眼前 · 点一下直接打卡'}
+                  </div>
+                </div>
+                <span className="text-primary font-bold text-sm shrink-0">记这家 →</span>
+              </button>
+            )}
+
+            {/* 示例（Stitch：横滑卡 + 旋转角标） */}
+            <div className="text-sm font-black text-on-surface-variant mb-3">不知道怎么写？点一条直接套用 👇</div>
+            <div className="flex gap-3 overflow-x-auto hide-scrollbar snap-x pt-2 pb-3">
               {EXAMPLES.map((ex, i) => (
                 <button
                   key={i}
                   onClick={() => setText(ex.text)}
-                  className="text-left bg-white rounded-xl border-2 border-on-surface shadow-sticker-sm p-2.5 press-sm flex items-start gap-2"
+                  className="relative shrink-0 snap-center w-[240px] text-left bg-white border-2 border-on-surface rounded-2xl shadow-sticker-sm p-4 press-sm"
                 >
                   <span
-                    className={`shrink-0 px-2 py-0.5 rounded-full border-2 border-on-surface text-xs font-bold ${
-                      ex.kind === 'eat' ? 'bg-accent text-on-surface' : 'bg-tertiary text-on-surface'
+                    className={`absolute -top-1.5 -right-1.5 border-2 border-on-surface rounded-lg px-2 py-0.5 text-[10px] font-black shadow-sticker-sm ${
+                      ex.kind === 'eat' ? 'bg-accent text-on-surface rotate-3' : 'bg-tertiary text-on-surface -rotate-3'
                     }`}
                   >
                     {ex.kind === 'eat' ? '吃过' : '种草'}
                   </span>
-                  <span className="text-sm text-on-surface-variant">{ex.text}</span>
+                  <p className="text-sm font-bold text-on-surface leading-relaxed">{ex.text}</p>
                 </button>
               ))}
             </div>
-            {myLocation && <p className="text-xs text-on-surface-variant mt-2">📍 已定位，优先搜附近</p>}
 
-            {/* 本月小结：填一下录入页底部空白；与列表共享折叠状态 */}
-            <div className="mt-5">
-              <MonthlySummary points={allPoints} refreshKey={0} />
-            </div>
+            {/* 已定位脚注（Stitch） */}
+            {myLocation && (
+              <p className="flex items-center justify-center gap-1 text-center text-xs font-bold text-on-surface-variant opacity-80 mt-1 mb-4">
+                <Icon name="my_location" className="text-sm" /> 已定位，优先搜附近
+              </p>
+            )}
+
+            {/* 本月小结（保留） */}
+            <MonthlySummary points={allPoints} refreshKey={0} />
           </>
         )}
 
         {parsed && (
           <div>
+            {/* 重新识别输入条 */}
+            <div className="sticker p-3 mb-4">
+              <textarea
+                value={text}
+                onChange={(e) => setText(e.target.value)}
+                placeholder="例如：今晚和朋友去家川菜馆，人均 80，水煮鱼挺嫩"
+                rows={2}
+                className="w-full bg-transparent outline-none resize-none font-body text-on-surface placeholder:text-on-surface-variant/55"
+              />
+              <div className="flex items-center justify-end pt-1">
+                <button
+                  disabled={busy || !text.trim()}
+                  onClick={handleParse}
+                  className="flex items-center gap-1 text-sm font-bold text-white bg-primary border-2 border-on-surface rounded-full px-4 py-1.5 shadow-sticker-sm press-sm disabled:opacity-50"
+                >
+                  {busy ? '解析中…' : '↻ 重新识别'}
+                </button>
+              </div>
+            </div>
+
             <p className="flex items-center gap-1 text-sm font-bold text-primary mb-2">
               <Icon name="auto_awesome" className="text-accent" /> AI 认出了这些 👇 点一下可改
             </p>
@@ -719,19 +743,23 @@ function RecordHero() {
       ? ['🌤️', '下午好', '下午茶 / 加餐也算一笔']
       : ['🌙', '晚上好', '今晚吃了点啥？']
   return (
-    <div className="sticker p-3 mb-3">
-      <div className="font-headline text-lg">
+    <div className="relative bg-white border-2 border-on-surface rounded-2xl shadow-sticker p-5 -rotate-1 mb-5">
+      <Icon name="auto_awesome" className="absolute top-4 right-4 text-primary/20 text-4xl" />
+      <h2 className="font-headline text-2xl mb-1">
         {hEmoji} {greet}
+      </h2>
+      <p className="font-body font-bold text-on-surface text-lg mb-4">{prompt}</p>
+      <div className="inline-block bg-surface border-2 border-on-surface rounded-lg px-3 py-1.5 shadow-sticker-sm">
+        <p className="text-xs font-bold text-on-surface-variant">
+          {stats && stats.total_visits > 0 ? (
+            <>
+              地图上已记下 <b className="text-on-surface">{meals}</b> 顿 · <b className="text-on-surface">{stores}</b> 家店 🥢
+            </>
+          ) : (
+            <>记下第一顿，点亮你们的美食地图 ✨</>
+          )}
+        </p>
       </div>
-      <div className="text-sm text-on-surface-variant">{prompt}</div>
-      {stats &&
-        (stats.total_visits > 0 ? (
-          <div className="text-xs text-on-surface-variant mt-1">
-            地图上已记下 <b className="text-on-surface">{meals}</b> 顿 · <b className="text-on-surface">{stores}</b> 家店 🥢
-          </div>
-        ) : (
-          <div className="text-xs text-on-surface-variant mt-1">记下第一顿，点亮你们的美食地图 ✨</div>
-        ))}
     </div>
   )
 }
