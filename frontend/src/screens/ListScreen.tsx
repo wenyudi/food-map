@@ -415,27 +415,27 @@ function StoreCard({
         ))}
       </div>
 
-      {/* 底部 */}
-      <div className="flex items-center justify-between mt-3 pt-2 border-t-2 border-dashed border-on-surface/15">
-        <button onClick={hasCoords ? onClick : undefined} className="text-xs font-bold text-on-surface-variant">
+      {/* 底部：看地图(左) · 想再来(中) · 分享(右) */}
+      <div className="grid grid-cols-3 items-center mt-3 pt-2 border-t-2 border-dashed border-on-surface/15">
+        <button onClick={hasCoords ? onClick : undefined} className="justify-self-start text-xs font-bold text-on-surface-variant">
           {hasCoords ? '看在地图上 →' : '📍 未定位'}
         </button>
-        <div className="flex items-center gap-3">
+        <div className="justify-self-center">
           {lastVisit && (
             <span className={`text-xs font-bold ${lastVisit.want_again ? 'text-primary' : 'text-on-surface-variant/70'}`}>
               {lastVisit.want_again ? '想再来' : '不想再来'}
             </span>
           )}
-          <button
-            onClick={(e) => {
-              e.stopPropagation()
-              onShare()
-            }}
-            className="text-xs font-bold text-primary flex items-center gap-0.5"
-          >
-            <Icon name="ios_share" className="text-sm" /> 分享
-          </button>
         </div>
+        <button
+          onClick={(e) => {
+            e.stopPropagation()
+            onShare()
+          }}
+          className="justify-self-end text-xs font-bold text-primary flex items-center gap-0.5"
+        >
+          <Icon name="ios_share" className="text-sm" /> 分享
+        </button>
       </div>
     </div>
   )
@@ -487,7 +487,7 @@ function TimelineRow({
       <div className="flex-1 min-w-0">
         {/* 点文字即可编辑 */}
         <div onClick={onEdit} className="cursor-pointer">
-          {/* 时间 + 药丸 + 口味/菜品标签 同一行（标签放在「比官方便宜」药丸后面） */}
+          {/* 时间 + 药丸 */}
           <div className="flex flex-wrap items-center gap-1.5">
             <span className="text-xs font-bold text-on-surface-variant">
               {prettyDate(v.date)} {v.meal_period}
@@ -498,18 +498,22 @@ function TimelineRow({
               </span>
             )}
             {v.wish_id && <span className="text-[10px] font-bold bg-primary/15 text-primary rounded px-1">兑现 ✨</span>}
-            {flavors.map((f) => (
-              <span key={'f' + f} className={chip}>🌶️ {f}</span>
-            ))}
-            {dishes.map((d) => (
-              <span key={'d' + d} className={chip}>🍽️ {d}</span>
-            ))}
             {authorTag}
           </div>
-          {/* 备注做成虚线框（与种草框同样式） */}
-          {v.feeling && (
-            <div className="border-2 border-dashed border-on-surface/25 rounded-xl px-3 py-2 bg-surface/40 text-sm mt-2">
-              {v.feeling}
+          {/* 备注虚线框：备注 + 口味/菜品标签（标签右对齐） */}
+          {(v.feeling || flavors.length > 0 || dishes.length > 0) && (
+            <div className="border-2 border-dashed border-on-surface/25 rounded-xl px-3 py-2 bg-surface/40 mt-2">
+              {v.feeling && <div className="text-sm">{v.feeling}</div>}
+              {(flavors.length > 0 || dishes.length > 0) && (
+                <div className="flex flex-wrap justify-end gap-1.5 mt-1.5">
+                  {flavors.map((f) => (
+                    <span key={'f' + f} className={chip}>🌶️ {f}</span>
+                  ))}
+                  {dishes.map((d) => (
+                    <span key={'d' + d} className={chip}>🍽️ {d}</span>
+                  ))}
+                </div>
+              )}
             </div>
           )}
         </div>
