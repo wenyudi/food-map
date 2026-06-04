@@ -386,20 +386,38 @@ export default function AddScreen({ onSubmitted }: AddScreenProps) {
 
         {parsed && (
           <div>
-            {/* 重新识别输入条 */}
-            <div className="sticker p-3 mb-4">
+            {/* 重新识别输入条（样式同起始页：白卡 + 底部 accent 分隔栏；左放 吃过/还想来，右放 重新识别） */}
+            <div className="bg-white border-2 border-on-surface rounded-2xl shadow-sticker overflow-hidden mb-4">
               <textarea
                 value={text}
                 onChange={(e) => setText(e.target.value)}
                 placeholder="例如：今晚和朋友去家川菜馆，人均 80，水煮鱼挺嫩"
                 rows={2}
-                className="w-full bg-transparent outline-none resize-none font-body text-on-surface placeholder:text-on-surface-variant/55"
+                className="w-full p-4 bg-transparent outline-none resize-none font-body font-bold text-on-surface placeholder:font-medium placeholder:text-on-surface-variant/60"
               />
-              <div className="flex items-center justify-end pt-1">
+              <div className="flex items-center justify-between gap-2 px-3 py-2.5 bg-accent/15 border-t-2 border-dashed border-on-surface">
+                <div className="flex items-center gap-2 min-w-0">
+                  <button
+                    onClick={() => setIntent(isVisit ? 'wish' : 'visit')}
+                    className="shrink-0 px-3 py-1.5 rounded-full border-2 border-on-surface bg-accent text-on-surface text-sm font-bold shadow-sticker-sm press-sm"
+                  >
+                    {isVisit ? '🍴 吃过' : '🌱 想去'}
+                  </button>
+                  {isVisit && (
+                    <button
+                      onClick={() => setWantAgain((a) => !a)}
+                      className={`shrink-0 px-3 py-1.5 rounded-full border-2 border-on-surface text-sm font-bold shadow-sticker-sm press-sm ${
+                        wantAgain ? 'bg-primary text-white' : 'bg-white text-on-surface-variant'
+                      }`}
+                    >
+                      {wantAgain ? '❤️ 还想来' : '🤍 还想来'}
+                    </button>
+                  )}
+                </div>
                 <button
                   disabled={busy || !text.trim()}
                   onClick={handleParse}
-                  className="flex items-center gap-1 text-sm font-bold text-white bg-primary border-2 border-on-surface rounded-full px-4 py-1.5 shadow-sticker-sm press-sm disabled:opacity-50"
+                  className="shrink-0 flex items-center gap-1 text-sm font-bold text-white bg-primary border-2 border-on-surface rounded-full px-4 py-1.5 shadow-sticker-sm press-sm disabled:opacity-50"
                 >
                   {busy ? '解析中…' : '↻ 重新识别'}
                 </button>
@@ -446,22 +464,8 @@ export default function AddScreen({ onSubmitted }: AddScreenProps) {
 
             {/* 信息 chips（点一下可改） */}
             <div className="flex flex-wrap gap-2 mb-5">
-              <button
-                onClick={() => setIntent(isVisit ? 'wish' : 'visit')}
-                className="px-3 py-1.5 rounded-full border-2 border-on-surface bg-accent text-on-surface text-sm font-bold shadow-sticker-sm press-sm"
-              >
-                {isVisit ? '🍴 吃过' : '🌱 想去'}
-              </button>
               {isVisit && (
                 <>
-                  <button
-                    onClick={() => setWantAgain((a) => !a)}
-                    className={`px-3 py-1.5 rounded-full border-2 border-on-surface text-sm font-bold shadow-sticker-sm press-sm ${
-                      wantAgain ? 'bg-primary text-white' : 'bg-white text-on-surface-variant'
-                    }`}
-                  >
-                    {wantAgain ? '❤️ 还想来' : '🤍 还想来'}
-                  </button>
                   <button
                     onClick={() => setTimeSheet(true)}
                     className="px-3 py-1.5 rounded-full border-2 border-on-surface bg-primary text-white text-sm font-bold shadow-sticker-sm press-sm"
@@ -520,8 +524,8 @@ export default function AddScreen({ onSubmitted }: AddScreenProps) {
                       <button
                         key={o.emoji}
                         onClick={() => setEmoji(o.emoji)}
-                        className={`w-16 h-16 rounded-full border-2 border-on-surface flex items-center justify-center text-[32px] press transition-all ${
-                          emoji === o.emoji ? 'bg-accent shadow-sticker' : 'bg-white shadow-sticker-sm opacity-60'
+                        className={`w-16 h-16 rounded-full bg-white flex items-center justify-center text-[32px] press transition-all ${
+                          emoji === o.emoji ? 'border-[3px] border-primary shadow-sticker' : 'border-2 border-on-surface shadow-sticker-sm opacity-70'
                         }`}
                       >
                         <span className={`mood-glyph ${emoji === o.emoji ? MOOD_ANIM[o.emoji] : ''}`}>{o.emoji}</span>
