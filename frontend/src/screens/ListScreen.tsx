@@ -2,12 +2,14 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import Icon from '../ui/Icon'
 import AskSheet from './AskSheet'
 import EditRecordSheet from './EditRecordSheet'
-import MonthlySummary from './MonthlySummary'
 import { getPoints } from '../api'
 import type { Point, Wish, Visit } from '../api'
 import { cleanTag } from '../lib/format'
 
-type FilterKey = 'all' | 'fav' | 'want' | 'fulfilled' | 'repeat'
+type Mood = '😋' | '🤤' | '😂' | '😐' | '🤮'
+const MOODS: Mood[] = ['😋', '🤤', '😂', '😐', '🤮']
+type FilterKey = 'all' | 'fav' | 'want' | 'fulfilled' | 'repeat' | Mood
+const isMood = (k: FilterKey): k is Mood => (MOODS as string[]).includes(k)
 type EditTarget = { kind: 'visit' | 'wish'; data: any; storeName: string }
 type StoreStatus = { key: 'want' | 'fulfilled' | 'repeat' | 'direct'; icon: string; label: string }
 type TimelineEvent = { type: 'wish'; date: string; data: Wish } | { type: 'visit'; date: string; data: Visit }
@@ -94,17 +96,22 @@ export default function ListScreen({ refreshKey, focusPoiId, onPickStore, onJump
   }, [points])
 
   const { filtered, counts } = useMemo(() => {
-    const c = { all: points.length, fav: 0, want: 0, fulfilled: 0, repeat: 0 }
+    const c = { all: points.length, fav: 0, want: 0, fulfilled: 0, repeat: 0 } as Record<FilterKey, number>
+    MOODS.forEach((m) => (c[m] = 0))
     const enriched = points.map((p) => {
       const status = getStatus(p)
       if (status.key === 'want') c.want++
       else if (status.key === 'fulfilled') c.fulfilled++
       else if (status.key === 'repeat') c.repeat++
       if (p.visits.some((v) => v.want_again)) c.fav++
+      MOODS.forEach((m) => {
+        if (p.visits.some((v) => v.mood_emoji === m)) c[m]++
+      })
       return { p, status }
     })
     let result = enriched
     if (filter === 'fav') result = result.filter((e) => e.p.visits.some((v) => v.want_again))
+    else if (isMood(filter)) result = result.filter((e) => e.p.visits.some((v) => v.mood_emoji === filter))
     else if (filter !== 'all') result = result.filter((e) => e.status.key === filter)
     const q = query.trim().toLowerCase()
     if (q) result = result.filter((e) => e.p.name.toLowerCase().includes(q))
@@ -150,6 +157,7 @@ export default function ListScreen({ refreshKey, focusPoiId, onPickStore, onJump
     { key: 'want', label: '想去', icon: 'favorite' },
     { key: 'fulfilled', label: '已兑现', icon: 'auto_awesome' },
     { key: 'repeat', label: '二刷', icon: 'replay' },
+    ...MOODS.map((m) => ({ key: m, label: m })),
   ]
 
   return (
@@ -180,14 +188,12 @@ export default function ListScreen({ refreshKey, focusPoiId, onPickStore, onJump
           </button>
         </div>
 
-        {/* 月度小结 */}
-        <MonthlySummary points={points} refreshKey={refreshKey} />
-
         {/* 筛选 chips */}
         {points.length > 0 && (
           <div className="flex flex-wrap gap-2 my-3">
             {FILTERS.map((f) => {
               const n = counts[f.key]
+              if (isMood(f.key) && n === 0) return null
               const active = filter === f.key
               return (
                 <button
