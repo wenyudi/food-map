@@ -12,6 +12,7 @@ import type { Area } from '../lib/areas'
 import { getMyLocation } from '../lib/geo'
 import { cleanTag } from '../lib/format'
 import { useCountUp } from '../lib/useCountUp'
+import { TimelineRow, buildTimeline } from '../components/StoreTimeline'
 
 const esc = (s: string) =>
   s.replace(/[&<>"]/g, (c) => (c === '&' ? '&amp;' : c === '<' ? '&lt;' : c === '>' ? '&gt;' : '&quot;'))
@@ -125,7 +126,7 @@ export default function MapScreen({ refreshKey, focusPoiId, onConsumeFocus, onJu
                   iconAnchor: [19, 19],
                 })}
               >
-                <Popup maxWidth={280}>
+                <Popup maxWidth={300} minWidth={240}>
                   <PopupContent point={p} />
                 </Popup>
               </Marker>
@@ -342,65 +343,33 @@ function MapRefBinder({ mapRef }: { mapRef: React.MutableRefObject<L.Map | null>
 }
 
 function PopupContent({ point: p }: { point: Point }) {
-  const tagShort = cleanTag(p.tag)
-  const photos = (p.amap_photos || '').split('|').filter(Boolean).slice(0, 3)
-
-  type Ev = { type: 'wish' | 'visit'; date: string; data: any }
-  const events: Ev[] = []
-  if (p.wish) events.push({ type: 'wish', date: (p.wish.created_at || '').slice(0, 10), data: p.wish })
-  p.visits.forEach((v) => events.push({ type: 'visit', date: v.date, data: v }))
-  events.sort((a, b) => a.date.localeCompare(b.date))
-
+  const headPhoto = (p.amap_photos || '').split('|').filter(Boolean)[0]
+  const headEmoji = p.visit_count > 0 ? p.emoji : '❤️'
+  const timeline = buildTimeline(p)
   return (
-    <div className="min-w-[200px]">
-      <h4 className="font-headline text-lg leading-tight">{p.name}</h4>
-      <div className="text-xs font-bold text-on-surface-variant mt-0.5">
-        {[p.business_area, tagShort, p.rating && `⭐${p.rating}`, p.cost && `¥${p.cost}/人`].filter(Boolean).join(' · ')}
-      </div>
-      {photos.length > 0 && (
-        <div className="flex gap-1 mt-2">
-          {photos.map((u) => (
-            <img key={u} src={u} className="zoomable w-14 h-14 object-cover rounded-lg border-2 border-on-surface" />
-          ))}
-        </div>
-      )}
-      <div className="mt-2 flex flex-col gap-1.5">
-        {events.map((e, i) =>
-          e.type === 'wish' ? (
-            <div key={i} className="flex gap-2 text-sm">
-              <span>❤️</span>
-              <div>
-                <span className="font-bold text-on-surface-variant text-xs">
-                  {e.date.slice(5).replace('-', '/')} · {e.data.source}种草
-                </span>
-                {e.data.reason && <div>{e.data.reason}</div>}
-              </div>
-            </div>
-          ) : (
-            <div key={i} className="flex gap-2 text-sm">
-              <span>{e.data.mood_emoji}</span>
-              <div>
-                <span className="font-bold text-on-surface-variant text-xs">
-                  {e.date.slice(5).replace('-', '/')} · ¥{e.data.per_person}/人
-                  {!!e.data.want_again && ' · ⭐想再来'}
-                </span>
-                {e.data.feeling && <div>{e.data.feeling}</div>}
-                {e.data.my_photos && (
-                  <div className="flex gap-1 mt-1">
-                    {(e.data.my_photos as string)
-                      .split('|')
-                      .filter(Boolean)
-                      .slice(0, 3)
-                      .map((u: string) => (
-                        <img key={u} src={u} className="zoomable w-12 h-12 object-cover rounded-md border-2 border-on-surface" />
-                      ))}
-                  </div>
-                )}
-              </div>
-            </div>
-          )
+    <div className="min-w-[220px]">
+      {/* 头部：圆头像 + 店名 + meta（与列表卡片同款） */}
+      <div className="flex items-start gap-2.5">
+        {headPhoto ? (
+          <img src={headPhoto} alt="" className="w-12 h-12 rounded-full border-2 border-on-surface object-cover shrink-0 bg-white" />
+        ) : (
+          <span className="w-12 h-12 rounded-full border-2 border-on-surface bg-white flex items-center justify-center text-2xl shrink-0">{headEmoji}</span>
         )}
-        {events.length === 0 && <div className="text-on-surface-variant text-sm">还没数据</div>}
+        <div className="min-w-0">
+          <div className="font-headline text-lg leading-tight">{p.name}</div>
+          <div className="text-xs font-bold text-on-surface-variant mt-0.5">
+            {[p.business_area, cleanTag(p.tag), p.rating && `⭐${p.rating}`, p.cost && `¥${p.cost}/人`].filter(Boolean).join(' · ')}
+          </div>
+        </div>
+      </div>
+      {/* 时间线：复用列表 TimelineRow（弹窗不进编辑、不展示作者标，仅图片可点开大图） */}
+      <div className="mt-3 flex flex-col">
+        {timeline.map((e, i) => (
+          <div key={i} className={i > 0 ? 'mt-3 pt-3 border-t-2 border-dashed border-on-surface/10' : ''}>
+            <TimelineRow event={e} onEdit={() => {}} showAuthor={false} />
+          </div>
+        ))}
+        {timeline.length === 0 && <div className="text-on-surface-variant text-sm mt-2">还没数据</div>}
       </div>
     </div>
   )

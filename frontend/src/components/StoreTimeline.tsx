@@ -1,0 +1,128 @@
+import type { Point, Wish, Visit } from '../api'
+
+/** 时间线事件：种草(wish) 或 吃过(visit)，按日期排序 */
+export type TimelineEvent = { type: 'wish'; date: string; data: Wish } | { type: 'visit'; date: string; data: Visit }
+
+/** 把一个店的 wish + visits 合成按日期升序的时间线 */
+export function buildTimeline(p: Point): TimelineEvent[] {
+  const events: TimelineEvent[] = []
+  if (p.wish) events.push({ type: 'wish', date: (p.wish.created_at || '').slice(0, 10), data: p.wish })
+  p.visits.forEach((v) => events.push({ type: 'visit', date: v.date, data: v }))
+  return events.sort((a, b) => a.date.localeCompare(b.date))
+}
+
+/** 日期人性化：今天 / 昨天 / 今年 M/D / 跨年 YYYY/M/D */
+export function prettyDate(s?: string): string {
+  if (!s) return ''
+  const d = s.slice(0, 10)
+  const today = new Date().toISOString().slice(0, 10)
+  if (d === today) return '今天'
+  const yesterday = new Date(Date.now() - 86400000).toISOString().slice(0, 10)
+  if (d === yesterday) return '昨天'
+  if (d.slice(0, 4) === today.slice(0, 4)) return d.slice(5).replace('-', '/')
+  return d.replace(/-/g, '/')
+}
+
+/**
+ * 单条时间线行（列表 / 地图弹窗共用）
+ * - 种草：虚线便签框
+ * - 吃过：表情圈 + 日期(对齐表情顶) + 想再来标签 + 药丸(对齐表情底) + 便签框(口味/菜品/照片)
+ * onEdit：列表里点击进编辑；地图弹窗传 no-op（仅图片可点开大图）
+ */
+export function TimelineRow({
+  event,
+  onEdit,
+  showAuthor,
+  myUsername,
+}: {
+  event: TimelineEvent
+  onEdit: () => void
+  showAuthor: boolean
+  myUsername?: string
+}) {
+  const by = event.data.recorded_by
+  const authorTag =
+    showAuthor && by ? (
+      <span className="text-[10px] font-bold text-on-surface-variant bg-surface rounded px-1">
+        {by === myUsername ? '你记的' : `${by} 记的`}
+      </span>
+    ) : null
+
+  if (event.type === 'wish') {
+    const w = event.data
+    return (
+      <div onClick={onEdit} className="border-2 border-dashed border-on-surface/25 rounded-xl px-3 py-2 bg-surface/40 cursor-pointer transition-opacity active:opacity-70">
+        <p className="text-sm leading-relaxed">
+          <span className="font-bold text-on-surface-variant">{w.source}种草</span>
+          {w.reason && <> · {w.reason}</>}
+          <span className="text-xs font-bold text-on-surface-variant"> · {prettyDate(w.created_at)}</span>
+          {w.status === 'visited' && <span className="ml-1 text-xs font-bold bg-green-accent/15 text-green-accent rounded px-1">已兑现</span>}
+          {authorTag}
+        </p>
+      </div>
+    )
+  }
+
+  const v = event.data
+  const photos = (v.my_photos || '').split('|').filter(Boolean)
+  const flavors = (v.flavors || '').split(/[,，、]/).map((s) => s.trim()).filter(Boolean)
+  const dishes = (v.dishes || '').split(/[,，、]/).map((s) => s.trim()).filter(Boolean)
+  const metaText = [v.companions, `¥${v.per_person}/人`, v.value_label].filter(Boolean).join(' · ')
+  const chip = 'inline-flex items-center align-middle ml-1.5 text-xs font-bold text-on-surface-variant bg-white border border-on-surface/15 rounded-full px-2 py-0.5'
+  return (
+    <div className="relative">
+      {/* 表情 + 右列：日期对齐表情顶、药丸对齐表情底；药丸与日期左对齐、z-10 压在虚线框上层；整体右移 ml-2 */}
+      <div className="flex items-stretch gap-2.5 ml-2">
+        <span
+          onClick={onEdit}
+          className="relative z-10 w-10 h-10 rounded-full border-2 border-on-surface bg-white flex items-center justify-center text-xl shrink-0 shadow-sticker-sm cursor-pointer"
+        >
+          {v.mood_emoji}
+        </span>
+        <div className="min-w-0 flex flex-col justify-between">
+          <div onClick={onEdit} className="flex flex-wrap items-center gap-1.5 cursor-pointer transition-opacity active:opacity-70">
+            <span className="text-xs font-bold text-on-surface-variant">
+              {prettyDate(v.date)} {v.meal_period}
+            </span>
+            {!!v.want_again && <span className="text-xs font-bold bg-primary/15 text-primary rounded px-1">想再来 ❤️</span>}
+            {v.wish_id && <span className="text-xs font-bold bg-primary/15 text-primary rounded px-1">兑现 ✨</span>}
+            {authorTag}
+          </div>
+          {metaText && (
+            <div
+              onClick={onEdit}
+              className="relative z-10 self-start inline-flex items-center text-xs font-bold text-on-surface-variant bg-surface border border-on-surface/15 rounded-full px-2 py-0.5 cursor-pointer"
+            >
+              {metaText}
+            </div>
+          )}
+        </div>
+      </div>
+      {/* 备注框：顶边从药丸正中穿过（药丸压在上层）；图片也放进框里 */}
+      {(v.feeling || flavors.length > 0 || dishes.length > 0 || photos.length > 0) && (
+        <div
+          onClick={(e) => {
+            // 点图片 = 看大图（交给 Lightbox）；点其它文字/标签 = 编辑
+            if ((e.target as HTMLElement).tagName !== 'IMG') onEdit()
+          }}
+          className={`border-2 border-dashed border-on-surface/25 rounded-xl px-3 pb-2 bg-surface/40 text-sm text-on-surface leading-relaxed cursor-pointer transition-opacity active:opacity-70 ${metaText ? '-mt-3 pt-4' : 'mt-1.5 pt-2'}`}
+        >
+          {v.feeling}
+          {flavors.map((f) => (
+            <span key={'f' + f} className={chip}>🌶️ {f}</span>
+          ))}
+          {dishes.map((d) => (
+            <span key={'d' + d} className={chip}>🍽️ {d}</span>
+          ))}
+          {photos.length > 0 && (
+            <div className={`flex flex-wrap gap-1.5 ${v.feeling || flavors.length > 0 || dishes.length > 0 ? 'mt-2' : ''}`}>
+              {photos.slice(0, 4).map((u) => (
+                <img key={u} src={u} className="zoomable w-16 h-16 object-cover rounded-lg border-2 border-on-surface" />
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  )
+}
