@@ -482,47 +482,47 @@ function TimelineRow({
   const metaText = [v.companions, `¥${v.per_person}/人`, v.value_label].filter(Boolean).join(' · ')
   const chip = 'inline-flex items-center align-middle ml-1.5 text-xs font-bold text-on-surface-variant bg-white border border-on-surface/15 rounded-full px-2 py-0.5'
   return (
-    <div className="flex gap-2.5 items-start">
-      <span className="w-10 h-10 rounded-full border-2 border-on-surface bg-white flex items-center justify-center text-xl shrink-0 shadow-sticker-sm">
-        {v.mood_emoji}
-      </span>
-      <div className="flex-1 min-w-0">
-        {/* 点文字即可编辑 */}
-        <div onClick={onEdit} className="cursor-pointer transition-opacity active:opacity-70">
-          {/* 时间 + 药丸 */}
-          <div className="flex flex-wrap items-center gap-1.5">
-            <span className="text-xs font-bold text-on-surface-variant">
-              {prettyDate(v.date)} {v.meal_period}
+    <div className="relative">
+      {/* 顶：评分盖章（绝对置顶层）+ 日期/药丸 */}
+      <div className="flex items-center gap-2.5">
+        <span className="relative z-10 w-10 h-10 rounded-full border-2 border-on-surface bg-white flex items-center justify-center text-xl shrink-0 shadow-sticker-sm">
+          {v.mood_emoji}
+        </span>
+        <div onClick={onEdit} className="flex-1 min-w-0 flex flex-wrap items-center gap-1.5 cursor-pointer transition-opacity active:opacity-70">
+          <span className="text-xs font-bold text-on-surface-variant">
+            {prettyDate(v.date)} {v.meal_period}
+          </span>
+          {metaText && (
+            <span className="text-xs font-bold text-on-surface-variant bg-surface border border-on-surface/15 rounded-full px-2 py-0.5">
+              {metaText}
             </span>
-            {metaText && (
-              <span className="text-xs font-bold text-on-surface-variant bg-surface border border-on-surface/15 rounded-full px-2 py-0.5">
-                {metaText}
-              </span>
-            )}
-            {v.wish_id && <span className="text-xs font-bold bg-primary/15 text-primary rounded px-1">兑现 ✨</span>}
-            {authorTag}
-          </div>
-          {/* 备注虚线框：备注文字 + 标签内联在文字后面（一排，文字长了自动换行） */}
-          {(v.feeling || flavors.length > 0 || dishes.length > 0) && (
-            <div className="border-2 border-dashed border-on-surface/25 rounded-xl px-3 py-2 bg-surface/40 mt-2 text-sm text-on-surface leading-relaxed">
-              {v.feeling}
-              {flavors.map((f) => (
-                <span key={'f' + f} className={chip}>🌶️ {f}</span>
-              ))}
-              {dishes.map((d) => (
-                <span key={'d' + d} className={chip}>🍽️ {d}</span>
-              ))}
-            </div>
           )}
+          {v.wish_id && <span className="text-xs font-bold bg-primary/15 text-primary rounded px-1">兑现 ✨</span>}
+          {authorTag}
         </div>
-        {photos.length > 0 && (
-          <div className="flex gap-1.5 mt-1.5">
-            {photos.slice(0, 4).map((u) => (
-              <img key={u} src={u} className="zoomable w-16 h-16 object-cover rounded-lg border-2 border-on-surface" />
-            ))}
-          </div>
-        )}
       </div>
+      {/* 备注框：整宽、左对齐盖章、上移钻到盖章下被盖一角 */}
+      {(v.feeling || flavors.length > 0 || dishes.length > 0) && (
+        <div
+          onClick={onEdit}
+          className="border-2 border-dashed border-on-surface/25 rounded-xl px-3 py-2 bg-surface/40 -mt-2 text-sm text-on-surface leading-relaxed cursor-pointer transition-opacity active:opacity-70"
+        >
+          {v.feeling}
+          {flavors.map((f) => (
+            <span key={'f' + f} className={chip}>🌶️ {f}</span>
+          ))}
+          {dishes.map((d) => (
+            <span key={'d' + d} className={chip}>🍽️ {d}</span>
+          ))}
+        </div>
+      )}
+      {photos.length > 0 && (
+        <div className="flex gap-1.5 mt-1.5">
+          {photos.slice(0, 4).map((u) => (
+            <img key={u} src={u} className="zoomable w-16 h-16 object-cover rounded-lg border-2 border-on-surface" />
+          ))}
+        </div>
+      )}
     </div>
   )
 }
