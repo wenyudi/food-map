@@ -393,30 +393,17 @@ function StoreCard({
         </span>
       </div>
 
-      {/* 时间线：吃过行用 ❤️/🤍 标记想不想再来；种草=虚线框 */}
-      <div className="mt-3">
-        <div className="flex flex-col gap-3">
-          {timeline.map((e, i) => {
-            const row = (
-              <TimelineRow
-                event={e}
-                onEdit={() => onEdit({ kind: e.type, data: e.data, storeName: point.name })}
-                showAuthor={showAuthor}
-                myUsername={myUsername}
-              />
-            )
-            return e.type === 'visit' ? (
-              <div key={i} className="relative pl-7">
-                <span className="absolute left-0 top-0.5 text-base leading-none" title={e.data.want_again ? '还想再来' : '没想再来'}>
-                  {e.data.want_again ? '❤️' : '🤍'}
-                </span>
-                {row}
-              </div>
-            ) : (
-              <div key={i}>{row}</div>
-            )
-          })}
-        </div>
+      {/* 时间线（吃过行 + 种草虚线框） */}
+      <div className="mt-3 flex flex-col gap-3">
+        {timeline.map((e, i) => (
+          <TimelineRow
+            key={i}
+            event={e}
+            onEdit={() => onEdit({ kind: e.type, data: e.data, storeName: point.name })}
+            showAuthor={showAuthor}
+            myUsername={myUsername}
+          />
+        ))}
       </div>
 
       {/* 底部 */}
@@ -491,6 +478,9 @@ function TimelineRow({
         <div className="flex flex-wrap items-center gap-1.5">
           <span className="text-xs font-bold text-on-surface-variant">
             {prettyDate(v.date)} {v.meal_period}
+          </span>
+          <span className="text-sm leading-none" title={v.want_again ? '还想再来' : '没想再来'}>
+            {v.want_again ? '❤️' : '🤍'}
           </span>
           {metaText && (
             <span className="text-[11px] font-bold text-on-surface-variant bg-surface border border-on-surface/15 rounded-full px-2 py-0.5">
