@@ -1,5 +1,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import type { ReactNode } from 'react'
 import Icon from '../ui/Icon'
+import SheetShell from '../ui/SheetShell'
+import StickerButton from '../ui/StickerButton'
 import AskSheet from './AskSheet'
 import EditRecordSheet from './EditRecordSheet'
 import { getPoints } from '../api'
@@ -8,8 +11,15 @@ import { cleanTag } from '../lib/format'
 
 type Mood = '😋' | '🤤' | '😂' | '😐' | '🤮'
 const MOODS: Mood[] = ['😋', '🤤', '😂', '😐', '🤮']
-type FilterKey = 'all' | 'fav' | 'want' | 'fulfilled' | 'repeat' | Mood
-const isMood = (k: FilterKey): k is Mood => (MOODS as string[]).includes(k)
+type StatusKey = 'fav' | 'want' | 'fulfilled' | 'repeat'
+const STATUS_OPTS: { key: StatusKey; label: string; icon: string }[] = [
+  { key: 'fav', label: '想再来', icon: 'star' },
+  { key: 'want', label: '想去', icon: 'favorite' },
+  { key: 'fulfilled', label: '已兑现', icon: 'auto_awesome' },
+  { key: 'repeat', label: '二刷', icon: 'replay' },
+]
+/** 多维筛选：维度内多选(OR)，跨维度 AND；空 = 不筛 */
+type Filters = { moods: Mood[]; status: StatusKey[]; cuisines: string[] }
 type EditTarget = { kind: 'visit' | 'wish'; data: any; storeName: string }
 type StoreStatus = { key: 'want' | 'fulfilled' | 'repeat' | 'direct'; icon: string; label: string }
 type TimelineEvent = { type: 'wish'; date: string; data: Wish } | { type: 'visit'; date: string; data: Visit }
@@ -19,6 +29,11 @@ function getStatus(p: Point): StoreStatus {
   if (p.visit_count >= 2) return { key: 'repeat', icon: '🔁', label: '二刷' }
   if (p.wish != null) return { key: 'fulfilled', icon: '✨', label: '已兑现' }
   return { key: 'direct', icon: '📍', label: '直奔' }
+}
+/** 某店是否命中某个「状态」筛选项 */
+function matchStatus(p: Point, key: StatusKey): boolean {
+  if (key === 'fav') return p.visits.some((v) => v.want_again)
+  return getStatus(p).key === key
 }
 function buildTimeline(p: Point): TimelineEvent[] {
   const events: TimelineEvent[] = []
@@ -70,13 +85,23 @@ type ListScreenProps = Readonly<{
 export default function ListScreen({ refreshKey, focusPoiId, onPickStore, onJumpToAdd, myUsername }: ListScreenProps) {
   const [points, setPoints] = useState<Point[]>([])
   const [loading, setLoading] = useState(true)
-  const [filter, setFilter] = useState<FilterKey>('all')
+  const [filters, setFilters] = useState<Filters>({ moods: [], status: [], cuisines: [] })
+  const [filterOpen, setFilterOpen] = useState(false)
   const [query, setQuery] = useState('')
   const [askOpen, setAskOpen] = useState(false)
   const [editing, setEditing] = useState<EditTarget | null>(null)
   const [flashId, setFlashId] = useState<string | null>(null)
   const [toast, setToast] = useState<string | null>(null)
   const cardRefs = useRef<Record<string, HTMLDivElement | null>>({})
+
+  const activeCount = filters.moods.length + filters.status.length + filters.cuisines.length
+  const toggleMood = (m: Mood) =>
+    setFilters((f) => ({ ...f, moods: f.moods.includes(m) ? f.moods.filter((x) => x !== m) : [...f.moods, m] }))
+  const toggleStatus = (s: StatusKey) =>
+    setFilters((f) => ({ ...f, status: f.status.includes(s) ? f.status.filter((x) => x !== s) : [...f.status, s] }))
+  const toggleCuisine = (c: string) =>
+    setFilters((f) => ({ ...f, cuisines: f.cuisines.includes(c) ? f.cuisines.filter((x) => x !== c) : [...f.cuisines, c] }))
+  const clearFilters = () => setFilters({ moods: [], status: [], cuisines: [] })
 
   const load = useCallback(() => {
     setLoading(true)
@@ -95,35 +120,47 @@ export default function ListScreen({ refreshKey, focusPoiId, onPickStore, onJump
     return set.size > 1
   }, [points])
 
-  const { filtered, counts } = useMemo(() => {
-    const c = { all: points.length, fav: 0, want: 0, fulfilled: 0, repeat: 0 } as Record<FilterKey, number>
-    MOODS.forEach((m) => (c[m] = 0))
-    const enriched = points.map((p) => {
-      const status = getStatus(p)
-      if (status.key === 'want') c.want++
-      else if (status.key === 'fulfilled') c.fulfilled++
-      else if (status.key === 'repeat') c.repeat++
-      if (p.visits.some((v) => v.want_again)) c.fav++
+  const { filtered, moodCount, statusCount, cuisineList } = useMemo(() => {
+    // 各维度选项的全局计数（独立于当前选择）
+    const moodCount: Record<string, number> = {}
+    const statusCount: Record<string, number> = {}
+    const cuisineCount: Record<string, number> = {}
+    MOODS.forEach((m) => (moodCount[m] = 0))
+    STATUS_OPTS.forEach((s) => (statusCount[s.key] = 0))
+    points.forEach((p) => {
       MOODS.forEach((m) => {
-        if (p.visits.some((v) => v.mood_emoji === m)) c[m]++
+        if (p.visits.some((v) => v.mood_emoji === m)) moodCount[m]++
       })
-      return { p, status }
+      STATUS_OPTS.forEach((s) => {
+        if (matchStatus(p, s.key)) statusCount[s.key]++
+      })
+      const t = cleanTag(p.tag, 1)
+      if (t) cuisineCount[t] = (cuisineCount[t] || 0) + 1
     })
-    let result = enriched
-    if (filter === 'fav') result = result.filter((e) => e.p.visits.some((v) => v.want_again))
-    else if (isMood(filter)) result = result.filter((e) => e.p.visits.some((v) => v.mood_emoji === filter))
-    else if (filter !== 'all') result = result.filter((e) => e.status.key === filter)
+    const cuisineList = Object.entries(cuisineCount)
+      .sort((a, b) => b[1] - a[1])
+      .map(([name, n]) => ({ name, n }))
+
+    // 应用筛选：维度内 OR、跨维度 AND
+    let result = points.filter((p) => {
+      if (filters.moods.length && !filters.moods.some((m) => p.visits.some((v) => v.mood_emoji === m))) return false
+      if (filters.status.length && !filters.status.some((s) => matchStatus(p, s))) return false
+      if (filters.cuisines.length && !filters.cuisines.includes(cleanTag(p.tag, 1))) return false
+      return true
+    })
     const q = query.trim().toLowerCase()
-    if (q) result = result.filter((e) => e.p.name.toLowerCase().includes(q))
-    result.sort((a, b) => latestTs(b.p) - latestTs(a.p))
-    return { filtered: result, counts: c }
-  }, [points, filter, query])
+    if (q) result = result.filter((p) => p.name.toLowerCase().includes(q))
+    const enriched = result
+      .sort((a, b) => latestTs(b) - latestTs(a))
+      .map((p) => ({ p, status: getStatus(p) }))
+    return { filtered: enriched, moodCount, statusCount, cuisineList }
+  }, [points, filters, query])
 
   useEffect(() => {
     if (!focusPoiId || loading) return
     const inFiltered = filtered.find((e) => e.p.poi_id === focusPoiId)
-    if (!inFiltered && filter !== 'all') {
-      setFilter('all')
+    if (!inFiltered && activeCount > 0) {
+      clearFilters()
       return
     }
     const t = setTimeout(() => {
@@ -135,7 +172,7 @@ export default function ListScreen({ refreshKey, focusPoiId, onPickStore, onJump
       }
     }, 60)
     return () => clearTimeout(t)
-  }, [focusPoiId, filtered, filter, loading])
+  }, [focusPoiId, filtered, activeCount, loading])
 
   async function shareStore(p: Point) {
     const text = buildShareText(p)
@@ -151,19 +188,10 @@ export default function ListScreen({ refreshKey, focusPoiId, onPickStore, onJump
     }
   }
 
-  const FILTERS: { key: FilterKey; label: string; icon?: string }[] = [
-    { key: 'all', label: '全部' },
-    { key: 'fav', label: '想再来', icon: 'star' },
-    { key: 'want', label: '想去', icon: 'favorite' },
-    { key: 'fulfilled', label: '已兑现', icon: 'auto_awesome' },
-    { key: 'repeat', label: '二刷', icon: 'replay' },
-    ...MOODS.map((m) => ({ key: m, label: m })),
-  ]
-
   return (
     <div className="h-full flex flex-col">
       <div className="flex-1 min-h-0 overflow-y-auto px-4 pt-[calc(env(safe-area-inset-top)_+_1rem)] pb-12">
-        {/* 搜索 + 问地图 */}
+        {/* 搜索 + 筛选 + 问地图 */}
         <div className="flex gap-2 mb-3">
           <div className="flex-1 flex items-center gap-2 rounded-full border-2 border-on-surface bg-white px-4 py-2.5 shadow-sticker-sm">
             <Icon name="search" className="text-on-surface-variant text-xl" />
@@ -179,6 +207,21 @@ export default function ListScreen({ refreshKey, focusPoiId, onPickStore, onJump
               </button>
             )}
           </div>
+          {/* 筛选：点开多维筛选弹窗 */}
+          <button
+            onClick={() => setFilterOpen(true)}
+            aria-label="筛选"
+            className={`relative shrink-0 w-12 rounded-full border-2 border-on-surface shadow-sticker-sm flex items-center justify-center press-sm ${
+              activeCount ? 'bg-primary text-white' : 'bg-white text-on-surface'
+            }`}
+          >
+            <Icon name="tune" className="text-xl" />
+            {activeCount > 0 && (
+              <span className="absolute -top-1.5 -right-1.5 min-w-[18px] h-[18px] px-1 rounded-full bg-accent border-2 border-on-surface text-on-surface text-[10px] font-bold flex items-center justify-center">
+                {activeCount}
+              </span>
+            )}
+          </button>
           <button
             onClick={() => setAskOpen(true)}
             className="shrink-0 bg-primary text-white rounded-full border-2 border-on-surface shadow-sticker px-4 flex items-center gap-1 press font-headline font-bold"
@@ -188,26 +231,21 @@ export default function ListScreen({ refreshKey, focusPoiId, onPickStore, onJump
           </button>
         </div>
 
-        {/* 筛选 chips */}
-        {points.length > 0 && (
-          <div className="flex flex-wrap gap-2 my-3">
-            {FILTERS.map((f) => {
-              const n = counts[f.key]
-              if (isMood(f.key) && n === 0) return null
-              const active = filter === f.key
-              return (
-                <button
-                  key={f.key}
-                  onClick={() => setFilter(f.key)}
-                  className={`shrink-0 inline-flex items-center gap-1 px-3 py-1.5 rounded-full border-2 border-on-surface text-sm font-bold shadow-sticker-sm press-sm ${
-                    active ? 'bg-primary text-white' : 'bg-white text-on-surface-variant'
-                  }`}
-                >
-                  {f.icon && <Icon name={f.icon} className="text-base" />}
-                  {f.label} <em className="not-italic opacity-70">{n}</em>
-                </button>
-              )
-            })}
+        {/* 已选筛选条件：点 ✕ 可单独移除 */}
+        {activeCount > 0 && (
+          <div className="flex flex-wrap items-center gap-1.5 mb-3">
+            {filters.status.map((s) => (
+              <ActiveChip key={s} label={STATUS_OPTS.find((o) => o.key === s)?.label || s} onRemove={() => toggleStatus(s)} />
+            ))}
+            {filters.moods.map((m) => (
+              <ActiveChip key={m} label={m} onRemove={() => toggleMood(m)} />
+            ))}
+            {filters.cuisines.map((c) => (
+              <ActiveChip key={c} label={c} onRemove={() => toggleCuisine(c)} />
+            ))}
+            <button onClick={clearFilters} className="text-xs font-bold text-on-surface-variant px-2 py-1 underline">
+              清空
+            </button>
           </div>
         )}
 
@@ -231,7 +269,7 @@ export default function ListScreen({ refreshKey, focusPoiId, onPickStore, onJump
 
         {!loading && points.length > 0 && filtered.length === 0 && (
           <div className="text-center text-on-surface-variant py-10 text-sm">
-            {query.trim() ? `没搜到「${query.trim()}」` : '这个分类下还没有 🍃'}
+            {query.trim() ? `没搜到「${query.trim()}」` : '没有符合筛选的店 🍃'}
           </div>
         )}
 
@@ -266,6 +304,20 @@ export default function ListScreen({ refreshKey, focusPoiId, onPickStore, onJump
         />
       )}
       {askOpen && <AskSheet onClose={() => setAskOpen(false)} />}
+      {filterOpen && (
+        <FilterSheet
+          filters={filters}
+          moodCount={moodCount}
+          statusCount={statusCount}
+          cuisineList={cuisineList}
+          resultCount={filtered.length}
+          onToggleMood={toggleMood}
+          onToggleStatus={toggleStatus}
+          onToggleCuisine={toggleCuisine}
+          onClear={clearFilters}
+          onClose={() => setFilterOpen(false)}
+        />
+      )}
       {toast && (
         <div className="fixed bottom-24 left-1/2 -translate-x-1/2 z-[150] bg-on-surface text-white rounded-full px-4 py-2 text-sm font-bold shadow-sticker">
           {toast}
@@ -430,6 +482,127 @@ function TimelineRow({
         <Icon name="edit" className="text-base" />
       </button>
     </div>
+  )
+}
+
+function FilterSheet({
+  filters,
+  moodCount,
+  statusCount,
+  cuisineList,
+  resultCount,
+  onToggleMood,
+  onToggleStatus,
+  onToggleCuisine,
+  onClear,
+  onClose,
+}: {
+  filters: Filters
+  moodCount: Record<string, number>
+  statusCount: Record<string, number>
+  cuisineList: { name: string; n: number }[]
+  resultCount: number
+  onToggleMood: (m: Mood) => void
+  onToggleStatus: (s: StatusKey) => void
+  onToggleCuisine: (c: string) => void
+  onClear: () => void
+  onClose: () => void
+}) {
+  const activeCount = filters.moods.length + filters.status.length + filters.cuisines.length
+  return (
+    <SheetShell onClose={onClose}>
+      <div className="flex items-center justify-between mb-4">
+        <h3 className="font-headline text-xl">筛选</h3>
+        {activeCount > 0 && (
+          <button onClick={onClear} className="text-sm font-bold text-on-surface-variant flex items-center gap-1 press-sm">
+            <Icon name="restart_alt" className="text-base" /> 清空
+          </button>
+        )}
+      </div>
+
+      {MOODS.some((m) => moodCount[m] > 0) && (
+        <FilterGroup title="评分">
+          {MOODS.filter((m) => moodCount[m] > 0).map((m) => (
+            <FilterChip key={m} active={filters.moods.includes(m)} onClick={() => onToggleMood(m)} label={m} count={moodCount[m]} big />
+          ))}
+        </FilterGroup>
+      )}
+
+      {STATUS_OPTS.some((s) => statusCount[s.key] > 0) && (
+        <FilterGroup title="状态">
+          {STATUS_OPTS.filter((s) => statusCount[s.key] > 0).map((s) => (
+            <FilterChip
+              key={s.key}
+              active={filters.status.includes(s.key)}
+              onClick={() => onToggleStatus(s.key)}
+              icon={s.icon}
+              label={s.label}
+              count={statusCount[s.key]}
+            />
+          ))}
+        </FilterGroup>
+      )}
+
+      {cuisineList.length > 0 && (
+        <FilterGroup title="菜系">
+          {cuisineList.map((c) => (
+            <FilterChip key={c.name} active={filters.cuisines.includes(c.name)} onClick={() => onToggleCuisine(c.name)} label={c.name} count={c.n} />
+          ))}
+        </FilterGroup>
+      )}
+
+      <StickerButton full className="mt-2" onClick={onClose}>
+        查看 {resultCount} 家结果
+      </StickerButton>
+    </SheetShell>
+  )
+}
+
+function FilterGroup({ title, children }: { title: string; children: ReactNode }) {
+  return (
+    <div className="mb-4">
+      <div className="text-sm font-bold text-on-surface-variant mb-2">{title}</div>
+      <div className="flex flex-wrap gap-2">{children}</div>
+    </div>
+  )
+}
+
+function FilterChip({
+  active,
+  onClick,
+  icon,
+  label,
+  count,
+  big,
+}: {
+  active: boolean
+  onClick: () => void
+  icon?: string
+  label: string
+  count: number
+  big?: boolean
+}) {
+  return (
+    <button
+      onClick={onClick}
+      className={`inline-flex items-center gap-1 rounded-full border-2 border-on-surface px-3 py-1.5 font-bold shadow-sticker-sm press-sm ${
+        big ? 'text-lg' : 'text-sm'
+      } ${active ? 'bg-primary text-white' : 'bg-white text-on-surface-variant'}`}
+    >
+      {icon && <Icon name={icon} className="text-base" />}
+      {label} <em className="not-italic opacity-70 text-xs">{count}</em>
+    </button>
+  )
+}
+
+function ActiveChip({ label, onRemove }: { label: string; onRemove: () => void }) {
+  return (
+    <span className="inline-flex items-center gap-0.5 rounded-full border-2 border-on-surface bg-primary text-white text-xs font-bold pl-2.5 pr-1 py-1 shadow-sticker-sm">
+      {label}
+      <button onClick={onRemove} aria-label="移除" className="press-sm">
+        <Icon name="close" className="text-sm" />
+      </button>
+    </span>
   )
 }
 
