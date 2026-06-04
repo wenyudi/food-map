@@ -367,7 +367,7 @@ function StoreCard({
   return (
     <div
       ref={cardRef}
-      className={`sticker p-3 transition-shadow ${STATUS_CARD[status.key]} ${flashing ? 'ring-4 ring-accent' : ''}`}
+      className={`sticker p-4 transition-shadow ${STATUS_CARD[status.key]} ${flashing ? 'ring-4 ring-accent' : ''}`}
     >
       {/* 头部 */}
       <div className="flex items-start gap-3">
@@ -416,13 +416,13 @@ function StoreCard({
       </div>
 
       {/* 底部：看地图(左) · 想再来(中) · 分享(右) */}
-      <div className="grid grid-cols-3 items-center mt-3 pt-2 border-t-2 border-dashed border-on-surface/15">
-        <button onClick={hasCoords ? onClick : undefined} className="justify-self-start text-xs font-bold text-on-surface-variant">
+      <div className="grid grid-cols-3 items-center mt-3 pt-3 border-t-2 border-dashed border-on-surface/15">
+        <button onClick={hasCoords ? onClick : undefined} className="justify-self-start text-xs font-bold text-on-surface-variant py-1 -my-1 press-sm">
           {hasCoords ? '看在地图上 →' : '📍 未定位'}
         </button>
         <div className="justify-self-center">
           {lastVisit && (
-            <span className={`text-xs font-bold ${lastVisit.want_again ? 'text-primary' : 'text-on-surface-variant/70'}`}>
+            <span className={`text-xs font-bold ${lastVisit.want_again ? 'text-primary' : 'text-on-surface-variant'}`}>
               {lastVisit.want_again ? '想再来' : '不想再来'}
             </span>
           )}
@@ -432,7 +432,7 @@ function StoreCard({
             e.stopPropagation()
             onShare()
           }}
-          className="justify-self-end text-xs font-bold text-primary flex items-center gap-0.5"
+          className="justify-self-end text-xs font-bold text-primary flex items-center gap-0.5 py-1 -my-1 press-sm"
         >
           <Icon name="ios_share" className="text-sm" /> 分享
         </button>
@@ -463,12 +463,12 @@ function TimelineRow({
   if (event.type === 'wish') {
     const w = event.data
     return (
-      <div onClick={onEdit} className="border-2 border-dashed border-on-surface/25 rounded-xl px-3 py-2 bg-surface/40 cursor-pointer">
-        <p className="text-sm">
+      <div onClick={onEdit} className="border-2 border-dashed border-on-surface/25 rounded-xl px-3 py-2 bg-surface/40 cursor-pointer transition-opacity active:opacity-70">
+        <p className="text-sm leading-relaxed">
           <span className="font-bold text-on-surface-variant">{w.source}种草</span>
           {w.reason && <> · {w.reason}</>}
-          <span className="text-[11px] font-bold text-on-surface-variant/60"> · {prettyDate(w.created_at)}</span>
-          {w.status === 'visited' && <span className="ml-1 text-[10px] font-bold bg-green-accent/15 text-green-accent rounded px-1">已兑现</span>}
+          <span className="text-xs font-bold text-on-surface-variant"> · {prettyDate(w.created_at)}</span>
+          {w.status === 'visited' && <span className="ml-1 text-xs font-bold bg-green-accent/15 text-green-accent rounded px-1">已兑现</span>}
           {authorTag}
         </p>
       </div>
@@ -480,24 +480,24 @@ function TimelineRow({
   const flavors = (v.flavors || '').split(/[,，、]/).map((s) => s.trim()).filter(Boolean)
   const dishes = (v.dishes || '').split(/[,，、]/).map((s) => s.trim()).filter(Boolean)
   const metaText = [v.companions, `¥${v.per_person}/人`, v.value_label].filter(Boolean).join(' · ')
-  const chip = 'inline-flex items-center align-middle ml-1.5 text-[11px] font-bold text-on-surface-variant bg-white border border-on-surface/15 rounded-full px-2 py-0.5'
+  const chip = 'inline-flex items-center align-middle ml-1.5 text-xs font-bold text-on-surface-variant bg-white border border-on-surface/15 rounded-full px-2 py-0.5'
   return (
     <div className="flex gap-2 items-start">
       <span className="text-lg shrink-0">{v.mood_emoji}</span>
       <div className="flex-1 min-w-0">
         {/* 点文字即可编辑 */}
-        <div onClick={onEdit} className="cursor-pointer">
+        <div onClick={onEdit} className="cursor-pointer transition-opacity active:opacity-70">
           {/* 时间 + 药丸 */}
           <div className="flex flex-wrap items-center gap-1.5">
             <span className="text-xs font-bold text-on-surface-variant">
               {prettyDate(v.date)} {v.meal_period}
             </span>
             {metaText && (
-              <span className="text-[11px] font-bold text-on-surface-variant bg-surface border border-on-surface/15 rounded-full px-2 py-0.5">
+              <span className="text-xs font-bold text-on-surface-variant bg-surface border border-on-surface/15 rounded-full px-2 py-0.5">
                 {metaText}
               </span>
             )}
-            {v.wish_id && <span className="text-[10px] font-bold bg-primary/15 text-primary rounded px-1">兑现 ✨</span>}
+            {v.wish_id && <span className="text-xs font-bold bg-primary/15 text-primary rounded px-1">兑现 ✨</span>}
             {authorTag}
           </div>
           {/* 备注虚线框：备注文字 + 标签内联在文字后面（一排，文字长了自动换行） */}
