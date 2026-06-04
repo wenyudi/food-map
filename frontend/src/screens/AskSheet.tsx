@@ -3,7 +3,14 @@ import SheetShell from '../ui/SheetShell'
 import Icon from '../ui/Icon'
 import { askMap } from '../api'
 
-const EXAMPLES = ['还有几家种草没去？', '最贵的一顿是哪家？', '想吃清淡的，之前去过哪些？', '哪家店去得最多？']
+const EXAMPLES = [
+  '这个月花了多少？比上个月多还是少',
+  '有没有又便宜、又想再来的店',
+  '种草清单里挑一家周末适合去的',
+  '我俩最常吃什么菜系？想换口味去哪',
+  '最近有没有踩雷的，哪几家',
+  '性价比最高的一顿是哪次',
+]
 
 type AskSheetProps = Readonly<{ onClose: () => void }>
 

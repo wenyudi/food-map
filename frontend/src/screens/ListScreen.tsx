@@ -193,7 +193,7 @@ export default function ListScreen({ refreshKey, focusPoiId, onPickStore, onJump
       <div className="flex-1 min-h-0 overflow-y-auto px-4 pt-[calc(env(safe-area-inset-top)_+_1rem)] pb-12">
         {/* 搜索（右侧内嵌筛选）+ 问地图 */}
         <div className="flex gap-2 mb-3">
-          <div className="flex-1 flex items-center gap-2 rounded-full border-2 border-on-surface bg-white pl-4 pr-1.5 py-1.5 shadow-sticker-sm">
+          <div className="flex-1 min-w-0 flex items-center gap-2 rounded-full border-2 border-on-surface bg-white pl-4 pr-1.5 py-1.5 shadow-sticker-sm">
             <Icon name="search" className="text-on-surface-variant text-xl shrink-0" />
             <input
               value={query}
