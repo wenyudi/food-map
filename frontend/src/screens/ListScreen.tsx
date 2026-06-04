@@ -501,10 +501,13 @@ function TimelineRow({
           {authorTag}
         </div>
       </div>
-      {/* 备注框：整宽、左对齐盖章、上移钻到盖章下被盖一角 */}
-      {(v.feeling || flavors.length > 0 || dishes.length > 0) && (
+      {/* 备注框：整宽、左对齐盖章、上移钻到盖章下被盖一角；图片也放进框里 */}
+      {(v.feeling || flavors.length > 0 || dishes.length > 0 || photos.length > 0) && (
         <div
-          onClick={onEdit}
+          onClick={(e) => {
+            // 点图片 = 看大图（交给 Lightbox）；点其它文字/标签 = 编辑
+            if ((e.target as HTMLElement).tagName !== 'IMG') onEdit()
+          }}
           className="border-2 border-dashed border-on-surface/25 rounded-xl px-3 py-2 bg-surface/40 -mt-2 text-sm text-on-surface leading-relaxed cursor-pointer transition-opacity active:opacity-70"
         >
           {v.feeling}
@@ -514,13 +517,13 @@ function TimelineRow({
           {dishes.map((d) => (
             <span key={'d' + d} className={chip}>🍽️ {d}</span>
           ))}
-        </div>
-      )}
-      {photos.length > 0 && (
-        <div className="flex gap-1.5 mt-1.5">
-          {photos.slice(0, 4).map((u) => (
-            <img key={u} src={u} className="zoomable w-16 h-16 object-cover rounded-lg border-2 border-on-surface" />
-          ))}
+          {photos.length > 0 && (
+            <div className={`flex flex-wrap gap-1.5 ${v.feeling || flavors.length > 0 || dishes.length > 0 ? 'mt-2' : ''}`}>
+              {photos.slice(0, 4).map((u) => (
+                <img key={u} src={u} className="zoomable w-16 h-16 object-cover rounded-lg border-2 border-on-surface" />
+              ))}
+            </div>
+          )}
         </div>
       )}
     </div>
