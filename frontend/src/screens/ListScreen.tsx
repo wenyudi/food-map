@@ -68,7 +68,7 @@ function buildShareText(p: Point): string {
 }
 
 const STATUS_TONE: Record<StoreStatus['key'], string> = {
-  want: 'bg-white text-primary',
+  want: 'bg-tertiary text-on-surface',
   repeat: 'bg-accent text-on-surface',
   fulfilled: 'bg-green-accent text-white',
   direct: 'bg-white text-on-surface-variant',
@@ -351,6 +351,7 @@ function StoreCard({
 }) {
   const timeline = buildTimeline(point)
   const headEmoji = point.visit_count > 0 ? point.emoji : '❤️'
+  const headPhoto = (point.amap_photos || '').split('|').filter(Boolean)[0]
   const isManual = String(point.poi_id).startsWith('m_')
   const hasCoords = !!(point.lng && point.lat)
 
@@ -361,9 +362,18 @@ function StoreCard({
     >
       {/* 头部 */}
       <div className="flex items-start gap-3">
-        <span className="w-11 h-11 rounded-full border-2 border-on-surface bg-white flex items-center justify-center text-xl shrink-0">
-          {headEmoji}
-        </span>
+        {headPhoto ? (
+          <img
+            src={headPhoto}
+            alt=""
+            loading="lazy"
+            className="w-11 h-11 rounded-full border-2 border-on-surface object-cover shrink-0 bg-white"
+          />
+        ) : (
+          <span className="w-11 h-11 rounded-full border-2 border-on-surface bg-white flex items-center justify-center text-xl shrink-0">
+            {headEmoji}
+          </span>
+        )}
         <button className="flex-1 min-w-0 text-left" onClick={hasCoords ? onClick : undefined}>
           <div className="font-headline text-lg leading-tight">
             {point.name}
@@ -382,17 +392,26 @@ function StoreCard({
         </span>
       </div>
 
-      {/* 时间线 */}
-      <div className="mt-2 pl-1 flex flex-col gap-2">
-        {timeline.map((e, i) => (
-          <TimelineRow
-            key={i}
-            event={e}
-            onEdit={() => onEdit({ kind: e.type, data: e.data, storeName: point.name })}
-            showAuthor={showAuthor}
-            myUsername={myUsername}
-          />
-        ))}
+      {/* 时间线（竖线 + 圆点） */}
+      <div className="mt-3 relative">
+        {timeline.length > 1 && <div className="absolute left-[7px] top-2 bottom-2 w-[2px] bg-on-surface/12" />}
+        <div className="flex flex-col gap-3">
+          {timeline.map((e, i) => (
+            <div key={i} className="relative pl-6">
+              <span
+                className={`absolute left-0 top-1.5 w-3.5 h-3.5 rounded-full border-2 border-on-surface ${
+                  i === timeline.length - 1 ? 'bg-primary' : 'bg-white'
+                }`}
+              />
+              <TimelineRow
+                event={e}
+                onEdit={() => onEdit({ kind: e.type, data: e.data, storeName: point.name })}
+                showAuthor={showAuthor}
+                myUsername={myUsername}
+              />
+            </div>
+          ))}
+        </div>
       </div>
 
       {/* 底部 */}
@@ -446,7 +465,11 @@ function TimelineRow({
             )}
             {authorTag}
           </div>
-          {w.reason && <div className="text-sm">{w.reason}</div>}
+          {w.reason && (
+            <div className="mt-1 text-sm border-2 border-dashed border-on-surface/25 rounded-lg px-2.5 py-1.5 bg-surface/40">
+              {w.reason}
+            </div>
+          )}
         </div>
         <button onClick={onEdit} className="shrink-0 text-on-surface-variant opacity-60">
           <Icon name="edit" className="text-base" />
