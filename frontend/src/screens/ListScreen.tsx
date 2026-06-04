@@ -191,10 +191,10 @@ export default function ListScreen({ refreshKey, focusPoiId, onPickStore, onJump
   return (
     <div className="h-full flex flex-col">
       <div className="flex-1 min-h-0 overflow-y-auto px-4 pt-[calc(env(safe-area-inset-top)_+_1rem)] pb-12">
-        {/* 搜索 + 筛选 + 问地图 */}
+        {/* 搜索（右侧内嵌筛选）+ 问地图 */}
         <div className="flex gap-2 mb-3">
-          <div className="flex-1 flex items-center gap-2 rounded-full border-2 border-on-surface bg-white px-4 py-2.5 shadow-sticker-sm">
-            <Icon name="search" className="text-on-surface-variant text-xl" />
+          <div className="flex-1 flex items-center gap-2 rounded-full border-2 border-on-surface bg-white pl-4 pr-1.5 py-1.5 shadow-sticker-sm">
+            <Icon name="search" className="text-on-surface-variant text-xl shrink-0" />
             <input
               value={query}
               onChange={(e) => setQuery(e.target.value)}
@@ -202,26 +202,27 @@ export default function ListScreen({ refreshKey, focusPoiId, onPickStore, onJump
               className="flex-1 min-w-0 bg-transparent outline-none font-body text-on-surface placeholder:text-on-surface-variant/60"
             />
             {query && (
-              <button onClick={() => setQuery('')} className="text-on-surface-variant">
+              <button onClick={() => setQuery('')} aria-label="清空搜索" className="shrink-0 text-on-surface-variant press-sm">
                 <Icon name="close" className="text-lg" />
               </button>
             )}
+            <span className="w-px h-5 bg-on-surface/15 shrink-0" />
+            {/* 筛选：内嵌搜索框右侧，点开多维筛选弹窗 */}
+            <button
+              onClick={() => setFilterOpen(true)}
+              aria-label="筛选"
+              className={`relative shrink-0 w-8 h-8 rounded-full flex items-center justify-center press-sm ${
+                activeCount ? 'bg-primary text-white' : 'text-on-surface-variant'
+              }`}
+            >
+              <Icon name="tune" className="text-xl" />
+              {activeCount > 0 && (
+                <span className="absolute -top-1 -right-1 min-w-[16px] h-[16px] px-0.5 rounded-full bg-accent border-2 border-on-surface text-on-surface text-[9px] font-bold flex items-center justify-center">
+                  {activeCount}
+                </span>
+              )}
+            </button>
           </div>
-          {/* 筛选：点开多维筛选弹窗 */}
-          <button
-            onClick={() => setFilterOpen(true)}
-            aria-label="筛选"
-            className={`relative shrink-0 w-12 rounded-full border-2 border-on-surface shadow-sticker-sm flex items-center justify-center press-sm ${
-              activeCount ? 'bg-primary text-white' : 'bg-white text-on-surface'
-            }`}
-          >
-            <Icon name="tune" className="text-xl" />
-            {activeCount > 0 && (
-              <span className="absolute -top-1.5 -right-1.5 min-w-[18px] h-[18px] px-1 rounded-full bg-accent border-2 border-on-surface text-on-surface text-[10px] font-bold flex items-center justify-center">
-                {activeCount}
-              </span>
-            )}
-          </button>
           <button
             onClick={() => setAskOpen(true)}
             className="shrink-0 bg-primary text-white rounded-full border-2 border-on-surface shadow-sticker px-4 flex items-center gap-1 press font-headline font-bold"
