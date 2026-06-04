@@ -74,6 +74,13 @@ const STATUS_TONE: Record<StoreStatus['key'], string> = {
   fulfilled: 'bg-green-accent text-white',
   direct: 'bg-white text-on-surface-variant',
 }
+// 卡片底色按状态微微上色（让列表更有颜色，与状态标签同色系）
+const STATUS_CARD: Record<StoreStatus['key'], string> = {
+  want: 'bg-tertiary/30',
+  repeat: 'bg-accent/20',
+  fulfilled: 'bg-green-accent/15',
+  direct: 'bg-white',
+}
 
 type ListScreenProps = Readonly<{
   refreshKey: number
@@ -359,7 +366,7 @@ function StoreCard({
   return (
     <div
       ref={cardRef}
-      className={`sticker p-3 transition-shadow ${flashing ? 'ring-4 ring-accent' : ''}`}
+      className={`sticker p-3 transition-shadow ${STATUS_CARD[status.key]} ${flashing ? 'ring-4 ring-accent' : ''}`}
     >
       {/* 头部 */}
       <div className="flex items-start gap-3">
