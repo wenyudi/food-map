@@ -6,12 +6,11 @@ import SheetShell from '../ui/SheetShell'
 import DateTimeWheel from '../ui/WheelPicker'
 import PhotoPicker from '../components/PhotoPicker'
 import MonthlySummary from './MonthlySummary'
-import { parseText, search, upsertStore, addVisit, addWish, regeo, getStats, getPoints } from '../api'
-import type { ParsedSentence, Stats, Point } from '../api'
+import { parseText, search, upsertStore, addVisit, addWish, regeo, getPoints } from '../api'
+import type { ParsedSentence, Point } from '../api'
 import { getMyLocation, haversine } from '../lib/geo'
 import type { MyLocation } from '../lib/geo'
 import { cleanTag, fmtDist } from '../lib/format'
-import { useCountUp } from '../lib/useCountUp'
 
 type Mood = '😋' | '🤤' | '😂' | '😐' | '🤮'
 const EMOJI_OPTIONS: Array<{ emoji: Mood; label: string }> = [
@@ -333,8 +332,8 @@ export default function AddScreen({ onSubmitted }: AddScreenProps) {
               </div>
             </div>
 
-            {/* 问候卡（Stitch，暖色渐变） */}
-            <RecordHero />
+            {/* 问候卡（Stitch，暖色渐变；本月数据内嵌其中） */}
+            <RecordHero points={allPoints} />
 
             {/* 附近一键记（保留功能） */}
             {nearby && (
@@ -382,9 +381,6 @@ export default function AddScreen({ onSubmitted }: AddScreenProps) {
                 <Icon name="my_location" className="text-sm" /> 已定位，优先搜附近
               </p>
             )}
-
-            {/* 本月小结（保留） */}
-            <MonthlySummary points={allPoints} refreshKey={0} />
           </>
         )}
 
@@ -726,13 +722,7 @@ function guessMealPeriod(): '早' | '中' | '晚' {
 }
 
 /** 头部问候 + 录入进度 */
-function RecordHero() {
-  const [stats, setStats] = useState<Stats | null>(null)
-  useEffect(() => {
-    getStats().then(setStats).catch(() => {})
-  }, [])
-  const meals = Math.round(useCountUp(stats?.total_visits ?? 0))
-  const stores = Math.round(useCountUp(stats?.total_stores_visited ?? 0))
+function RecordHero({ points }: { points: Point[] }) {
   const h = new Date().getHours()
   const [hEmoji, greet, prompt] =
     h < 5
@@ -751,17 +741,7 @@ function RecordHero() {
         {hEmoji} {greet}
       </h2>
       <p className="font-body font-bold text-on-surface text-lg mb-4">{prompt}</p>
-      <div className="inline-block bg-surface border-2 border-on-surface rounded-lg px-3 py-1.5 shadow-sticker-sm">
-        <p className="text-xs font-bold text-on-surface-variant">
-          {stats && stats.total_visits > 0 ? (
-            <>
-              地图上已记下 <b className="text-on-surface">{meals}</b> 顿 · <b className="text-on-surface">{stores}</b> 家店 🥢
-            </>
-          ) : (
-            <>记下第一顿，点亮你们的美食地图 ✨</>
-          )}
-        </p>
-      </div>
+      <MonthlySummary points={points} refreshKey={0} />
     </div>
   )
 }
