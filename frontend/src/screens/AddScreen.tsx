@@ -493,7 +493,7 @@ export default function AddScreen({ onSubmitted }: AddScreenProps) {
                       <button
                         key={o.emoji}
                         onClick={() => setEmoji(o.emoji)}
-                        className={`w-14 h-14 rounded-full border-2 border-on-surface flex items-center justify-center text-[26px] press transition-all ${
+                        className={`w-16 h-16 rounded-full border-2 border-on-surface flex items-center justify-center text-[32px] press transition-all ${
                           emoji === o.emoji ? 'bg-accent shadow-sticker' : 'bg-white shadow-sticker-sm opacity-60'
                         }`}
                       >
