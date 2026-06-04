@@ -376,15 +376,15 @@ function StoreCard({
             src={headPhoto}
             alt=""
             loading="lazy"
-            className="w-11 h-11 rounded-full border-2 border-on-surface object-cover shrink-0 bg-white"
+            className="w-14 h-14 rounded-full border-2 border-on-surface object-cover shrink-0 bg-white"
           />
         ) : (
-          <span className="w-11 h-11 rounded-full border-2 border-on-surface bg-white flex items-center justify-center text-xl shrink-0">
+          <span className="w-14 h-14 rounded-full border-2 border-on-surface bg-white flex items-center justify-center text-2xl shrink-0">
             {headEmoji}
           </span>
         )}
         <button className="flex-1 min-w-0 text-left" onClick={hasCoords ? onClick : undefined}>
-          <div className="font-headline text-lg leading-tight">
+          <div className="font-headline text-xl leading-tight">
             {point.name}
             {isManual && <span className="ml-1 text-[10px] font-bold text-on-surface-variant align-middle">手动</span>}
           </div>
@@ -482,8 +482,10 @@ function TimelineRow({
   const metaText = [v.companions, `¥${v.per_person}/人`, v.value_label].filter(Boolean).join(' · ')
   const chip = 'inline-flex items-center align-middle ml-1.5 text-xs font-bold text-on-surface-variant bg-white border border-on-surface/15 rounded-full px-2 py-0.5'
   return (
-    <div className="flex gap-2 items-start">
-      <span className="text-lg shrink-0">{v.mood_emoji}</span>
+    <div className="flex gap-2.5 items-start">
+      <span className="w-10 h-10 rounded-full border-2 border-on-surface bg-white flex items-center justify-center text-xl shrink-0 shadow-sticker-sm">
+        {v.mood_emoji}
+      </span>
       <div className="flex-1 min-w-0">
         {/* 点文字即可编辑 */}
         <div onClick={onEdit} className="cursor-pointer transition-opacity active:opacity-70">
