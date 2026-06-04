@@ -483,32 +483,39 @@ function TimelineRow({
   const chip = 'inline-flex items-center align-middle ml-1.5 text-xs font-bold text-on-surface-variant bg-white border border-on-surface/15 rounded-full px-2 py-0.5'
   return (
     <div className="relative">
-      {/* 顶：评分盖章（绝对置顶层）+ 日期/药丸 */}
-      <div className="flex items-center gap-2.5">
-        <span className="relative z-10 w-10 h-10 rounded-full border-2 border-on-surface bg-white flex items-center justify-center text-xl shrink-0 shadow-sticker-sm">
+      {/* 表情 + 日期（日期对齐表情上方；整体往右挪一点 ml-2） */}
+      <div className="flex items-start gap-2.5 ml-2">
+        <span
+          onClick={onEdit}
+          className="relative z-10 w-10 h-10 rounded-full border-2 border-on-surface bg-white flex items-center justify-center text-xl shrink-0 shadow-sticker-sm cursor-pointer"
+        >
           {v.mood_emoji}
         </span>
-        <div onClick={onEdit} className="flex-1 min-w-0 flex flex-wrap items-center gap-1.5 cursor-pointer transition-opacity active:opacity-70">
+        <div onClick={onEdit} className="min-w-0 pt-1 flex flex-wrap items-center gap-1.5 cursor-pointer transition-opacity active:opacity-70">
           <span className="text-xs font-bold text-on-surface-variant">
             {prettyDate(v.date)} {v.meal_period}
           </span>
-          {metaText && (
-            <span className="text-xs font-bold text-on-surface-variant bg-surface border border-on-surface/15 rounded-full px-2 py-0.5">
-              {metaText}
-            </span>
-          )}
           {v.wish_id && <span className="text-xs font-bold bg-primary/15 text-primary rounded px-1">兑现 ✨</span>}
           {authorTag}
         </div>
       </div>
-      {/* 备注框：整宽、左对齐盖章、上移钻到盖章下被盖一角；图片也放进框里 */}
+      {/* 药丸：表情下方、往右挪一点；z-10 压在虚线框上层 */}
+      {metaText && (
+        <div
+          onClick={onEdit}
+          className="relative z-10 ml-2 mt-1.5 inline-flex items-center text-xs font-bold text-on-surface-variant bg-surface border border-on-surface/15 rounded-full px-2 py-0.5 cursor-pointer"
+        >
+          {metaText}
+        </div>
+      )}
+      {/* 备注框：顶边从药丸正中穿过（药丸压在上层）；图片也放进框里 */}
       {(v.feeling || flavors.length > 0 || dishes.length > 0 || photos.length > 0) && (
         <div
           onClick={(e) => {
             // 点图片 = 看大图（交给 Lightbox）；点其它文字/标签 = 编辑
             if ((e.target as HTMLElement).tagName !== 'IMG') onEdit()
           }}
-          className="border-2 border-dashed border-on-surface/25 rounded-xl px-3 py-2 bg-surface/40 -mt-2 text-sm text-on-surface leading-relaxed cursor-pointer transition-opacity active:opacity-70"
+          className={`border-2 border-dashed border-on-surface/25 rounded-xl px-3 pb-2 bg-surface/40 text-sm text-on-surface leading-relaxed cursor-pointer transition-opacity active:opacity-70 ${metaText ? '-mt-3 pt-4' : 'mt-1.5 pt-2'}`}
         >
           {v.feeling}
           {flavors.map((f) => (
