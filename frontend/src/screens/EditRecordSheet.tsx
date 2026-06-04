@@ -3,6 +3,7 @@ import SheetShell from '../ui/SheetShell'
 import StickerButton from '../ui/StickerButton'
 import DateTimeWheel from '../ui/WheelPicker'
 import PhotoPicker from '../components/PhotoPicker'
+import Stepper from '../ui/Stepper'
 import { updateVisit, deleteVisit, updateWish, deleteWish } from '../api'
 
 type Mood = '😋' | '🤤' | '😂' | '😐' | '🤮'
@@ -144,11 +145,7 @@ export default function EditRecordSheet({ kind, data, storeName, onClose, onChan
               </div>
             </Row>
             <Row label="👥 人数">
-              <div className="flex items-center justify-between rounded-xl border-2 border-on-surface bg-white px-1.5 py-1.5 shadow-sticker-sm">
-                <button onClick={() => setPeople(String(Math.max(1, (Number(people) || 1) - 1)))} className="w-7 h-7 rounded-full border-2 border-on-surface bg-white text-lg font-bold leading-none press-sm">−</button>
-                <span className="font-bold font-num">{Number(people) || 1}人</span>
-                <button onClick={() => setPeople(String(Math.min(20, (Number(people) || 1) + 1)))} className="w-7 h-7 rounded-full border-2 border-on-surface bg-accent text-lg font-bold leading-none press-sm">+</button>
-              </div>
+              <Stepper value={Number(people) || 1} onChange={(v) => setPeople(String(v))} max={30} full />
             </Row>
             <Row label="💬 点评">
               <input value={feeling} onChange={(e) => setFeeling(e.target.value)} placeholder="好吃在哪" className={input} />
