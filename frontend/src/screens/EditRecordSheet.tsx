@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import SheetShell from '../ui/SheetShell'
 import StickerButton from '../ui/StickerButton'
-import DateTimeWheel, { NumberWheel } from '../ui/WheelPicker'
+import DateTimeWheel from '../ui/WheelPicker'
 import PhotoPicker from '../components/PhotoPicker'
 import { updateVisit, deleteVisit, updateWish, deleteWish } from '../api'
 
@@ -92,20 +92,30 @@ export default function EditRecordSheet({ kind, data, storeName, onClose, onChan
 
   return (
     <SheetShell onClose={onClose}>
-      <h3 className="font-headline text-xl mb-1">{kind === 'visit' ? '编辑这次记录' : '编辑想去'}</h3>
-      <p className="text-sm text-on-surface-variant mb-4">{storeName}</p>
+      <h3 className="font-headline text-xl leading-tight">{kind === 'visit' ? '编辑这次记录' : '编辑想去'}</h3>
+      <p className="text-xs text-on-surface-variant mb-3">{storeName}</p>
 
       {kind === 'visit' ? (
-        <div className="space-y-4">
-          {/* 心情：大圆圈，选中橙边白底（同录入详情页） */}
+        <div className="space-y-1.5">
+          {/* 心情 + 想再来：同一行标题，省一行 */}
           <div>
-            <p className="font-headline text-lg mb-2">这一顿，好吃吗？</p>
+            <div className="flex items-center justify-between mb-1.5">
+              <p className="font-headline text-lg">这一顿，好吃吗？</p>
+              <button
+                onClick={() => setWantAgain((a) => !a)}
+                className={`shrink-0 px-3 py-1 rounded-full border-2 border-on-surface text-xs font-bold shadow-sticker-sm press-sm ${
+                  wantAgain ? 'bg-primary text-white' : 'bg-white text-on-surface-variant'
+                }`}
+              >
+                {wantAgain ? '❤️ 还想来' : '🤍 还想来'}
+              </button>
+            </div>
             <div className="flex justify-between">
               {EMOJI_OPTIONS.map((o) => (
                 <button
                   key={o}
                   onClick={() => setEmoji(o)}
-                  className={`w-14 h-14 rounded-full bg-white flex items-center justify-center text-[28px] press transition-all ${
+                  className={`w-12 h-12 rounded-full bg-white flex items-center justify-center text-2xl press transition-all ${
                     emoji === o ? 'border-[3px] border-primary shadow-sticker' : 'border-2 border-on-surface shadow-sticker-sm opacity-70'
                   }`}
                 >
@@ -115,50 +125,40 @@ export default function EditRecordSheet({ kind, data, storeName, onClose, onChan
             </div>
           </div>
 
-          {/* 想再来：爱心切换 */}
-          <Row label="还想再来吗">
-            <button
-              onClick={() => setWantAgain((a) => !a)}
-              className={`px-4 py-1.5 rounded-full border-2 border-on-surface text-sm font-bold shadow-sticker-sm press-sm ${
-                wantAgain ? 'bg-primary text-white' : 'bg-white text-on-surface-variant'
-              }`}
-            >
-              {wantAgain ? '❤️ 还想来' : '🤍 还想来'}
-            </button>
-          </Row>
-
-          {/* 时间 */}
+          {/* 时间滚轮 */}
           <Row label="📅 哪天 · 哪顿">
             <DateTimeWheel value={date} onChange={setDate} meal={meal} onMealChange={setMeal} />
           </Row>
 
-          {/* 花费 + 人均 */}
-          <Row label="💰 这顿花了多少">
-            <input type="number" inputMode="numeric" value={amount} onChange={(e) => setAmount(e.target.value)} placeholder="总价 ¥" className={input} />
-            {!!amount && Number(people) > 0 && (
-              <div className="text-sm font-bold mt-1.5">
-                人均 <b className="text-primary text-base">¥{perPerson || '—'}</b> · {people}人
+          {/* 花费(含人均) + 人数步进，两列并排 */}
+          <div className="flex gap-2 items-end">
+            <Row label="💰 花费" className="flex-1">
+              <input type="number" inputMode="numeric" value={amount} onChange={(e) => setAmount(e.target.value)} placeholder="总价 ¥" className={input} />
+              <div className="text-xs font-bold mt-1 text-on-surface-variant">
+                人均 <b className="text-primary text-sm">¥{perPerson || '—'}</b>
               </div>
-            )}
-          </Row>
+            </Row>
+            <Row label="👥 人数" className="shrink-0">
+              <div className="flex items-center gap-1.5 rounded-xl border-2 border-on-surface bg-white px-1.5 py-[7px] shadow-sticker-sm">
+                <button onClick={() => setPeople(String(Math.max(1, (Number(people) || 1) - 1)))} className="w-7 h-7 rounded-full border-2 border-on-surface bg-white text-lg font-bold leading-none press-sm">−</button>
+                <span className="w-9 text-center font-bold font-num">{Number(people) || 1}人</span>
+                <button onClick={() => setPeople(String(Math.min(20, (Number(people) || 1) + 1)))} className="w-7 h-7 rounded-full border-2 border-on-surface bg-accent text-lg font-bold leading-none press-sm">+</button>
+              </div>
+            </Row>
+          </div>
 
-          {/* 人数：滚轮 */}
-          <Row label="👥 几个人">
-            <NumberWheel value={Number(people) || 1} onChange={(v) => setPeople(String(v))} min={1} max={20} unit="人" />
-          </Row>
-
-          {/* 和谁 */}
-          <Row label="和谁一起">
-            <input value={companions} onChange={(e) => setCompanions(e.target.value)} placeholder="比如：饼饼 / 同事 / 一个人" className={input} />
-          </Row>
-
-          {/* 点评 */}
-          <Row label="💬 加点评">
-            <textarea value={feeling} onChange={(e) => setFeeling(e.target.value)} rows={2} placeholder="好吃在哪？想说点啥…" className={`${input} resize-none`} />
-          </Row>
+          {/* 和谁 + 点评，两列并排 */}
+          <div className="flex gap-2">
+            <Row label="和谁" className="flex-1">
+              <input value={companions} onChange={(e) => setCompanions(e.target.value)} placeholder="饼饼 / 同事" className={input} />
+            </Row>
+            <Row label="💬 点评" className="flex-1">
+              <input value={feeling} onChange={(e) => setFeeling(e.target.value)} placeholder="好吃在哪" className={input} />
+            </Row>
+          </div>
 
           {/* 照片 */}
-          <Row label="📷 照片（最多 4 张）">
+          <Row label="📷 照片">
             <PhotoPicker photos={photos} onChange={setPhotos} max={4} />
           </Row>
         </div>
@@ -176,7 +176,7 @@ export default function EditRecordSheet({ kind, data, storeName, onClose, onChan
       {err && <div className="text-primary font-bold text-sm bg-primary/10 border-2 border-primary/25 rounded-lg px-3 py-2 mt-3">{err}</div>}
 
       {!confirmDel ? (
-        <div className="flex gap-2 mt-5">
+        <div className="flex gap-2 mt-3">
           <button
             onClick={() => setConfirmDel(true)}
             className="px-4 py-3 rounded-full border-2 border-on-surface bg-white text-primary font-bold press-sm"
@@ -188,7 +188,7 @@ export default function EditRecordSheet({ kind, data, storeName, onClose, onChan
           </StickerButton>
         </div>
       ) : (
-        <div className="mt-5 text-center">
+        <div className="mt-3 text-center">
           <p className="text-sm font-bold text-on-surface-variant mb-2">确认删除？删了找不回来</p>
           <div className="flex gap-2">
             <button onClick={() => setConfirmDel(false)} className="flex-1 px-4 py-3 rounded-full border-2 border-on-surface bg-white font-bold press-sm">
