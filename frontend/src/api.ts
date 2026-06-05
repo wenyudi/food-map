@@ -41,8 +41,14 @@ export interface LoginResp extends MeInfo {
 export const login = (username: string, password: string) =>
   api.post<LoginResp>('/auth/login', { username, password }).then(r => r.data)
 
-export const register = (username: string, password: string, invite_code: string) =>
-  api.post<LoginResp>('/auth/register', { username, password, invite_code }).then(r => r.data)
+export const register = (username: string, password: string, invite_code: string, email: string, code: string) =>
+  api.post<LoginResp>('/auth/register', { username, password, invite_code, email, code }).then(r => r.data)
+
+export const sendCode = (email: string, purpose: 'register' | 'reset') =>
+  api.post<{ ok: boolean; cooldown: number; dev_mode: boolean }>('/auth/send-code', { email, purpose }).then(r => r.data)
+
+export const resetPassword = (email: string, code: string, new_password: string) =>
+  api.post<{ ok: boolean }>('/auth/reset-password', { email, code, new_password }).then(r => r.data)
 
 export const getMe = () => api.get<MeInfo>('/auth/me').then(r => r.data)
 

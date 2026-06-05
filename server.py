@@ -19,10 +19,11 @@ from __future__ import annotations
 import json
 import logging
 import os
+import re
 import secrets
 import socket
 import uuid
-from datetime import datetime
+from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Optional
 
@@ -41,6 +42,7 @@ import ai
 import amap
 import auth
 import db
+import mailer
 
 
 @asynccontextmanager
@@ -143,6 +145,8 @@ class RegisterReq(BaseModel):
     username: str
     password: str
     invite_code: str
+    email: str
+    code: str
 
 
 @app.post("/api/auth/login")
@@ -158,6 +162,7 @@ def post_login(req: LoginReq):
 def post_register(req: RegisterReq):
     code = req.invite_code.strip().upper()
     username = req.username.strip()
+    email = (req.email or "").strip().lower()
     inv = db.get_invite(code)
     if not inv:
         raise HTTPException(400, "邀请码无效")
@@ -167,16 +172,117 @@ def post_register(req: RegisterReq):
         raise HTTPException(400, "用户名不能为空")
     if db.get_user(username):
         raise HTTPException(400, "用户名已存在")
+    if not _valid_email(email):
+        raise HTTPException(400, "邮箱格式不对")
+    if db.get_user_by_email(email):
+        raise HTTPException(400, "这个邮箱已经注册过啦")
     if len(req.password) < 4:
         raise HTTPException(400, "密码至少 4 位")
+    if not _check_code(email, req.code, "register"):
+        raise HTTPException(400, "邮箱验证码不对或已过期")
     # 邀请码带圈子：None=新建独立圈子（给朋友），否则加入该圈子（情侣共享一张图）
     circle_id = inv.get("circle_id")
     if circle_id is None:
         circle_id = db.create_circle(username)
-    db.create_user(username, auth.hash_password(req.password), role="user", circle_id=circle_id)
+    db.create_user(username, auth.hash_password(req.password), role="user",
+                   circle_id=circle_id, email=email)
     db.mark_invite_used(code, username)
     token = auth.make_token(username, "user")
     return {"token": token, "username": username, "role": "user"}
+
+
+# ---------- 邮箱验证码（注册验证 + 找回密码 共用一套） ----------
+
+_EMAIL_RE = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
+CODE_TTL_MIN = 10          # 验证码有效期（分钟）
+CODE_COOLDOWN_SEC = 60     # 同邮箱重发冷却（秒）
+CODE_MAX_ATTEMPTS = 5      # 单条码最多校验失败次数，超了即作废（防暴力猜码）
+
+
+class SendCodeReq(BaseModel):
+    email: str
+    purpose: str = "register"  # register | reset
+
+
+class ResetPasswordReq(BaseModel):
+    email: str
+    code: str
+    new_password: str
+
+
+def _valid_email(email: str) -> bool:
+    return bool(email) and len(email) <= 100 and bool(_EMAIL_RE.match(email))
+
+
+def _send_verification(email: str, purpose: str) -> Optional[str]:
+    """限频 → 生成 → 存库 → 发信。成功返回 None；被限频/发送失败返回提示文案。"""
+    last = db.latest_email_code(email, purpose)
+    if last and not last["used"]:
+        try:
+            elapsed = (datetime.now() - datetime.fromisoformat(last["created_at"])).total_seconds()
+            if elapsed < CODE_COOLDOWN_SEC:
+                return f"别急，{int(CODE_COOLDOWN_SEC - elapsed)} 秒后再获取"
+        except ValueError:
+            pass
+    vcode = f"{secrets.randbelow(10 ** 6):06d}"
+    expires = (datetime.now() + timedelta(minutes=CODE_TTL_MIN)).isoformat(timespec="seconds")
+    db.save_email_code(email, vcode, purpose, expires)
+    try:
+        mailer.send_code(email, vcode, purpose)
+    except Exception as e:
+        logger.warning("send-code 发信失败 %s: %s", email, e)
+        return "验证码发送失败，稍后再试 😅"
+    return None
+
+
+def _check_code(email: str, code: str, purpose: str) -> bool:
+    """校验：取最近一条，未用 + 未过期 + 未超尝试 + 匹配。成功即焚，失败计数。"""
+    rec = db.latest_email_code(email, purpose)
+    if not rec or rec["used"] or rec["attempts"] >= CODE_MAX_ATTEMPTS:
+        return False
+    try:
+        if datetime.fromisoformat(rec["expires_at"]) < datetime.now():
+            return False
+    except ValueError:
+        return False
+    if (code or "").strip() != rec["code"]:
+        db.bump_email_code_attempts(rec["id"])
+        return False
+    db.mark_email_code_used(rec["id"])
+    return True
+
+
+@app.post("/api/auth/send-code")
+def send_verification_code(req: SendCodeReq):
+    email = (req.email or "").strip().lower()
+    purpose = req.purpose if req.purpose in ("register", "reset") else "register"
+    if not _valid_email(email):
+        raise HTTPException(400, "邮箱格式不对")
+    existing = db.get_user_by_email(email)
+    if purpose == "register" and existing:
+        raise HTTPException(400, "这个邮箱已经注册过啦，直接登录或找回密码吧")
+    if purpose == "reset" and not existing:
+        raise HTTPException(404, "这个邮箱还没注册过哦")
+    err = _send_verification(email, purpose)
+    if err:
+        raise HTTPException(429, err)
+    return {"ok": True, "cooldown": CODE_COOLDOWN_SEC, "dev_mode": not mailer.mail_enabled()}
+
+
+@app.post("/api/auth/reset-password")
+def reset_password(req: ResetPasswordReq):
+    email = (req.email or "").strip().lower()
+    if not _valid_email(email):
+        raise HTTPException(400, "邮箱格式不对")
+    user = db.get_user_by_email(email)
+    if not user:
+        raise HTTPException(404, "这个邮箱还没注册过哦")
+    if len(req.new_password) < 4:
+        raise HTTPException(400, "密码至少 4 位")
+    if not _check_code(email, req.code, "reset"):
+        raise HTTPException(400, "验证码不对或已过期")
+    db.update_user_password(user["username"], auth.hash_password(req.new_password))
+    return {"ok": True}
 
 
 class InviteReq(BaseModel):

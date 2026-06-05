@@ -143,6 +143,7 @@ CREATE TABLE IF NOT EXISTS users (
     username TEXT UNIQUE NOT NULL,
     password_hash TEXT NOT NULL,
     role TEXT NOT NULL DEFAULT 'user',
+    email TEXT,
     circle_id INTEGER,
     created_at TEXT NOT NULL
 );
@@ -162,9 +163,21 @@ CREATE TABLE IF NOT EXISTS ai_cache (
     created_at TEXT
 );
 
+CREATE TABLE IF NOT EXISTS email_codes (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    email TEXT NOT NULL,
+    code TEXT NOT NULL,
+    purpose TEXT NOT NULL,        -- register | reset
+    expires_at TEXT NOT NULL,
+    used INTEGER NOT NULL DEFAULT 0,
+    attempts INTEGER NOT NULL DEFAULT 0,
+    created_at TEXT NOT NULL
+);
+
 CREATE INDEX IF NOT EXISTS idx_visits_poi ON visits(poi_id);
 CREATE INDEX IF NOT EXISTS idx_wishes_poi_status ON wishes(poi_id, status);
 CREATE INDEX IF NOT EXISTS idx_users_username ON users(username);
+CREATE INDEX IF NOT EXISTS idx_email_codes ON email_codes(email, purpose, created_at);
 """
 # 注：circle_id 的索引放在 _migrate() 里建——老库 executescript 时该列还不存在，
 # 直接写进 SCHEMA 会因「no such column: circle_id」报错。
@@ -207,6 +220,13 @@ def _migrate(c: sqlite3.Connection) -> None:
     # circle_id 列此时一定存在了，再建索引（放 SCHEMA 里会先于列创建而报错）
     c.execute("CREATE INDEX IF NOT EXISTS idx_visits_circle ON visits(circle_id)")
     c.execute("CREATE INDEX IF NOT EXISTS idx_wishes_circle ON wishes(circle_id)")
+
+    # 邮箱验证码功能：users 补 email 列 + 部分唯一索引
+    # （老库存量用户 email 为 NULL；SQLite 唯一索引允许多个 NULL，所以老号不冲突）
+    ucols = {r["name"] for r in c.execute("PRAGMA table_info(users)")}
+    if "email" not in ucols:
+        c.execute("ALTER TABLE users ADD COLUMN email TEXT")
+    c.execute("CREATE UNIQUE INDEX IF NOT EXISTS idx_users_email ON users(email) WHERE email IS NOT NULL")
 
 
 _init_lock = threading.Lock()
@@ -524,13 +544,13 @@ def create_circle(name: str = "") -> int:
 # ---------- 用户 CRUD ----------
 
 def create_user(username: str, password_hash: str, role: str = "user",
-                circle_id: Optional[int] = None) -> int:
+                circle_id: Optional[int] = None, email: Optional[str] = None) -> int:
     with _conn() as c:
         now = datetime.now().isoformat(timespec="seconds")
         cur = c.execute(
-            "INSERT INTO users (username, password_hash, role, circle_id, created_at) "
-            "VALUES (?, ?, ?, ?, ?)",
-            (username, password_hash, role, circle_id, now),
+            "INSERT INTO users (username, password_hash, role, email, circle_id, created_at) "
+            "VALUES (?, ?, ?, ?, ?, ?)",
+            (username, password_hash, role, email, circle_id, now),
         )
         return int(cur.lastrowid or 0)
 
@@ -543,7 +563,7 @@ def get_user(username: str) -> Optional[dict]:
 
 def list_users() -> list[dict]:
     with _conn() as c:
-        rows = c.execute("SELECT id, username, role, created_at FROM users ORDER BY id").fetchall()
+        rows = c.execute("SELECT id, username, role, email, created_at FROM users ORDER BY id").fetchall()
         return [_row_to_dict(r) for r in rows]
 
 
@@ -555,6 +575,50 @@ def delete_user(username: str) -> None:
 def update_user_password(username: str, password_hash: str) -> None:
     with _conn() as c:
         c.execute("UPDATE users SET password_hash=? WHERE username=?", (password_hash, username))
+
+
+def get_user_by_email(email: str) -> Optional[dict]:
+    with _conn() as c:
+        row = c.execute("SELECT * FROM users WHERE email=?", (email,)).fetchone()
+        return _row_to_dict(row) if row else None
+
+
+def set_user_email(username: str, email: str) -> None:
+    with _conn() as c:
+        c.execute("UPDATE users SET email=? WHERE username=?", (email, username))
+
+
+# ---------- 邮箱验证码 CRUD ----------
+
+def save_email_code(email: str, code: str, purpose: str, expires_at: str) -> int:
+    with _conn() as c:
+        now = datetime.now().isoformat(timespec="seconds")
+        cur = c.execute(
+            "INSERT INTO email_codes (email, code, purpose, expires_at, used, attempts, created_at) "
+            "VALUES (?, ?, ?, ?, 0, 0, ?)",
+            (email, code, purpose, expires_at, now),
+        )
+        return int(cur.lastrowid or 0)
+
+
+def latest_email_code(email: str, purpose: str) -> Optional[dict]:
+    """取该邮箱该用途最近一条（校验 + 限频都看它）。"""
+    with _conn() as c:
+        row = c.execute(
+            "SELECT * FROM email_codes WHERE email=? AND purpose=? ORDER BY id DESC LIMIT 1",
+            (email, purpose),
+        ).fetchone()
+        return _row_to_dict(row) if row else None
+
+
+def mark_email_code_used(code_id: int) -> None:
+    with _conn() as c:
+        c.execute("UPDATE email_codes SET used=1 WHERE id=?", (code_id,))
+
+
+def bump_email_code_attempts(code_id: int) -> None:
+    with _conn() as c:
+        c.execute("UPDATE email_codes SET attempts=attempts+1 WHERE id=?", (code_id,))
 
 
 def count_users() -> int:
