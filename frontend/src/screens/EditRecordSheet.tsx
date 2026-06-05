@@ -93,17 +93,6 @@ export default function EditRecordSheet({ kind, data, storeName, onClose, onChan
           <h3 className="font-headline text-xl leading-tight">{readonly ? (kind === 'visit' ? '查看记录' : '查看想去') : kind === 'visit' ? '编辑这次记录' : '编辑想去'}</h3>
           <p className="text-xs text-on-surface-variant">{storeName}</p>
         </div>
-        {kind === 'visit' && (
-          <button
-            onClick={() => setWantAgain((a) => !a)}
-            disabled={readonly}
-            className={`shrink-0 px-3 py-1 rounded-full border-2 border-on-surface text-xs font-bold shadow-sticker-sm press-sm ${
-              wantAgain ? 'bg-primary text-white' : 'bg-white text-on-surface-variant'
-            }`}
-          >
-            {wantAgain ? '❤️ 还想来' : '🤍 还想来'}
-          </button>
-        )}
       </div>
 
       {readonly && (
@@ -116,6 +105,18 @@ export default function EditRecordSheet({ kind, data, storeName, onClose, onChan
         <div className="space-y-1.5">
           {/* 心情：5 个表情圈 */}
           <MoodPicker value={emoji} onChange={setEmoji} readonly={readonly} />
+
+          {/* 还想来：从顶栏移下来，避免和抽屉关闭 ✕ 打架 */}
+          <div className="flex justify-end">
+            <button
+              onClick={() => setWantAgain((a) => !a)}
+              className={`px-3 py-1 rounded-full border-2 border-on-surface text-xs font-bold shadow-sticker-sm press-sm ${
+                wantAgain ? 'bg-primary text-white' : 'bg-white text-on-surface-variant'
+              }`}
+            >
+              {wantAgain ? '❤️ 还想来' : '🤍 还想来'}
+            </button>
+          </div>
 
           {/* 时间滚轮 */}
           <Row label="📅 哪天 · 哪顿">

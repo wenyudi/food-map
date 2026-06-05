@@ -470,7 +470,7 @@ function FilterSheet({
   const activeCount = filters.moods.length + filters.status.length + filters.cuisines.length + filters.authors.length
   return (
     <SheetShell onClose={onClose}>
-      <div className="flex items-center justify-between mb-4">
+      <div className="flex items-center gap-3 mb-4">
         <h3 className="font-headline text-xl">筛选</h3>
         {activeCount > 0 && (
           <button onClick={onClear} className="text-sm font-bold text-on-surface-variant flex items-center gap-1 press-sm">
