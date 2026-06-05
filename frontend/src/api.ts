@@ -94,37 +94,6 @@ export const getMe = () => api.get<MeInfo>('/auth/me').then(r => r.data)
 export const changePassword = (old_password: string, new_password: string) =>
   api.post('/auth/change-password', { old_password, new_password }).then(r => r.data)
 
-export interface UserItem {
-  id: number
-  username: string
-  role: string
-  created_at: string
-}
-
-export const listUsers = () => api.get<UserItem[]>('/auth/users').then(r => r.data)
-
-export const createUserApi = (username: string, password: string, role = 'user') =>
-  api.post('/auth/users', { username, password, role }).then(r => r.data)
-
-export const deleteUserApi = (username: string) =>
-  api.delete(`/auth/users/${encodeURIComponent(username)}`).then(r => r.data)
-
-export interface InviteCode {
-  code: string
-  created_by: string | null
-  circle_id: number | null   // null = 注册时新建独立圈子（给朋友）；否则加入该圈子
-  created_at: string
-  used_by: string | null
-  used_at: string | null
-}
-
-// new_circle=true → 给朋友新建独立圈子（仅管理员）；false → 邀请进自己的圈子
-export const genInvite = (new_circle = false) =>
-  api.post<{ code: string }>('/auth/invites', { new_circle }).then(r => r.data)
-export const listInvites = () => api.get<InviteCode[]>('/auth/invites').then(r => r.data)
-export const revokeInvite = (code: string) =>
-  api.delete(`/auth/invites/${encodeURIComponent(code)}`).then(r => r.data)
-
 export interface Visit {
   visit_id: string
   poi_id: string

@@ -490,34 +490,6 @@ def load_all(circle_id: Optional[int] = None) -> dict:
         return {"stores": stores, "visits": visits, "wishes": wishes}
 
 
-def list_recent_visits(limit: int = 10, circle_id: Optional[int] = None) -> list[dict]:
-    """带 store 信息的最近访问（供前端列表页用）。"""
-    with _conn() as c:
-        rows = c.execute(
-            """
-            SELECT v.*, s.name AS store_name, s.tag AS store_tag, s.business_area
-            FROM visits v JOIN stores s ON v.poi_id = s.poi_id
-            WHERE v.circle_id=?
-            ORDER BY v.date DESC, v.created_at DESC LIMIT ?
-            """,
-            (circle_id, limit),
-        ).fetchall()
-        return [_row_to_dict(r) for r in rows]
-
-
-def list_open_wishes(circle_id: Optional[int] = None) -> list[dict]:
-    with _conn() as c:
-        rows = c.execute(
-            """
-            SELECT w.*, s.name AS store_name, s.tag AS store_tag, s.business_area, s.lng, s.lat
-            FROM wishes w JOIN stores s ON w.poi_id = s.poi_id
-            WHERE w.status='want' AND w.circle_id=? ORDER BY w.created_at DESC
-            """,
-            (circle_id,),
-        ).fetchall()
-        return [_row_to_dict(r) for r in rows]
-
-
 def count_visits_by_poi(poi_id: str, circle_id: Optional[int] = None) -> int:
     """某家店在本圈子被记录过几次（用于「二刷」里程碑判定）。"""
     with _conn() as c:
@@ -705,17 +677,6 @@ def get_user(username: str) -> Optional[dict]:
         return _row_to_dict(row) if row else None
 
 
-def list_users() -> list[dict]:
-    with _conn() as c:
-        rows = c.execute("SELECT id, username, nickname, role, email, created_at FROM users ORDER BY id").fetchall()
-        return [_row_to_dict(r) for r in rows]
-
-
-def delete_user(username: str) -> None:
-    with _conn() as c:
-        c.execute("DELETE FROM users WHERE username=?", (username,))
-
-
 def update_user_password(username: str, password_hash: str) -> None:
     with _conn() as c:
         c.execute("UPDATE users SET password_hash=? WHERE username=?", (password_hash, username))
@@ -798,25 +759,6 @@ def get_invite(code: str) -> Optional[dict]:
     with _conn() as c:
         row = c.execute("SELECT * FROM invite_codes WHERE code=?", (code,)).fetchone()
         return _row_to_dict(row) if row else None
-
-
-def list_invites() -> list[dict]:
-    with _conn() as c:
-        rows = c.execute("SELECT * FROM invite_codes ORDER BY created_at DESC").fetchall()
-        return [_row_to_dict(r) for r in rows]
-
-
-def mark_invite_used(code: str, username: str) -> None:
-    with _conn() as c:
-        c.execute(
-            "UPDATE invite_codes SET used_by=?, used_at=? WHERE code=?",
-            (username, datetime.now().isoformat(timespec="seconds"), code),
-        )
-
-
-def delete_invite(code: str) -> None:
-    with _conn() as c:
-        c.execute("DELETE FROM invite_codes WHERE code=?", (code,))
 
 
 def compute_value_label(actual_per_person: float, amap_cost: str) -> str:

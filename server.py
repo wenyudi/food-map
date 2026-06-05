@@ -111,12 +111,6 @@ def current_user(authorization: Optional[str] = Header(None)) -> dict:
     return user
 
 
-def require_admin(user: dict = Depends(current_user)) -> dict:
-    if user.get("role") != "admin":
-        raise HTTPException(403, "需要管理员权限")
-    return user
-
-
 def require_writer(user: dict = Depends(current_user)) -> dict:
     """当前活跃圈里能写的人（圈主 / 记录员）才放行；观光位只读。"""
     role = db.member_role(user["circle_id"], user["username"])
@@ -130,12 +124,6 @@ def require_writer(user: dict = Depends(current_user)) -> dict:
 class LoginReq(BaseModel):
     email: str
     password: str
-
-
-class CreateUserReq(BaseModel):
-    username: str
-    password: str
-    role: str = "user"
 
 
 class ChangePasswordReq(BaseModel):
@@ -495,31 +483,6 @@ def change_password(req: ChangePasswordReq, user: dict = Depends(current_user)):
     if not auth.verify_password(req.old_password, user["password_hash"]):
         raise HTTPException(400, "旧密码不对")
     db.update_user_password(user["username"], auth.hash_password(req.new_password))
-    return {"ok": True}
-
-
-@app.get("/api/auth/users")
-def get_users(_: dict = Depends(require_admin)):
-    return db.list_users()
-
-
-@app.post("/api/auth/users")
-def create_user_endpoint(req: CreateUserReq, _: dict = Depends(require_admin)):
-    if db.get_user(req.username):
-        raise HTTPException(400, "用户名已存在")
-    if len(req.password) < 4:
-        raise HTTPException(400, "密码至少 4 位")
-    if req.role not in ("admin", "user"):
-        raise HTTPException(400, "role 只能是 admin 或 user")
-    db.create_user(req.username, auth.hash_password(req.password), req.role)
-    return {"ok": True, "username": req.username}
-
-
-@app.delete("/api/auth/users/{username}")
-def delete_user_endpoint(username: str, admin: dict = Depends(require_admin)):
-    if username == admin["username"]:
-        raise HTTPException(400, "不能删除自己")
-    db.delete_user(username)
     return {"ok": True}
 
 
