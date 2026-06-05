@@ -55,6 +55,7 @@ export default function MapScreen({ refreshKey, focusPoiId, onConsumeFocus, onJu
 
   const areas = useMemo(() => buildAreas(points), [points])
   const mapAreas = areas.filter((a) => a.center)
+  const exploredAreas = areas.filter((a) => a.eaten.length > 0).length // 吃过的商圈数
 
   function enterAreaMode() {
     setAreaMode(true)
@@ -152,10 +153,10 @@ export default function MapScreen({ refreshKey, focusPoiId, onConsumeFocus, onJu
         {/* 顶部统计卡浮层 */}
         <div className="absolute top-0 left-0 w-full z-[400] px-4 pt-[calc(env(safe-area-inset-top)_+_0.75rem)] pb-6 bg-gradient-to-b from-surface via-surface/80 to-transparent pointer-events-none">
           <div className="flex gap-2">
-            {stats && <StatBar stats={stats} />}
+            {stats && <StatBar stats={stats} areaCount={exploredAreas} />}
             {loading &&
               [0, 1, 2, 3].map((i) => (
-                <div key={i} className="flex-1 h-14 rounded-xl border-2 border-on-surface/30 bg-white/50 animate-pulse" />
+                <div key={i} className="flex-1 h-14 rounded-full border-[3px] border-on-surface/30 bg-white/50 animate-pulse" />
               ))}
           </div>
         </div>
@@ -267,19 +268,18 @@ export default function MapScreen({ refreshKey, focusPoiId, onConsumeFocus, onJu
   )
 }
 
-/** 顶部统计：数字滚动 */
-function StatBar({ stats }: { stats: Stats }) {
+/** 顶部统计：数字滚动（顿 / 家店 / 想去 / 商圈 —— 更扣地图） */
+function StatBar({ stats, areaCount }: { stats: Stats; areaCount: number }) {
   const visits = Math.round(useCountUp(stats.total_visits))
   const stores = Math.round(useCountUp(stats.total_stores_visited))
   const wishes = Math.round(useCountUp(stats.total_wishes_open))
-  const amount = Math.round(useCountUp(stats.total_amount))
-  const amtTxt = amount >= 1000 ? `¥${(amount / 1000).toFixed(1)}k` : `¥${amount}`
+  const zones = Math.round(useCountUp(areaCount))
   return (
     <div className="flex gap-2 w-full pointer-events-auto">
       <StatTile value={String(visits)} label="顿" color="text-primary" />
       <StatTile value={String(stores)} label="家店" color="text-primary-dark" />
       <StatTile value={String(wishes)} label="想去" color="text-accent" />
-      <StatTile value={amtTxt} label="花费" color="text-green-accent" />
+      <StatTile value={String(zones)} label="商圈" color="text-green-accent" />
     </div>
   )
 }
