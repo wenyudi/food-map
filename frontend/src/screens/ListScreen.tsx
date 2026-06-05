@@ -92,14 +92,16 @@ export default function ListScreen({ refreshKey, focusPoiId, onPickStore, onJump
     load()
   }, [load, refreshKey])
 
-  const multiAuthor = useMemo(() => {
-    const set = new Set<string>()
-    points.forEach((p) => {
-      p.visits.forEach((v) => v.recorded_by && set.add(v.recorded_by))
-      if (p.wish?.recorded_by) set.add(p.wish.recorded_by)
-    })
-    return set.size > 1
-  }, [points])
+  // 有任何「不是我记的」记录就显示作者标注（自己一个人记的不啰嗦）
+  const multiAuthor = useMemo(
+    () =>
+      points.some(
+        (p) =>
+          (p.wish?.recorded_by && p.wish.recorded_by !== myUsername) ||
+          p.visits.some((v) => v.recorded_by && v.recorded_by !== myUsername),
+      ),
+    [points, myUsername],
+  )
 
   const { filtered, moodCount, statusCount, cuisineList } = useMemo(() => {
     // 各维度选项的全局计数（独立于当前选择）
