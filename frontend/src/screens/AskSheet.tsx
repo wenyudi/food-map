@@ -56,7 +56,6 @@ export default function AskSheet({ onClose }: AskSheetProps) {
           onKeyDown={(e) => {
             if (e.key === 'Enter') ask()
           }}
-          autoFocus
           placeholder="比如：还有几家种草没去？"
           className="flex-1 min-w-0 rounded-full border-2 border-on-surface bg-white px-4 py-2.5 outline-none shadow-sticker-sm font-body text-sm placeholder:text-on-surface-variant/60"
         />
@@ -76,7 +75,7 @@ export default function AskSheet({ onClose }: AskSheetProps) {
             {EXAMPLES.map((e) => (
               <button
                 key={e.q}
-                onClick={() => ask(e.q)}
+                onClick={() => setQ(e.q)}
                 className="flex flex-col gap-1.5 text-left bg-white rounded-2xl border-2 border-on-surface shadow-sticker-sm p-3 press-sm"
               >
                 <span className="text-2xl leading-none">{e.icon}</span>
