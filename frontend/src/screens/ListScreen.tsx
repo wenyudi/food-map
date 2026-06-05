@@ -60,9 +60,10 @@ type ListScreenProps = Readonly<{
   onPickStore?: (poiId: string) => void
   onJumpToAdd?: () => void
   myUsername?: string
+  circleRole?: string
 }>
 
-export default function ListScreen({ refreshKey, focusPoiId, onPickStore, onJumpToAdd, myUsername }: ListScreenProps) {
+export default function ListScreen({ refreshKey, focusPoiId, onPickStore, onJumpToAdd, myUsername, circleRole }: ListScreenProps) {
   const [points, setPoints] = useState<Point[]>([])
   const [loading, setLoading] = useState(true)
   const [filters, setFilters] = useState<Filters>({ moods: [], status: [], cuisines: [] })
@@ -282,6 +283,8 @@ export default function ListScreen({ refreshKey, focusPoiId, onPickStore, onJump
           storeName={editing.storeName}
           onClose={() => setEditing(null)}
           onChanged={load}
+          readonly={!(editing.data.recorded_by === myUsername || circleRole === 'owner')}
+          recordedByName={editing.data.recorded_by_name}
         />
       )}
       {askOpen && <AskSheet onClose={() => setAskOpen(false)} />}

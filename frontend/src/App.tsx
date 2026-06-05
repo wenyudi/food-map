@@ -92,6 +92,7 @@ export default function App() {
           }}
           onJumpToAdd={() => setTab('add')}
           myUsername={me.username}
+          circleRole={me.circle_role}
         />
       )}
       {tab === 'add' && <AddScreen onSubmitted={handleSubmitted} />}

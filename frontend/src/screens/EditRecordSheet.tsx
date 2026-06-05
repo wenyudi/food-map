@@ -22,9 +22,11 @@ type Props = Readonly<{
   storeName: string
   onClose: () => void
   onChanged: () => void
+  readonly?: boolean
+  recordedByName?: string
 }>
 
-export default function EditRecordSheet({ kind, data, storeName, onClose, onChanged }: Props) {
+export default function EditRecordSheet({ kind, data, storeName, onClose, onChanged, readonly = false, recordedByName }: Props) {
   const [busy, setBusy] = useState(false)
   const [err, setErr] = useState<string | null>(null)
   const [confirmDel, setConfirmDel] = useState(false)
@@ -95,7 +97,7 @@ export default function EditRecordSheet({ kind, data, storeName, onClose, onChan
     <SheetShell onClose={onClose}>
       <div className="flex items-start justify-between gap-2 mb-3">
         <div className="min-w-0">
-          <h3 className="font-headline text-xl leading-tight">{kind === 'visit' ? '编辑这次记录' : '编辑想去'}</h3>
+          <h3 className="font-headline text-xl leading-tight">{readonly ? (kind === 'visit' ? '查看记录' : '查看想去') : kind === 'visit' ? '编辑这次记录' : '编辑想去'}</h3>
           <p className="text-xs text-on-surface-variant">{storeName}</p>
         </div>
         {kind === 'visit' && (
@@ -173,7 +175,12 @@ export default function EditRecordSheet({ kind, data, storeName, onClose, onChan
 
       {err && <div className="text-primary font-bold text-sm bg-primary/10 border-2 border-primary/25 rounded-lg px-3 py-2 mt-3">{err}</div>}
 
-      {!confirmDel ? (
+      {readonly ? (
+        <div className="mt-3">
+          <p className="text-xs text-on-surface-variant text-center mb-2">👀 这是 {recordedByName || '圈友'} 记的，你只能看</p>
+          <button onClick={onClose} className="w-full py-2.5 rounded-full border-2 border-on-surface bg-white font-bold press-sm">关闭</button>
+        </div>
+      ) : !confirmDel ? (
         <div className="flex gap-2 mt-3">
           <button
             onClick={() => setConfirmDel(true)}

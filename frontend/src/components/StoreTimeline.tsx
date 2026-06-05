@@ -83,10 +83,11 @@ export function TimelineRow({
   hidePhotos?: boolean
 }) {
   const by = event.data.recorded_by
+  const byName = event.data.recorded_by_name || by
   const authorTag =
     showAuthor && by ? (
       <span className="text-[10px] font-bold text-on-surface-variant bg-surface rounded px-1">
-        {by === myUsername ? '你记的' : `${by} 记的`}
+        {by === myUsername ? '你记的' : `${byName} 记的`}
       </span>
     ) : null
 

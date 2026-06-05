@@ -35,6 +35,7 @@ export interface MeInfo {
   nickname: string
   role: 'admin' | 'user'
   circle_id?: number
+  circle_role?: 'owner' | 'editor' | 'viewer'
 }
 export interface LoginResp extends MeInfo {
   token: string
@@ -112,6 +113,7 @@ export interface Visit {
   my_photos: string  // | 分隔的 URL
   created_at: string
   recorded_by?: string
+  recorded_by_name?: string
   cuisine?: string
   flavors?: string
   dishes?: string
@@ -136,6 +138,7 @@ export interface Wish {
   lng?: number
   lat?: number
   recorded_by?: string
+  recorded_by_name?: string
   cuisine?: string
 }
 

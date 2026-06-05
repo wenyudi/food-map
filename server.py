@@ -119,6 +119,13 @@ def require_writer(user: dict = Depends(current_user)) -> dict:
     return user
 
 
+def _can_modify(record: dict, user: dict) -> bool:
+    """能改/删这条记录吗：本人记的 → 可；圈主 → 可（管理权）；否则不可。"""
+    if record.get("recorded_by") == user["username"]:
+        return True
+    return db.member_role(user["circle_id"], user["username"]) == "owner"
+
+
 # ---------- 认证接口 ----------
 
 class LoginReq(BaseModel):
@@ -475,7 +482,8 @@ def disband_circle_api(cid: int, user: dict = Depends(current_user)):
 @app.get("/api/auth/me")
 def get_me(user: dict = Depends(current_user)):
     return {"username": user["username"], "nickname": user.get("nickname") or user["username"],
-            "role": user["role"], "circle_id": user["circle_id"]}
+            "role": user["role"], "circle_id": user["circle_id"],
+            "circle_role": db.member_role(user["circle_id"], user["username"])}
 
 
 @app.post("/api/auth/change-password")
@@ -541,9 +549,13 @@ EMOJI_COLOR = {"😋": "#ff4757", "🤤": "#ffa502", "😂": "#7bed9f", "😐": 
 def get_points(user: dict = Depends(current_user)):
     data = db.load_all(user["circle_id"])
     stores = {s["poi_id"]: s for s in data["stores"]}
+    names = {m["username"]: (m.get("nickname") or m["username"]) for m in db.list_members(user["circle_id"])}
     visits_by_poi: dict[str, list] = {}
     for v in data["visits"]:
+        v["recorded_by_name"] = names.get(v.get("recorded_by"), v.get("recorded_by") or "")
         visits_by_poi.setdefault(v["poi_id"], []).append(v)
+    for w in data["wishes"]:
+        w["recorded_by_name"] = names.get(w.get("recorded_by"), w.get("recorded_by") or "")
     # 不过滤 status，让前端能看到已兑现的种草历史（用于时间线）
     wishes_by_poi: dict = {}
     for w in data["wishes"]:
@@ -741,6 +753,8 @@ def _build_story_brief(year_month: str, circle_id: int) -> Optional[str]:
     data = db.load_all(circle_id)
     stores = {s["poi_id"]: s for s in data["stores"]}
     wishes_by_visit = {w["visit_id"]: w for w in data["wishes"] if w.get("visit_id")}
+    names = {m["username"]: (m.get("nickname") or m["username"]) for m in db.list_members(circle_id)}
+    multi = len(names) > 1  # 多人圈才标记录者，单人圈保持「你」的视角
 
     month_visits = [v for v in data["visits"] if (v.get("date") or "").startswith(year_month)]
     if not month_visits:
@@ -755,7 +769,10 @@ def _build_story_brief(year_month: str, circle_id: int) -> Optional[str]:
         visit_count_by_poi[v["poi_id"]] = visit_count_by_poi.get(v["poi_id"], 0) + 1
     month_visits = month_visits[:50]
 
-    lines = [f"# {year_month} 本月吃过的店（按时间）"]
+    header = f"# {year_month} 本月吃过的店（按时间）"
+    if multi:
+        header += f"\n（这是 {'、'.join(names.values())} 的共享美食圈，每条都标了谁记的，请用「你们」的集体视角来写）"
+    lines = [header]
     for i, v in enumerate(month_visits, 1):
         s = stores.get(v["poi_id"], {})
         w = wishes_by_visit.get(v["visit_id"])
@@ -768,6 +785,8 @@ def _build_story_brief(year_month: str, circle_id: int) -> Optional[str]:
         if v.get("companions"):
             meta.append(f"和{v['companions']}")
         meta.append(f"¥{v.get('per_person') or 0}/人")
+        if multi and names.get(v.get("recorded_by")):
+            meta.append(f"{names[v['recorded_by']]}记")
         rating = f"评价 {v.get('mood_emoji') or ''}".rstrip()
         if v.get("want_again"):
             rating += " ⭐想再来"
@@ -1126,6 +1145,8 @@ def _build_ask_context(circle_id: int) -> Optional[str]:
     wishes = data["wishes"]
     if not visits and not wishes:
         return None
+    names = {m["username"]: (m.get("nickname") or m["username"]) for m in db.list_members(circle_id)}
+    multi = len(names) > 1  # 多人圈才带记录者维度
 
     def tag1(poi_id):
         return (stores.get(poi_id, {}).get("tag") or "").split("|")[0]
@@ -1179,6 +1200,14 @@ def _build_ask_context(circle_id: int) -> Optional[str]:
             lines.append("- 口味偏好：" + "、".join(f"{k} {n}次" for k, n in sorted(fla.items(), key=lambda x: -x[1])[:5]))
         if occ:
             lines.append("- 场合分布：" + "、".join(f"{k} {n}次" for k, n in sorted(occ.items(), key=lambda x: -x[1])))
+    if visits and multi:
+        by_rec: dict[str, int] = {}
+        for v in visits:
+            r = names.get(v.get("recorded_by"))
+            if r:
+                by_rec[r] = by_rec.get(r, 0) + 1
+        if by_rec:
+            lines.append("- 各人记录数：" + "、".join(f"{k} {n}次" for k, n in sorted(by_rec.items(), key=lambda x: -x[1])))
     open_w = [w for w in wishes if w["status"] == "want"]
     fulfilled = sum(1 for w in wishes if w["status"] == "visited")
     lines.append(f"- 想去还没去 {len(open_w)} 家，种草已兑现 {fulfilled} 家")
@@ -1204,6 +1233,8 @@ def _build_ask_context(circle_id: int) -> Optional[str]:
             bits.append(f"吃了:{v['dishes']}")
         if v.get("feeling"):
             bits.append(f"「{v['feeling']}」")
+        if multi and names.get(v.get("recorded_by")):
+            bits.append(f"·{names[v['recorded_by']]}记")
         lines.append(" ".join(bits))
 
     if open_w:
@@ -1211,7 +1242,8 @@ def _build_ask_context(circle_id: int) -> Optional[str]:
         for w in open_w[:40]:
             s = stores.get(w["poi_id"], {})
             t = tag1(w["poi_id"])
-            lines.append(f"- {s.get('name', '?')}{('[' + t + ']') if t else ''}（{w.get('source', '')}种草：{w.get('reason') or '没写理由'}）")
+            rec = f" ·{names[w['recorded_by']]}种的" if multi and names.get(w.get("recorded_by")) else ""
+            lines.append(f"- {s.get('name', '?')}{('[' + t + ']') if t else ''}（{w.get('source', '')}种草：{w.get('reason') or '没写理由'}）{rec}")
 
     return "\n".join(lines)
 
@@ -1305,6 +1337,8 @@ def patch_visit(visit_id: str, req: VisitPatchReq, user: dict = Depends(require_
     v = db.get_visit(visit_id)
     if not v or v.get("circle_id") != user["circle_id"]:
         raise HTTPException(404, "记录不存在")
+    if not _can_modify(v, user):
+        raise HTTPException(403, "只能改自己记的，圈主才能动别人的")
 
     fields: dict = {}
     for k in ("date", "meal_period", "mood_emoji", "feeling", "companions", "my_photos"):
@@ -1341,6 +1375,8 @@ def delete_visit_endpoint(visit_id: str, user: dict = Depends(require_writer)):
     v = db.get_visit(visit_id)
     if not v or v.get("circle_id") != user["circle_id"]:
         raise HTTPException(404, "记录不存在")
+    if not _can_modify(v, user):
+        raise HTTPException(403, "只能删自己记的，圈主才能动别人的")
     db.delete_visit(visit_id)
     _unlink_photos(v.get("my_photos") or "")  # 顺手清掉这条记录的图片文件，别留孤儿
     _invalidate_visit_caches(user["circle_id"], v.get("date", ""))
@@ -1356,6 +1392,8 @@ def patch_wish(wish_id: str, req: WishPatchReq, user: dict = Depends(require_wri
     w = db.get_wish(wish_id)
     if not w or w.get("circle_id") != user["circle_id"]:
         raise HTTPException(404, "记录不存在")
+    if not _can_modify(w, user):
+        raise HTTPException(403, "只能改自己记的，圈主才能动别人的")
     fields = {k: getattr(req, k) for k in ("source", "reason") if getattr(req, k) is not None}
     db.update_wish(wish_id, fields)
     _invalidate_wish_caches(user["circle_id"])
@@ -1367,6 +1405,8 @@ def delete_wish_endpoint(wish_id: str, user: dict = Depends(require_writer)):
     w = db.get_wish(wish_id)
     if not w or w.get("circle_id") != user["circle_id"]:
         raise HTTPException(404, "记录不存在")
+    if not _can_modify(w, user):
+        raise HTTPException(403, "只能删自己记的，圈主才能动别人的")
     db.delete_wish(wish_id)
     _invalidate_wish_caches(user["circle_id"])
     return {"ok": True}
