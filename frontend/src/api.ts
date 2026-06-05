@@ -174,14 +174,42 @@ export interface Stats {
   total_wishes_open: number
 }
 
-export const getPoints = () => api.get<Point[]>('/points').then(r => r.data)
-export const getRecent = (limit = 20) => api.get<Visit[]>('/recent', { params: { limit } }).then(r => r.data)
-export const getWishes = () => api.get<Wish[]>('/wishes').then(r => r.data)
+// /points 是全量数据，地图/列表/记一笔/我的四个屏都读它。加个短 TTL 缓存：
+// 秒级快速切 Tab 直接命中缓存、不重复打全量请求；任何写操作都会 invalidate，保证读到最新。
+let _pointsCache: { at: number; data: Point[] } | null = null
+let _pointsInflight: Promise<Point[]> | null = null
+const POINTS_TTL = 60_000
+
+export const getPoints = (): Promise<Point[]> => {
+  if (_pointsCache && Date.now() - _pointsCache.at < POINTS_TTL) {
+    return Promise.resolve(_pointsCache.data)
+  }
+  if (_pointsInflight) return _pointsInflight // 合并并发：多处同时取只打一次
+  _pointsInflight = api
+    .get<Point[]>('/points')
+    .then((r) => {
+      _pointsCache = { at: Date.now(), data: r.data }
+      _pointsInflight = null
+      return r.data
+    })
+    .catch((e) => {
+      _pointsInflight = null // 失败别缓存，下次重试
+      throw e
+    })
+  return _pointsInflight
+}
+
+/** 任何会改动 /points 的写操作后调用，让下次 getPoints 重新拉取 */
+export const invalidatePoints = () => {
+  _pointsCache = null
+  _pointsInflight = null
+}
+
 export const getStats = () => api.get<Stats>('/stats').then(r => r.data)
 
 // 只清空"我"记录的数据（同伴的保留）
 export const resetMine = () =>
-  api.post<{ ok: boolean; visits: number; wishes: number }>('/reset-mine').then(r => r.data)
+  api.post<{ ok: boolean; visits: number; wishes: number }>('/reset-mine').then(r => { invalidatePoints(); return r.data })
 
 // 导出本圈子全部数据（留底备份）
 export const exportData = () => api.get<any>('/export').then(r => r.data)
@@ -204,20 +232,20 @@ export const upsertStore = (poi: any) =>
   api.post('/store', { poi }).then(r => r.data)
 
 export const addVisit = (data: any) =>
-  api.post('/visit', data).then(r => r.data)
+  api.post('/visit', data).then(r => { invalidatePoints(); return r.data })
 
 export const addWish = (data: any) =>
-  api.post('/wish', data).then(r => r.data)
+  api.post('/wish', data).then(r => { invalidatePoints(); return r.data })
 
-// 编辑 / 删除单条记录
+// 编辑 / 删除单条记录（写完都让 points 缓存失效，下次读最新）
 export const updateVisit = (visitId: string, data: any) =>
-  api.patch(`/visit/${visitId}`, data).then(r => r.data)
+  api.patch(`/visit/${visitId}`, data).then(r => { invalidatePoints(); return r.data })
 export const deleteVisit = (visitId: string) =>
-  api.delete(`/visit/${visitId}`).then(r => r.data)
+  api.delete(`/visit/${visitId}`).then(r => { invalidatePoints(); return r.data })
 export const updateWish = (wishId: string, data: any) =>
-  api.patch(`/wish/${wishId}`, data).then(r => r.data)
+  api.patch(`/wish/${wishId}`, data).then(r => { invalidatePoints(); return r.data })
 export const deleteWish = (wishId: string) =>
-  api.delete(`/wish/${wishId}`).then(r => r.data)
+  api.delete(`/wish/${wishId}`).then(r => { invalidatePoints(); return r.data })
 
 export interface MonthlyStory {
   story: string

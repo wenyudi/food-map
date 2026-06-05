@@ -7,8 +7,6 @@
 
 接口：
   GET  /api/points         地图所有点位（stores + visits + wishes 合并）
-  GET  /api/recent         最近 10 次访问
-  GET  /api/wishes         未兑现的种草
   GET  /api/stats          总数统计
   POST /api/search         高德搜 POI（body: {keywords, region, location?}）
   POST /api/parse          DeepSeek 解析一句话（body: {text}）
@@ -63,9 +61,38 @@ PHOTOS_DIR = Path(os.environ.get("PHOTOS_DIR") or (Path(__file__).parent / "data
 PHOTOS_DIR.mkdir(parents=True, exist_ok=True)
 app.mount("/photos", StaticFiles(directory=PHOTOS_DIR), name="photos")
 
+MAX_UPLOAD_BYTES = 8 * 1024 * 1024  # 8MB 兜底；前端已压到几百 KB，这里只防恶意大图爆内存
+
+
+def _unlink_photos(my_photos: str) -> None:
+    """删掉 my_photos 里引用的本地图片文件。只清我们自己托管的 /photos/ 图、按 basename
+    取（杜绝路径穿越）、文件不存在就跳过——给删记录/编辑换图收尾，避免磁盘只增不减。"""
+    if not my_photos:
+        return
+    for raw in my_photos.split(","):
+        url = raw.strip()
+        if not url.startswith("/photos/"):
+            continue  # 外链或空串不动
+        name = Path(url).name
+        if not name:
+            continue
+        try:
+            (PHOTOS_DIR / name).unlink(missing_ok=True)
+        except OSError:
+            pass  # 删不掉也别让请求失败
+
+# 生产是同源（后端直接 serve dist），不依赖 CORS；CORS 只为本地/局域网开发放行。
+# 需要额外放行的源用环境变量 CORS_ORIGINS（逗号分隔）覆盖。
+_cors_env = os.environ.get("CORS_ORIGINS", "").strip()
+_cors_origins = [o.strip() for o in _cors_env.split(",") if o.strip()] or [
+    "http://localhost:5173",
+    "http://127.0.0.1:5173",
+]
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=_cors_origins,
+    # localhost / 局域网网段 + 任意端口（手机连 WiFi 跑 vite dev 用）
+    allow_origin_regex=r"^http://(localhost|127\.0\.0\.1|192\.168\.\d{1,3}\.\d{1,3}|10\.\d{1,3}\.\d{1,3}\.\d{1,3}):\d+$",
     allow_methods=["*"],
     allow_headers=["*"],
 )
@@ -314,16 +341,6 @@ def get_points(user: dict = Depends(current_user)):
     return points
 
 
-@app.get("/api/recent")
-def get_recent(limit: int = 10, user: dict = Depends(current_user)):
-    return db.list_recent_visits(limit, user["circle_id"])
-
-
-@app.get("/api/wishes")
-def get_wishes(user: dict = Depends(current_user)):
-    return db.list_open_wishes(user["circle_id"])
-
-
 @app.get("/api/stats")
 def get_stats(user: dict = Depends(current_user)):
     return db.stats(user["circle_id"])
@@ -333,6 +350,8 @@ def get_stats(user: dict = Depends(current_user)):
 def reset_mine(user: dict = Depends(current_user)):
     """清空"我"在本圈子记的所有记录（吃过 + 想去），同伴的保留。"""
     res = db.reset_my_records(user["username"], user["circle_id"])
+    for ph in res.pop("photos", []):  # 清空记录时一并删掉这些图片文件
+        _unlink_photos(ph)
     cid = user["circle_id"]
     db.ai_cache_delete_prefix(f"story:{cid}:")     # 回忆缓存失效
     db.ai_cache_delete_prefix(f"askctx:{cid}:")    # 问答上下文失效
@@ -978,8 +997,21 @@ async def post_upload(file: UploadFile = File(...), _: dict = Depends(current_us
         raise HTTPException(400, f"不支持的格式: {suffix}")
     fname = f"{uuid.uuid4().hex[:12]}{suffix}"
     dest = PHOTOS_DIR / fname
-    with dest.open("wb") as f:
-        f.write(await file.read())
+    # 分块写入并卡上限：任何时刻只在内存里留 1MB，超限即停、删掉半截文件
+    size = 0
+    try:
+        with dest.open("wb") as f:
+            while True:
+                chunk = await file.read(1024 * 1024)
+                if not chunk:
+                    break
+                size += len(chunk)
+                if size > MAX_UPLOAD_BYTES:
+                    raise HTTPException(413, f"图片太大了（>{MAX_UPLOAD_BYTES // (1024 * 1024)}MB），换张小点的吧")
+                f.write(chunk)
+    except HTTPException:
+        dest.unlink(missing_ok=True)
+        raise
     return {"url": f"/photos/{fname}"}
 
 
@@ -1043,6 +1075,11 @@ def patch_visit(visit_id: str, req: VisitPatchReq, user: dict = Depends(current_
     fields["value_label"] = db.compute_value_label(per_person, v.get("amap_cost_ref") or "")
 
     db.update_visit(visit_id, fields)
+    # 编辑里被删掉/换掉的旧图，清掉对应文件，别留孤儿
+    if req.my_photos is not None:
+        old = {p.strip() for p in (v.get("my_photos") or "").split(",") if p.strip()}
+        new = {p.strip() for p in req.my_photos.split(",") if p.strip()}
+        _unlink_photos(",".join(old - new))
     _invalidate_visit_caches(user["circle_id"], v.get("date", ""))                      # 原月份
     _invalidate_visit_caches(user["circle_id"], fields.get("date", v.get("date", "")))  # 新月份（可能跨月）
     return {"ok": True, "per_person": fields["per_person"], "value_label": fields["value_label"]}
@@ -1054,6 +1091,7 @@ def delete_visit_endpoint(visit_id: str, user: dict = Depends(current_user)):
     if not v or v.get("circle_id") != user["circle_id"]:
         raise HTTPException(404, "记录不存在")
     db.delete_visit(visit_id)
+    _unlink_photos(v.get("my_photos") or "")  # 顺手清掉这条记录的图片文件，别留孤儿
     _invalidate_visit_caches(user["circle_id"], v.get("date", ""))
     # 这条访问当初兑现过的种草 → 退回「想去」，想去清单变了
     if v.get("wish_id"):

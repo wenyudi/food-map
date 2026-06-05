@@ -333,10 +333,12 @@ def reset_my_records(username: str, circle_id: Optional[int] = None) -> dict:
     """清空某用户在本圈子记的所有 visits + wishes（同伴的保留）。
     若他的访问曾兑现过种草（可能是同伴的），先把那些种草退回「想去」。"""
     with _conn() as c:
-        my_visit_ids = [r["visit_id"] for r in c.execute(
-            "SELECT visit_id FROM visits WHERE recorded_by=? AND circle_id=?",
+        rows = c.execute(
+            "SELECT visit_id, my_photos FROM visits WHERE recorded_by=? AND circle_id=?",
             (username, circle_id),
-        ).fetchall()]
+        ).fetchall()
+        my_visit_ids = [r["visit_id"] for r in rows]
+        my_photos = [r["my_photos"] for r in rows if r["my_photos"]]  # 交给上层清文件
         if my_visit_ids:
             qs = ",".join("?" * len(my_visit_ids))
             c.execute(
@@ -348,7 +350,7 @@ def reset_my_records(username: str, circle_id: Optional[int] = None) -> dict:
                       (username, circle_id)).rowcount
         w = c.execute("DELETE FROM wishes WHERE recorded_by=? AND circle_id=?",
                       (username, circle_id)).rowcount
-        return {"visits": v, "wishes": w}
+        return {"visits": v, "wishes": w, "photos": my_photos}
 
 
 # ---------- 单条 visit / wish 的增改删（编辑/删除记录用） ----------
