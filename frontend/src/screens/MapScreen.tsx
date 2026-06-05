@@ -10,9 +10,8 @@ import type { Point, Stats, AreaTitle } from '../api'
 import { buildAreas } from '../lib/areas'
 import type { Area } from '../lib/areas'
 import { getMyLocation } from '../lib/geo'
-import { cleanTag } from '../lib/format'
 import { useCountUp } from '../lib/useCountUp'
-import { TimelineRow, buildTimeline, getStatus, STATUS_COLOR } from '../components/StoreTimeline'
+import { TimelineRow, buildTimeline, getStatus, STATUS_COLOR, storeCuisine } from '../components/StoreTimeline'
 
 const esc = (s: string) =>
   s.replace(/[&<>"]/g, (c) => (c === '&' ? '&amp;' : c === '<' ? '&lt;' : c === '>' ? '&gt;' : '&quot;'))
@@ -350,7 +349,7 @@ function PopupContent({ point: p }: { point: Point }) {
       {/* 头部：店名 + meta */}
       <div className="font-headline text-lg leading-tight">{p.name}</div>
       <div className="text-xs font-bold text-on-surface-variant mt-0.5">
-        {[p.business_area, cleanTag(p.tag), p.rating && `⭐${p.rating}`, p.cost && `¥${p.cost}/人`].filter(Boolean).join(' · ')}
+        {[p.business_area, storeCuisine(p), p.rating && `⭐${p.rating}`, p.cost && `¥${p.cost}/人`].filter(Boolean).join(' · ')}
       </div>
       {/* 店铺照片：最多 3 张高德图，完整展示 */}
       {photos.length > 0 && (

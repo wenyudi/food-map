@@ -1,4 +1,5 @@
 import type { Point, Wish, Visit } from '../api'
+import { cleanTag } from '../lib/format'
 
 /** 时间线事件：种草(wish) 或 吃过(visit)，按日期排序 */
 export type TimelineEvent = { type: 'wish'; date: string; data: Wish } | { type: 'visit'; date: string; data: Visit }
@@ -48,6 +49,18 @@ export const STATUS_COLOR: Record<StoreStatus['key'], string> = {
   repeat: '#ffc857',
   fulfilled: '#4CAF50',
   direct: '#ffffff',
+}
+
+/** 店铺代表菜系：AI cuisine 优先（最近的 visit > 任意 visit > wish），回退高德 tag 第一段 */
+export function storeCuisine(p: Point): string {
+  const visits = p.visits || []
+  for (let i = visits.length - 1; i >= 0; i--) {
+    const c = (visits[i].cuisine || '').trim()
+    if (c) return c
+  }
+  const wc = (p.wish?.cuisine || '').trim()
+  if (wc) return wc
+  return cleanTag(p.tag, 1)
 }
 
 /**

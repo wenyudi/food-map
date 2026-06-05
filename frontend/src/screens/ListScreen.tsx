@@ -8,7 +8,7 @@ import EditRecordSheet from './EditRecordSheet'
 import { getPoints } from '../api'
 import type { Point } from '../api'
 import { cleanTag } from '../lib/format'
-import { TimelineRow, buildTimeline, getStatus, STATUS_TONE } from '../components/StoreTimeline'
+import { TimelineRow, buildTimeline, getStatus, STATUS_TONE, storeCuisine } from '../components/StoreTimeline'
 import type { StoreStatus } from '../components/StoreTimeline'
 
 type Mood = '😋' | '🤤' | '😂' | '😐' | '🤮'
@@ -114,7 +114,7 @@ export default function ListScreen({ refreshKey, focusPoiId, onPickStore, onJump
       STATUS_OPTS.forEach((s) => {
         if (matchStatus(p, s.key)) statusCount[s.key]++
       })
-      const t = cleanTag(p.tag, 1)
+      const t = storeCuisine(p)
       if (t) cuisineCount[t] = (cuisineCount[t] || 0) + 1
     })
     const cuisineList = Object.entries(cuisineCount)
@@ -125,7 +125,7 @@ export default function ListScreen({ refreshKey, focusPoiId, onPickStore, onJump
     let result = points.filter((p) => {
       if (filters.moods.length && !filters.moods.some((m) => p.visits.some((v) => v.mood_emoji === m))) return false
       if (filters.status.length && !filters.status.some((s) => matchStatus(p, s))) return false
-      if (filters.cuisines.length && !filters.cuisines.includes(cleanTag(p.tag, 1))) return false
+      if (filters.cuisines.length && !filters.cuisines.includes(storeCuisine(p))) return false
       return true
     })
     const q = query.trim().toLowerCase()
@@ -360,7 +360,7 @@ function StoreCard({
             {isManual && <span className="ml-1 text-[10px] font-bold text-on-surface-variant align-middle">手动</span>}
           </div>
           <div className="text-xs font-bold text-on-surface-variant">
-            {[point.business_area, cleanTag(point.tag), point.rating && `⭐${point.rating}`, point.cost && `¥${point.cost}/人`]
+            {[point.business_area, storeCuisine(point), point.rating && `⭐${point.rating}`, point.cost && `¥${point.cost}/人`]
               .filter(Boolean)
               .join(' · ')}
           </div>

@@ -122,6 +122,7 @@ export interface Wish {
   lng?: number
   lat?: number
   recorded_by?: string
+  cuisine?: string
 }
 
 export interface Point {
