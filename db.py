@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import os
 import sqlite3
+import threading
 import uuid
 from contextlib import contextmanager
 from dataclasses import dataclass, field, asdict
@@ -155,6 +156,12 @@ CREATE TABLE IF NOT EXISTS invite_codes (
     used_at TEXT
 );
 
+CREATE TABLE IF NOT EXISTS ai_cache (
+    key TEXT PRIMARY KEY,
+    value TEXT,
+    created_at TEXT
+);
+
 CREATE INDEX IF NOT EXISTS idx_visits_poi ON visits(poi_id);
 CREATE INDEX IF NOT EXISTS idx_wishes_poi_status ON wishes(poi_id, status);
 CREATE INDEX IF NOT EXISTS idx_users_username ON users(username);
@@ -202,18 +209,46 @@ def _migrate(c: sqlite3.Connection) -> None:
     c.execute("CREATE INDEX IF NOT EXISTS idx_wishes_circle ON wishes(circle_id)")
 
 
+_init_lock = threading.Lock()
+_initialized = False
+
+
+def _ensure_initialized(c: sqlite3.Connection) -> None:
+    """建表 + 迁移 + 开 WAL —— 每进程只跑一次（旧实现每次查询都重跑，纯属浪费）。
+    用双重检查锁守住：server 启动会显式 init_db()，CLI/脚本则首次连库时懒触发。"""
+    global _initialized
+    if _initialized:
+        return
+    with _init_lock:
+        if _initialized:
+            return
+        c.executescript(SCHEMA)
+        _migrate(c)
+        try:
+            c.execute("PRAGMA journal_mode=WAL")  # 读写不互锁，手机端并发更稳
+        except sqlite3.DatabaseError:
+            pass  # 个别文件系统不支持 WAL，退回默认 journal 即可
+        c.commit()
+        _initialized = True
+
+
 @contextmanager
 def _conn():
     DATA_FILE.parent.mkdir(parents=True, exist_ok=True)
     c = sqlite3.connect(DATA_FILE)
     c.row_factory = sqlite3.Row
-    c.executescript(SCHEMA)
-    _migrate(c)
+    _ensure_initialized(c)
     try:
         yield c
         c.commit()
     finally:
         c.close()
+
+
+def init_db() -> None:
+    """启动时调用一次（FastAPI lifespan）。也会被首次 _conn() 懒触发。"""
+    with _conn():
+        pass
 
 
 def _row_to_dict(row) -> dict:
@@ -232,6 +267,13 @@ def upsert_store(s: Store) -> None:
             f"ON CONFLICT(poi_id) DO UPDATE SET {updates}",
             asdict(s),
         )
+
+
+def get_store(poi_id: str) -> Optional[dict]:
+    """按 poi 取单行店铺（替代「load_all 全表扫一行」的浪费写法）。"""
+    with _conn() as c:
+        row = c.execute("SELECT * FROM stores WHERE poi_id=?", (poi_id,)).fetchone()
+        return _row_to_dict(row) if row else None
 
 
 def add_visit(v: Visit) -> None:
@@ -360,20 +402,26 @@ def delete_wish(wish_id: str) -> None:
 
 def load_all(circle_id: Optional[int] = None) -> dict:
     """stores 是全局 POI 缓存（公开数据，可共享）；visits / wishes 按圈子隔离。
-    circle_id 为 None 时不过滤（仅内部/迁移用，不要直接喂给接口）。"""
+    circle_id 为 None 时不过滤（仅内部/迁移用，不要直接喂给接口）。
+    传了 circle_id 时，stores 只取本圈子真正用到的 poi——不再把全局店表整张端给每个圈子。"""
     with _conn() as c:
-        stores = [_row_to_dict(r) for r in c.execute("SELECT * FROM stores")]
         if circle_id is None:
-            vrows = c.execute("SELECT * FROM visits ORDER BY date")
-            wrows = c.execute("SELECT * FROM wishes")
+            visits = [_row_to_dict(r) for r in c.execute("SELECT * FROM visits ORDER BY date")]
+            wishes = [_row_to_dict(r) for r in c.execute("SELECT * FROM wishes")]
+            stores = [_row_to_dict(r) for r in c.execute("SELECT * FROM stores")]
         else:
-            vrows = c.execute("SELECT * FROM visits WHERE circle_id=? ORDER BY date", (circle_id,))
-            wrows = c.execute("SELECT * FROM wishes WHERE circle_id=?", (circle_id,))
-        return {
-            "stores": stores,
-            "visits": [_row_to_dict(r) for r in vrows],
-            "wishes": [_row_to_dict(r) for r in wrows],
-        }
+            visits = [_row_to_dict(r) for r in
+                      c.execute("SELECT * FROM visits WHERE circle_id=? ORDER BY date", (circle_id,))]
+            wishes = [_row_to_dict(r) for r in
+                      c.execute("SELECT * FROM wishes WHERE circle_id=?", (circle_id,))]
+            poi_ids = {v["poi_id"] for v in visits} | {w["poi_id"] for w in wishes}
+            if poi_ids:
+                qs = ",".join("?" * len(poi_ids))
+                stores = [_row_to_dict(r) for r in
+                          c.execute(f"SELECT * FROM stores WHERE poi_id IN ({qs})", tuple(poi_ids))]
+            else:
+                stores = []
+        return {"stores": stores, "visits": visits, "wishes": wishes}
 
 
 def list_recent_visits(limit: int = 10, circle_id: Optional[int] = None) -> list[dict]:
@@ -429,6 +477,34 @@ def stats(circle_id: Optional[int] = None) -> dict:
                 "SELECT COUNT(*) c FROM wishes WHERE status='want' AND circle_id=?", (circle_id,)
             ).fetchone()["c"],
         }
+
+
+# ---------- AI 结果缓存（落库，跨部署存活） ----------
+
+def ai_cache_get(key: str) -> Optional[str]:
+    with _conn() as c:
+        row = c.execute("SELECT value FROM ai_cache WHERE key=?", (key,)).fetchone()
+        return row["value"] if row else None
+
+
+def ai_cache_set(key: str, value: str) -> None:
+    with _conn() as c:
+        c.execute(
+            "INSERT INTO ai_cache (key, value, created_at) VALUES (?, ?, ?) "
+            "ON CONFLICT(key) DO UPDATE SET value=excluded.value, created_at=excluded.created_at",
+            (key, value, datetime.now().isoformat(timespec="seconds")),
+        )
+
+
+def ai_cache_delete(key: str) -> None:
+    with _conn() as c:
+        c.execute("DELETE FROM ai_cache WHERE key=?", (key,))
+
+
+def ai_cache_delete_prefix(prefix: str) -> None:
+    """按前缀批量失效（如 story:3: 清掉某圈子所有月份回忆）。前缀不含 % / _，可直接 LIKE。"""
+    with _conn() as c:
+        c.execute("DELETE FROM ai_cache WHERE key LIKE ?", (prefix + "%",))
 
 
 # ---------- 圈子 CRUD ----------

@@ -5,9 +5,10 @@ import Icon from '../ui/Icon'
 import StatTile from '../ui/StatTile'
 import SuggestSheet from './TodaySheet'
 import AreaSheet from './AreaSheet'
-import { getPoints, getStats, getAreaTitles } from '../api'
+import { getPoints, getAreaTitles } from '../api'
 import type { Point, Stats, AreaTitle } from '../api'
 import { buildAreas } from '../lib/areas'
+import { deriveStats } from '../lib/stats'
 import type { Area } from '../lib/areas'
 import { getMyLocation } from '../lib/geo'
 import { useCountUp } from '../lib/useCountUp'
@@ -41,10 +42,10 @@ export default function MapScreen({ refreshKey, focusPoiId, onConsumeFocus, onJu
 
   useEffect(() => {
     setLoading(true)
-    Promise.all([getPoints(), getStats()])
-      .then(([p, s]) => {
+    getPoints()
+      .then((p) => {
         setPoints(p)
-        setStats(s)
+        setStats(deriveStats(p))  // 直接从 points 派生，省掉 /stats 往返
       })
       .finally(() => setLoading(false))
   }, [refreshKey])

@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 from datetime import datetime, timedelta
 
 import requests
@@ -208,6 +209,74 @@ def suggest_today(brief: str, timeout: int = 30) -> dict:
     return json.loads(data["choices"][0]["message"]["content"])
 
 
+_MOODS = {"😋", "🤤", "😂", "😐", "🤮"}
+
+
+def _s_or_none(v):
+    if v is None:
+        return None
+    s = str(v).strip()
+    return s or None
+
+
+def _list_of(v):
+    """数组容错：已是数组就清洗；模型偶尔写成「辣,麻」串也拆开；其余给 []。"""
+    if isinstance(v, list):
+        return [str(x).strip() for x in v if str(x).strip()]
+    if isinstance(v, str) and v.strip():
+        return [t.strip() for t in re.split(r"[,，、]", v) if t.strip()]
+    return []
+
+
+def _num_or_none(v):
+    if v is None or v == "":
+        return None
+    try:
+        return float(v)
+    except (TypeError, ValueError):
+        return None
+
+
+def _bool_or_none(v):
+    if isinstance(v, bool):
+        return v
+    if v is None:
+        return None
+    s = str(v).strip().lower()
+    if s in ("true", "1", "yes", "是", "想再来", "想"):
+        return True
+    if s in ("false", "0", "no", "否", "不去"):
+        return False
+    return None
+
+
+def _normalize_parsed(d) -> dict:
+    """把模型输出强制成前端能直接吃的形状：类型对齐 + 补默认值 + 枚举兜底。
+    response_format=json_object 已保证是 JSON，这里再防字段缺失 / 类型跑偏。"""
+    d = d if isinstance(d, dict) else {}
+    amount = _num_or_none(d.get("amount"))
+    people = _num_or_none(d.get("people_count"))
+    mood = _s_or_none(d.get("mood_emoji"))
+    return {
+        "intent": "wish" if str(d.get("intent", "")).strip() == "wish" else "visit",
+        "store_hint": _s_or_none(d.get("store_hint")) or "",
+        "date": _s_or_none(d.get("date")),
+        "meal_period": _s_or_none(d.get("meal_period")),
+        "companions": _s_or_none(d.get("companions")),
+        "amount": amount,
+        "people_count": int(people) if people is not None else None,
+        "feeling": _s_or_none(d.get("feeling")),
+        "mood_emoji": mood if mood in _MOODS else None,
+        "want_again": _bool_or_none(d.get("want_again")),
+        "source": _s_or_none(d.get("source")),
+        "reason": _s_or_none(d.get("reason")),
+        "cuisine": _s_or_none(d.get("cuisine")),
+        "flavors": _list_of(d.get("flavors")),
+        "dishes": _list_of(d.get("dishes")),
+        "occasion": _s_or_none(d.get("occasion")),
+    }
+
+
 def parse_one_liner(text: str, timeout: int = 30) -> dict:
     now = datetime.now()
     today = now.strftime("%Y-%m-%d")
@@ -258,4 +327,4 @@ def parse_one_liner(text: str, timeout: int = 30) -> dict:
     if "error" in data:
         raise RuntimeError(f"DeepSeek 报错：{data['error']}")
     content = data["choices"][0]["message"]["content"]
-    return json.loads(content)
+    return _normalize_parsed(json.loads(content))

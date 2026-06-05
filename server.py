@@ -18,6 +18,7 @@
 """
 from __future__ import annotations
 
+import json
 import os
 import secrets
 import socket
@@ -45,7 +46,8 @@ import db
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    """启动时确保有 admin 账号。"""
+    """启动时建表/迁移只跑一次 + 确保有 admin 账号。"""
+    db.init_db()  # 建表 + 迁移 + WAL，集中在启动跑一次（不再每次查询都跑）
     admin_user = os.environ.get("INITIAL_ADMIN_USERNAME")
     admin_pass = os.environ.get("INITIAL_ADMIN_PASSWORD")
     if admin_user and admin_pass and not db.get_user(admin_user):
@@ -331,8 +333,10 @@ def get_stats(user: dict = Depends(current_user)):
 def reset_mine(user: dict = Depends(current_user)):
     """清空"我"在本圈子记的所有记录（吃过 + 想去），同伴的保留。"""
     res = db.reset_my_records(user["username"], user["circle_id"])
-    for k in [k for k in _story_cache if k.startswith(f"{user['circle_id']}:")]:
-        _story_cache.pop(k, None)   # 当月回忆缓存失效
+    cid = user["circle_id"]
+    db.ai_cache_delete_prefix(f"story:{cid}:")     # 回忆缓存失效
+    db.ai_cache_delete_prefix(f"askctx:{cid}:")    # 问答上下文失效
+    db.ai_cache_delete(f"areatitles:{cid}")        # 片区称号失效（片区可能整片清空）
     return {"ok": True, **res}
 
 
@@ -410,7 +414,7 @@ def _compute_milestone(poi_id: str, circle_id: int) -> Optional[dict]:
 
 @app.post("/api/visit")
 def post_visit(req: VisitReq, user: dict = Depends(current_user)):
-    store_row = next((s for s in db.load_all()["stores"] if s["poi_id"] == req.poi_id), None)
+    store_row = db.get_store(req.poi_id)
     if not store_row:
         raise HTTPException(404, "POI 不在 stores 表里——先调 /api/store 入库")
 
@@ -443,7 +447,9 @@ def post_visit(req: VisitReq, user: dict = Depends(current_user)):
     db.add_visit(visit)
     if wish_id:
         db.mark_wish_visited(wish_id, visit.visit_id)
-    _invalidate_story_cache_for(req.date, user["circle_id"])
+    _invalidate_visit_caches(user["circle_id"], req.date)
+    if wish_id:
+        _invalidate_wish_caches(user["circle_id"])  # 兑现种草 → 想去清单变了
 
     return {
         "visit_id": visit.visit_id,
@@ -454,22 +460,27 @@ def post_visit(req: VisitReq, user: dict = Depends(current_user)):
     }
 
 
-# ---------- 月度回忆录（in-memory cache） ----------
-
-_story_cache: dict[str, str] = {}  # key: f"{circle_id}:{yyyy-mm}"
-_area_titles_cache: dict[int, dict] = {}  # circle_id → {片区名: {title, blurb, tier}}
-# 称号只在「吃过家数」跨过里程碑(1/3/6/10)时才重生成，平时冻结复用——
-# 所以不在写入处清缓存，由 /api/area-titles 自己比对档位决定哪些要重取。
+# ---------- AI 结果缓存（落库，跨部署存活；见 db.ai_cache_*） ----------
+# 旧实现用模块级 dict，进程一重启（每次部署）就全没 → 频繁部署下基本常冷。
+# 现在统一存到 ai_cache 表：回忆录 story:{圈子}:{月}、片区称号 areatitles:{圈子}、
+# 问答上下文 askctx:{圈子}:{月}。写入数据时按需失效。
 
 
 def _story_key(circle_id: int, year_month: str) -> str:
-    return f"{circle_id}:{year_month}"
+    return f"story:{circle_id}:{year_month}"
 
 
-def _invalidate_story_cache_for(date_str: str, circle_id: int) -> None:
-    """visit/wish 写入时调用，按 圈子+yyyy-mm 失效缓存。"""
+def _invalidate_visit_caches(circle_id: int, date_str: str) -> None:
+    """visit 写入：失效对应月份的回忆 + 该圈子的问答上下文。"""
     if date_str and len(date_str) >= 7:
-        _story_cache.pop(_story_key(circle_id, date_str[:7]), None)
+        db.ai_cache_delete(_story_key(circle_id, date_str[:7]))
+    db.ai_cache_delete_prefix(f"askctx:{circle_id}:")
+
+
+def _invalidate_wish_caches(circle_id: int) -> None:
+    """wish 写入：想去清单影响所有月份回忆的展望段 + 问答上下文 → 整圈失效。"""
+    db.ai_cache_delete_prefix(f"story:{circle_id}:")
+    db.ai_cache_delete_prefix(f"askctx:{circle_id}:")
 
 
 def _build_story_brief(year_month: str, circle_id: int) -> Optional[str]:
@@ -537,8 +548,10 @@ def get_monthly_story(year_month: Optional[str] = None, regenerate: bool = False
     circle_id = user["circle_id"]
     key = _story_key(circle_id, year_month)
 
-    if not regenerate and key in _story_cache:
-        return {"story": _story_cache[key], "cached": True, "year_month": year_month}
+    if not regenerate:
+        cached = db.ai_cache_get(key)
+        if cached is not None:
+            return {"story": cached, "cached": True, "year_month": year_month}
 
     brief = _build_story_brief(year_month, circle_id)
     if brief is None:
@@ -549,7 +562,7 @@ def get_monthly_story(year_month: Optional[str] = None, regenerate: bool = False
     except Exception as e:
         raise HTTPException(500, f"AI 生成失败：{e}")
 
-    _story_cache[key] = story
+    db.ai_cache_set(key, story)
     return {"story": story, "cached": False, "year_month": year_month}
 
 
@@ -631,13 +644,19 @@ def get_area_titles(regenerate: bool = False, user: dict = Depends(current_user)
     regenerate=True 时全部重摇。"""
     cid = user["circle_id"]
     agg = _aggregate_areas(cid)
-    cache = _area_titles_cache.setdefault(cid, {})
+    ckey = f"areatitles:{cid}"
+    raw_cache = db.ai_cache_get(ckey)
+    cache: dict = json.loads(raw_cache) if raw_cache else {}
+    dirty = False
 
     # 清掉已被删空 / 不存在的片区缓存
     for stale in [k for k in cache if k not in agg]:
         cache.pop(stale, None)
+        dirty = True
 
     if not agg:
+        if dirty:
+            db.ai_cache_set(ckey, json.dumps(cache, ensure_ascii=False))
         return {"areas": {}, "empty": True}
 
     # 找出需要（重新）取称号的片区：跨了档位、还没有、或手动重摇
@@ -663,7 +682,10 @@ def get_area_titles(regenerate: bool = False, user: dict = Depends(current_user)
                     "blurb": (item.get("blurb") or "").strip(),
                     "tier": need[nm]["tier"],
                 }
+                dirty = True
 
+    if dirty:
+        db.ai_cache_set(ckey, json.dumps(cache, ensure_ascii=False))
     out = {k: {"title": v["title"], "blurb": v["blurb"]} for k, v in cache.items() if k in agg}
     return {"areas": out, "cached": not need}
 
@@ -930,7 +952,15 @@ def post_ask(req: AskReq, user: dict = Depends(current_user)):
     q = (req.q or "").strip()
     if not q:
         raise HTTPException(400, "问点啥呢？")
-    ctx = _build_ask_context(user["circle_id"])
+    cid = user["circle_id"]
+    # 上下文按 圈子+月份 缓存（写入时失效）：省去每次重建，且让发给 AI 的前缀逐字稳定，
+    # 连问几句时更易命中 DeepSeek 的前缀缓存。
+    ckey = f"askctx:{cid}:{datetime.now().strftime('%Y-%m')}"
+    ctx = db.ai_cache_get(ckey)
+    if ctx is None:
+        ctx = _build_ask_context(cid)
+        if ctx:
+            db.ai_cache_set(ckey, ctx)
     if not ctx:
         return {"answer": "你还没记录呢，先去记几笔，我才好回答 😋"}
     try:
@@ -964,6 +994,7 @@ def post_wish(req: WishReq, user: dict = Depends(current_user)):
         circle_id=user["circle_id"],
     )
     db.add_wish(wish)
+    _invalidate_wish_caches(user["circle_id"])
     return {"wish_id": wish.wish_id}
 
 
@@ -1012,7 +1043,8 @@ def patch_visit(visit_id: str, req: VisitPatchReq, user: dict = Depends(current_
     fields["value_label"] = db.compute_value_label(per_person, v.get("amap_cost_ref") or "")
 
     db.update_visit(visit_id, fields)
-    _invalidate_story_cache_for(fields.get("date", v.get("date", "")), user["circle_id"])
+    _invalidate_visit_caches(user["circle_id"], v.get("date", ""))                      # 原月份
+    _invalidate_visit_caches(user["circle_id"], fields.get("date", v.get("date", "")))  # 新月份（可能跨月）
     return {"ok": True, "per_person": fields["per_person"], "value_label": fields["value_label"]}
 
 
@@ -1022,10 +1054,11 @@ def delete_visit_endpoint(visit_id: str, user: dict = Depends(current_user)):
     if not v or v.get("circle_id") != user["circle_id"]:
         raise HTTPException(404, "记录不存在")
     db.delete_visit(visit_id)
-    # 这条访问当初兑现过的种草 → 退回「想去」
+    _invalidate_visit_caches(user["circle_id"], v.get("date", ""))
+    # 这条访问当初兑现过的种草 → 退回「想去」，想去清单变了
     if v.get("wish_id"):
         db.revert_wish_to_want(v["wish_id"])
-    _invalidate_story_cache_for(v.get("date", ""), user["circle_id"])
+        _invalidate_wish_caches(user["circle_id"])
     return {"ok": True}
 
 
@@ -1036,6 +1069,7 @@ def patch_wish(wish_id: str, req: WishPatchReq, user: dict = Depends(current_use
         raise HTTPException(404, "记录不存在")
     fields = {k: getattr(req, k) for k in ("source", "reason") if getattr(req, k) is not None}
     db.update_wish(wish_id, fields)
+    _invalidate_wish_caches(user["circle_id"])
     return {"ok": True}
 
 
@@ -1045,6 +1079,7 @@ def delete_wish_endpoint(wish_id: str, user: dict = Depends(current_user)):
     if not w or w.get("circle_id") != user["circle_id"]:
         raise HTTPException(404, "记录不存在")
     db.delete_wish(wish_id)
+    _invalidate_wish_caches(user["circle_id"])
     return {"ok": True}
 
 
