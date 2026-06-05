@@ -655,7 +655,6 @@ export default function AddScreen({ onSubmitted }: AddScreenProps) {
               value={companions}
               onChange={(e) => setCompanions(e.target.value)}
               placeholder="比如：饼饼 / 同事 / 一个人"
-              autoFocus
               className={INPUT}
             />
           </Field>
