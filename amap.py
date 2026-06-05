@@ -11,7 +11,7 @@ from typing import Optional
 
 import requests
 
-from storage import Store
+from db import Store
 
 AMAP_KEY = os.environ.get("AMAP_KEY", "")
 

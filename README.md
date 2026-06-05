@@ -60,12 +60,3 @@ npm run dev                # http://localhost:5173
 ```bash
 git pull && docker compose up -d --build
 ```
-
-## 命令行版（早期 B 方案，仍可用）
-
-```bash
-python cli.py say "昨晚和饼饼去格特士吃了200"
-python cli.py wish
-python cli.py map
-python cli.py ls
-```
