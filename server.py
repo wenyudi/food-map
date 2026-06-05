@@ -17,6 +17,7 @@
 from __future__ import annotations
 
 import json
+import logging
 import os
 import secrets
 import socket
@@ -56,6 +57,7 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(title="吃了么 API", lifespan=lifespan)
+logger = logging.getLogger("foodmap")
 
 PHOTOS_DIR = Path(os.environ.get("PHOTOS_DIR") or (Path(__file__).parent / "data" / "photos"))
 PHOTOS_DIR.mkdir(parents=True, exist_ok=True)
@@ -399,7 +401,8 @@ def post_parse(req: ParseReq, _: dict = Depends(current_user)):
     try:
         return ai.parse_one_liner(req.text)
     except Exception as e:
-        raise HTTPException(500, f"AI 解析失败：{e}")
+        logger.warning("parse 失败: %s", e)
+        raise HTTPException(500, "AI 没认出来，换句话再说说？😅")
 
 
 @app.post("/api/store")
@@ -515,20 +518,33 @@ def _build_story_brief(year_month: str, circle_id: int) -> Optional[str]:
     # 按时间排序
     month_visits.sort(key=lambda v: (v.get("date") or "", v.get("created_at") or ""))
 
-    # 按 poi 聚合检测复访
+    # 复访统计基于全量当月，再截断明细（与其他 context 一致，防极端月份 token 爆）
     visit_count_by_poi: dict[str, int] = {}
     for v in month_visits:
         visit_count_by_poi[v["poi_id"]] = visit_count_by_poi.get(v["poi_id"], 0) + 1
+    month_visits = month_visits[:50]
 
     lines = [f"# {year_month} 本月吃过的店（按时间）"]
     for i, v in enumerate(month_visits, 1):
         s = stores.get(v["poi_id"], {})
         w = wishes_by_visit.get(v["visit_id"])
         cz = (v.get("cuisine") or "").strip() or (s.get("tag") or "-")
+        # 条件拼接：空字段直接省略，别把「和None」「评价 None」这类脏串喂给 AI
+        when = v.get("date", "")
+        if v.get("meal_period"):
+            when += f" {v['meal_period']}"
+        meta = [when]
+        if v.get("companions"):
+            meta.append(f"和{v['companions']}")
+        meta.append(f"¥{v.get('per_person') or 0}/人")
+        rating = f"评价 {v.get('mood_emoji') or ''}".rstrip()
+        if v.get("want_again"):
+            rating += " ⭐想再来"
+        rating += f" \"{v.get('feeling') or '无'}\""
         bits = [
             f"{i}. **{s.get('name', '?')}** [{cz}]",
-            f"   - {v['date']} {v['meal_period']}, 和{v['companions']}, ¥{v['per_person']}/人",
-            f"   - 评价 {v['mood_emoji']} {'⭐想再来 ' if v['want_again'] else ''}\"{v['feeling'] or '无'}\"",
+            "   - " + ", ".join(meta),
+            f"   - {rating}",
         ]
         _ex = []
         if v.get("flavors"):
@@ -579,7 +595,8 @@ def get_monthly_story(year_month: Optional[str] = None, regenerate: bool = False
     try:
         story = ai.generate_monthly_story(brief)
     except Exception as e:
-        raise HTTPException(500, f"AI 生成失败：{e}")
+        logger.warning("monthly-story 失败: %s", e)
+        raise HTTPException(500, "回忆录生成失败了，稍后再试 😅")
 
     db.ai_cache_set(key, story)
     return {"story": story, "cached": False, "year_month": year_month}
@@ -690,8 +707,9 @@ def get_area_titles(regenerate: bool = False, user: dict = Depends(current_user)
         try:
             raw = ai.generate_area_titles(_build_area_titles_brief(need))
         except Exception as e:
+            logger.warning("area-titles 失败: %s", e)
             if not cache:  # 一个都没有还失败 → 报错；否则降级返回已有的，下次再补
-                raise HTTPException(500, f"AI 生成失败：{e}")
+                raise HTTPException(500, "称号生成失败了，稍后再试 😅")
             raw = {"areas": []}
         for item in (raw.get("areas") or []):
             nm = (item.get("name") or "").strip()
@@ -844,7 +862,8 @@ def get_suggest(location: Optional[str] = None, craving: Optional[str] = None,
     try:
         result = ai.suggest_today(brief)
     except Exception as e:
-        raise HTTPException(500, f"AI 建议失败：{e}")
+        logger.warning("suggest 失败: %s", e)
+        raise HTTPException(500, "没挑出来，稍后再试 😅")
 
     picks = []
     for p in (result.get("picks") or []):
@@ -985,7 +1004,8 @@ def post_ask(req: AskReq, user: dict = Depends(current_user)):
     try:
         ans = ai.answer_question(ctx, q)
     except Exception as e:
-        raise HTTPException(500, f"AI 回答失败：{e}")
+        logger.warning("ask 失败: %s", e)
+        raise HTTPException(500, "这句没答上来，稍后再试 😅")
     return {"answer": ans}
 
 

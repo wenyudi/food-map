@@ -289,9 +289,9 @@ def parse_one_liner(text: str, timeout: int = 30) -> dict:
     shots = [
         ("昨晚和朋友去家火锅店，人均120，锅底够辣",
          {"intent": "visit", "store_hint": "火锅", "date": yesterday, "meal_period": "晚",
-          "companions": "朋友", "amount": 240, "people_count": 2, "feeling": "锅底够辣",
+          "companions": "朋友", "amount": 240, "people_count": 2, "feeling": "锅底够味",
           "mood_emoji": None, "want_again": None, "source": None, "reason": None,
-          "cuisine": "火锅", "flavors": ["辣", "麻"], "dishes": [], "occasion": "聚餐"}),
+          "cuisine": "火锅", "flavors": ["辣"], "dishes": [], "occasion": "聚餐"}),
         ("中午仨人吃的烧烤摊，一共180，烤腰子绝了，下次还来",
          {"intent": "visit", "store_hint": "烧烤", "date": today, "meal_period": "中",
           "companions": None, "amount": 180, "people_count": 3, "feeling": "烤腰子绝了",
