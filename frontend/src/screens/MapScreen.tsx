@@ -22,9 +22,10 @@ type MapScreenProps = Readonly<{
   focusPoiId?: string | null
   onConsumeFocus?: () => void
   onJumpToAdd?: () => void
+  myUsername?: string
 }>
 
-export default function MapScreen({ refreshKey, focusPoiId, onConsumeFocus, onJumpToAdd }: MapScreenProps) {
+export default function MapScreen({ refreshKey, focusPoiId, onConsumeFocus, onJumpToAdd, myUsername }: MapScreenProps) {
   const [points, setPoints] = useState<Point[]>([])
   const [stats, setStats] = useState<Stats | null>(null)
   const [loading, setLoading] = useState(true)
@@ -39,6 +40,8 @@ export default function MapScreen({ refreshKey, focusPoiId, onConsumeFocus, onJu
   const [activeArea, setActiveArea] = useState<Area | null>(null)
   const [areaTitles, setAreaTitles] = useState<Record<string, AreaTitle>>({})
   const [rerolling, setRerolling] = useState(false)
+  const [selectedAuthor, setSelectedAuthor] = useState<string | null>(null)
+  const [authorTrayOpen, setAuthorTrayOpen] = useState(false)
 
   useEffect(() => {
     setLoading(true)
@@ -50,11 +53,30 @@ export default function MapScreen({ refreshKey, focusPoiId, onConsumeFocus, onJu
       .finally(() => setLoading(false))
   }, [refreshKey])
 
-  const located = points.filter((p) => p.lng && p.lat)
-  const unlocated = points.filter((p) => !p.lng || !p.lat)
+  // 记录者列表（筛选用）+ 是否有别人记的（决定是否显示筛选/作者标）
+  const authors = useMemo(() => {
+    const m = new Map<string, string>()
+    points.forEach((p) => {
+      p.visits.forEach((v) => v.recorded_by && m.set(v.recorded_by, v.recorded_by_name || v.recorded_by))
+      if (p.wish?.recorded_by) m.set(p.wish.recorded_by, p.wish.recorded_by_name || p.wish.recorded_by)
+    })
+    return [...m.entries()]
+  }, [points])
+  const multiAuthor = authors.some(([u]) => u !== myUsername)
+
+  // 按记录者筛选（只影响地图点位/片区，不动顶部总览统计）
+  const authorPoints = useMemo(
+    () =>
+      selectedAuthor
+        ? points.filter((p) => p.visits.some((v) => v.recorded_by === selectedAuthor) || p.wish?.recorded_by === selectedAuthor)
+        : points,
+    [points, selectedAuthor],
+  )
+  const located = authorPoints.filter((p) => p.lng && p.lat)
+  const unlocated = authorPoints.filter((p) => !p.lng || !p.lat)
   const center: [number, number] = located.length ? [located[0].lat, located[0].lng] : [29.56, 106.55]
 
-  const areas = useMemo(() => buildAreas(points), [points])
+  const areas = useMemo(() => buildAreas(authorPoints), [authorPoints])
   const mapAreas = areas.filter((a) => a.center)
   const exploredAreas = areas.filter((a) => a.eaten.length > 0).length // 吃过的商圈数
 
@@ -128,7 +150,7 @@ export default function MapScreen({ refreshKey, focusPoiId, onConsumeFocus, onJu
                 })}
               >
                 <Popup maxWidth={300} minWidth={240}>
-                  <PopupContent point={p} />
+                  <PopupContent point={p} showAuthor={multiAuthor} myUsername={myUsername} />
                 </Popup>
               </Marker>
             ))}
@@ -215,6 +237,45 @@ export default function MapScreen({ refreshKey, focusPoiId, onConsumeFocus, onJu
             </button>
           )}
           <div className="flex flex-col gap-3 pointer-events-auto">
+            {/* 筛选：只看谁记的（多人圈才出现，放在片区按钮上面） */}
+            {!loading && multiAuthor && (
+              <div className="relative self-end">
+                <button
+                  onClick={() => setAuthorTrayOpen((o) => !o)}
+                  className={`w-12 h-12 rounded-full border-2 border-on-surface shadow-sticker flex items-center justify-center press ${
+                    selectedAuthor ? 'bg-primary text-white' : 'bg-white'
+                  }`}
+                  title="只看谁记的"
+                >
+                  <Icon name="filter_alt" />
+                </button>
+                {authorTrayOpen && (
+                  <div className="absolute right-14 bottom-0 bg-white rounded-xl border-2 border-on-surface shadow-sticker p-1.5 flex flex-col gap-1 min-w-[92px]">
+                    <button
+                      onClick={() => {
+                        setSelectedAuthor(null)
+                        setAuthorTrayOpen(false)
+                      }}
+                      className={`px-3 py-1.5 rounded-lg text-sm font-bold text-left whitespace-nowrap ${!selectedAuthor ? 'bg-primary text-white' : 'press-sm'}`}
+                    >
+                      全部
+                    </button>
+                    {authors.map(([u, nick]) => (
+                      <button
+                        key={u}
+                        onClick={() => {
+                          setSelectedAuthor(u)
+                          setAuthorTrayOpen(false)
+                        }}
+                        className={`px-3 py-1.5 rounded-lg text-sm font-bold text-left whitespace-nowrap ${selectedAuthor === u ? 'bg-primary text-white' : 'press-sm'}`}
+                      >
+                        {u === myUsername ? `${nick}（我）` : nick}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
             {!loading && mapAreas.length > 0 && (
               <button
                 onClick={() => (areaMode ? setAreaMode(false) : enterAreaMode())}
@@ -342,7 +403,7 @@ function MapRefBinder({ mapRef }: { mapRef: React.MutableRefObject<L.Map | null>
   return null
 }
 
-function PopupContent({ point: p }: { point: Point }) {
+function PopupContent({ point: p, showAuthor, myUsername }: { point: Point; showAuthor: boolean; myUsername?: string }) {
   const photos = (p.amap_photos || '').split('|').filter(Boolean).slice(0, 3)
   const timeline = buildTimeline(p).slice(-2) // 最多展示最新两次记录
   return (
@@ -360,11 +421,11 @@ function PopupContent({ point: p }: { point: Point }) {
           ))}
         </div>
       )}
-      {/* 时间线：复用列表 TimelineRow；弹窗不进编辑、不显作者标与用户照片，仅店铺图 */}
+      {/* 时间线：复用列表 TimelineRow；弹窗不进编辑、不显用户照片（仅店铺图），多人圈显示谁记的 */}
       <div className="mt-3 flex flex-col">
         {timeline.map((e, i) => (
           <div key={i} className={i > 0 ? 'mt-3 pt-3 border-t-2 border-dashed border-on-surface/10' : ''}>
-            <TimelineRow event={e} onEdit={() => {}} showAuthor={false} hidePhotos />
+            <TimelineRow event={e} onEdit={() => {}} showAuthor={showAuthor} myUsername={myUsername} hidePhotos />
           </div>
         ))}
         {timeline.length === 0 && <div className="text-on-surface-variant text-sm mt-2">还没数据</div>}

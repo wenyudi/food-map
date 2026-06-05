@@ -80,6 +80,7 @@ export default function App() {
           focusPoiId={focusPoiId}
           onConsumeFocus={() => setFocusPoiId(null)}
           onJumpToAdd={() => setTab('add')}
+          myUsername={me.username}
         />
       )}
       {tab === 'list' && (
