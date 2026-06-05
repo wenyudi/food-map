@@ -96,7 +96,7 @@ export default function App() {
           circleRole={me.circle_role}
         />
       )}
-      {tab === 'add' && <AddScreen onSubmitted={handleSubmitted} />}
+      {tab === 'add' && <AddScreen onSubmitted={handleSubmitted} circleRole={me.circle_role} />}
       {tab === 'me' && <MeScreen me={me} onLogout={handleLogout} onCircleChanged={handleCircleChanged} />}
     </Phone>
   )

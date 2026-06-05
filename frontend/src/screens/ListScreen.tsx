@@ -22,7 +22,7 @@ const STATUS_OPTS: { key: StatusKey; label: string; icon: string }[] = [
   { key: 'repeat', label: '二刷', icon: 'replay' },
 ]
 /** 多维筛选：维度内多选(OR)，跨维度 AND；空 = 不筛 */
-type Filters = { moods: Mood[]; status: StatusKey[]; cuisines: string[] }
+type Filters = { moods: Mood[]; status: StatusKey[]; cuisines: string[]; authors: string[] }
 type EditTarget = { kind: 'visit' | 'wish'; data: any; storeName: string }
 
 /** 某店是否命中某个「状态」筛选项 */
@@ -66,7 +66,7 @@ type ListScreenProps = Readonly<{
 export default function ListScreen({ refreshKey, focusPoiId, onPickStore, onJumpToAdd, myUsername, circleRole }: ListScreenProps) {
   const [points, setPoints] = useState<Point[]>([])
   const [loading, setLoading] = useState(true)
-  const [filters, setFilters] = useState<Filters>({ moods: [], status: [], cuisines: [] })
+  const [filters, setFilters] = useState<Filters>({ moods: [], status: [], cuisines: [], authors: [] })
   const [filterOpen, setFilterOpen] = useState(false)
   const [query, setQuery] = useState('')
   const [askOpen, setAskOpen] = useState(false)
@@ -75,14 +75,16 @@ export default function ListScreen({ refreshKey, focusPoiId, onPickStore, onJump
   const [toast, setToast] = useState<string | null>(null)
   const cardRefs = useRef<Record<string, HTMLDivElement | null>>({})
 
-  const activeCount = filters.moods.length + filters.status.length + filters.cuisines.length
+  const activeCount = filters.moods.length + filters.status.length + filters.cuisines.length + filters.authors.length
   const toggleMood = (m: Mood) =>
     setFilters((f) => ({ ...f, moods: f.moods.includes(m) ? f.moods.filter((x) => x !== m) : [...f.moods, m] }))
   const toggleStatus = (s: StatusKey) =>
     setFilters((f) => ({ ...f, status: f.status.includes(s) ? f.status.filter((x) => x !== s) : [...f.status, s] }))
   const toggleCuisine = (c: string) =>
     setFilters((f) => ({ ...f, cuisines: f.cuisines.includes(c) ? f.cuisines.filter((x) => x !== c) : [...f.cuisines, c] }))
-  const clearFilters = () => setFilters({ moods: [], status: [], cuisines: [] })
+  const toggleAuthor = (a: string) =>
+    setFilters((f) => ({ ...f, authors: f.authors.includes(a) ? f.authors.filter((x) => x !== a) : [...f.authors, a] }))
+  const clearFilters = () => setFilters({ moods: [], status: [], cuisines: [], authors: [] })
 
   const load = useCallback(() => {
     setLoading(true)
@@ -103,11 +105,12 @@ export default function ListScreen({ refreshKey, focusPoiId, onPickStore, onJump
     [points, myUsername],
   )
 
-  const { filtered, moodCount, statusCount, cuisineList } = useMemo(() => {
+  const { filtered, moodCount, statusCount, cuisineList, authorList } = useMemo(() => {
     // 各维度选项的全局计数（独立于当前选择）
     const moodCount: Record<string, number> = {}
     const statusCount: Record<string, number> = {}
     const cuisineCount: Record<string, number> = {}
+    const authorMap = new Map<string, string>()
     MOODS.forEach((m) => (moodCount[m] = 0))
     STATUS_OPTS.forEach((s) => (statusCount[s.key] = 0))
     points.forEach((p) => {
@@ -119,16 +122,20 @@ export default function ListScreen({ refreshKey, focusPoiId, onPickStore, onJump
       })
       const t = storeCuisine(p)
       if (t) cuisineCount[t] = (cuisineCount[t] || 0) + 1
+      p.visits.forEach((v) => v.recorded_by && authorMap.set(v.recorded_by, v.recorded_by_name || v.recorded_by))
+      if (p.wish?.recorded_by) authorMap.set(p.wish.recorded_by, p.wish.recorded_by_name || p.wish.recorded_by)
     })
     const cuisineList = Object.entries(cuisineCount)
       .sort((a, b) => b[1] - a[1])
       .map(([name, n]) => ({ name, n }))
+    const authorList = [...authorMap.entries()].map(([u, nick]) => ({ u, nick }))
 
     // 应用筛选：维度内 OR、跨维度 AND
     let result = points.filter((p) => {
       if (filters.moods.length && !filters.moods.some((m) => p.visits.some((v) => v.mood_emoji === m))) return false
       if (filters.status.length && !filters.status.some((s) => matchStatus(p, s))) return false
       if (filters.cuisines.length && !filters.cuisines.includes(storeCuisine(p))) return false
+      if (filters.authors.length && !filters.authors.some((a) => p.visits.some((v) => v.recorded_by === a) || p.wish?.recorded_by === a)) return false
       return true
     })
     const q = query.trim().toLowerCase()
@@ -136,7 +143,7 @@ export default function ListScreen({ refreshKey, focusPoiId, onPickStore, onJump
     const enriched = result
       .sort((a, b) => latestTs(b) - latestTs(a))
       .map((p) => ({ p, status: getStatus(p) }))
-    return { filtered: enriched, moodCount, statusCount, cuisineList }
+    return { filtered: enriched, moodCount, statusCount, cuisineList, authorList }
   }, [points, filters, query])
 
   useEffect(() => {
@@ -227,6 +234,9 @@ export default function ListScreen({ refreshKey, focusPoiId, onPickStore, onJump
             {filters.cuisines.map((c) => (
               <ActiveChip key={c} label={c} variant="white" onRemove={() => toggleCuisine(c)} />
             ))}
+            {filters.authors.map((a) => (
+              <ActiveChip key={a} label={`${authorList.find((x) => x.u === a)?.nick || a} 记`} onRemove={() => toggleAuthor(a)} />
+            ))}
             <button onClick={clearFilters} className="text-xs font-bold text-on-surface-variant px-2 py-1 underline">
               清空
             </button>
@@ -296,10 +306,13 @@ export default function ListScreen({ refreshKey, focusPoiId, onPickStore, onJump
           moodCount={moodCount}
           statusCount={statusCount}
           cuisineList={cuisineList}
+          authorList={authorList}
+          myUsername={myUsername}
           resultCount={filtered.length}
           onToggleMood={toggleMood}
           onToggleStatus={toggleStatus}
           onToggleCuisine={toggleCuisine}
+          onToggleAuthor={toggleAuthor}
           onClear={clearFilters}
           onClose={() => setFilterOpen(false)}
         />
@@ -415,10 +428,13 @@ function FilterSheet({
   moodCount,
   statusCount,
   cuisineList,
+  authorList,
+  myUsername,
   resultCount,
   onToggleMood,
   onToggleStatus,
   onToggleCuisine,
+  onToggleAuthor,
   onClear,
   onClose,
 }: {
@@ -426,14 +442,17 @@ function FilterSheet({
   moodCount: Record<string, number>
   statusCount: Record<string, number>
   cuisineList: { name: string; n: number }[]
+  authorList: { u: string; nick: string }[]
+  myUsername?: string
   resultCount: number
   onToggleMood: (m: Mood) => void
   onToggleStatus: (s: StatusKey) => void
   onToggleCuisine: (c: string) => void
+  onToggleAuthor: (a: string) => void
   onClear: () => void
   onClose: () => void
 }) {
-  const activeCount = filters.moods.length + filters.status.length + filters.cuisines.length
+  const activeCount = filters.moods.length + filters.status.length + filters.cuisines.length + filters.authors.length
   return (
     <SheetShell onClose={onClose}>
       <div className="flex items-center justify-between mb-4">
@@ -476,6 +495,19 @@ function FilterSheet({
         </FilterGroup>
       )}
 
+      {authorList.length > 1 && (
+        <FilterGroup title="谁记的">
+          {authorList.map((a) => (
+            <FilterChip
+              key={a.u}
+              active={filters.authors.includes(a.u)}
+              onClick={() => onToggleAuthor(a.u)}
+              label={a.u === myUsername ? `${a.nick}（我）` : a.nick}
+            />
+          ))}
+        </FilterGroup>
+      )}
+
       <StickerButton full className="mt-2" onClick={onClose}>
         查看 {resultCount} 家结果
       </StickerButton>
@@ -504,7 +536,7 @@ function FilterChip({
   onClick: () => void
   icon?: string
   label: string
-  count: number
+  count?: number
   big?: boolean
 }) {
   return (
@@ -515,7 +547,7 @@ function FilterChip({
       } ${active ? 'bg-primary text-white' : 'bg-white text-on-surface-variant'}`}
     >
       {icon && <Icon name={icon} className="text-base" />}
-      {label} <em className="not-italic opacity-70 text-xs">{count}</em>
+      {label} {count != null && <em className="not-italic opacity-70 text-xs">{count}</em>}
     </button>
   )
 }

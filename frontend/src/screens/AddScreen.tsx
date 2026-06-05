@@ -39,9 +39,9 @@ const EXAMPLES: Array<{ kind: 'eat' | 'wish'; text: string }> = [
 
 type Celebration = { emoji: string; title: string; sub: ReactNode }
 
-type AddScreenProps = Readonly<{ onSubmitted: () => void }>
+type AddScreenProps = Readonly<{ onSubmitted: () => void; circleRole?: string }>
 
-export default function AddScreen({ onSubmitted }: AddScreenProps) {
+export default function AddScreen({ onSubmitted, circleRole }: AddScreenProps) {
   const [text, setText] = useState('')
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -282,6 +282,20 @@ export default function AddScreen({ onSubmitted }: AddScreenProps) {
       n = Number(people)
     return a > 0 && n > 0 ? Math.round((a / n) * 10) / 10 : 0
   }, [amount, people])
+
+  // 观光位没有记录权限：不显示任何录入框，只给提示
+  if (circleRole === 'viewer') {
+    return (
+      <div className="h-full flex flex-col items-center justify-center px-8 text-center">
+        <div className="text-6xl mb-4">👀</div>
+        <h3 className="font-headline text-2xl mb-2">你是观光位</h3>
+        <p className="text-on-surface-variant font-bold mb-1">在这个圈子里只能看、不能记录</p>
+        <p className="text-sm text-on-surface-variant max-w-[260px]">
+          想一起记美食？让圈主在「我的圈子」里把你升成「记录员」就行啦 🍜
+        </p>
+      </div>
+    )
+  }
 
   return (
     <div className="h-full flex flex-col">

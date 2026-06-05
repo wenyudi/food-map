@@ -284,7 +284,7 @@ export default function MapScreen({ refreshKey, focusPoiId, onConsumeFocus, onJu
                 }`}
                 title="片区版图"
               >
-                <Icon name={areaMode ? 'close' : 'emoji_events'} />
+                <Icon name={areaMode ? 'close' : 'emoji_events'} className={areaMode ? '' : 'text-accent'} />
               </button>
             )}
             <button
