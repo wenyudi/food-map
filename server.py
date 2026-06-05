@@ -47,14 +47,8 @@ import mailer
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    """启动时建表/迁移只跑一次 + 确保有 admin 账号。"""
-    db.init_db()  # 建表 + 迁移 + WAL，集中在启动跑一次（不再每次查询都跑）
-    admin_user = os.environ.get("INITIAL_ADMIN_USERNAME")
-    admin_pass = os.environ.get("INITIAL_ADMIN_PASSWORD")
-    if admin_user and admin_pass and not db.get_user(admin_user):
-        cid = db.create_circle("默认圈子")
-        db.create_user(admin_user, auth.hash_password(admin_pass), role="admin", circle_id=cid)
-        print(f"  ✨ 已创建管理员: {admin_user}（圈子 #{cid}）")
+    """启动时建表/迁移只跑一次（开放注册模式，不再预建管理员账号）。"""
+    db.init_db()  # 建表 + 迁移 + WAL，集中在启动跑一次
     yield
 
 
@@ -123,10 +117,18 @@ def require_admin(user: dict = Depends(current_user)) -> dict:
     return user
 
 
+def require_writer(user: dict = Depends(current_user)) -> dict:
+    """当前活跃圈里能写的人（圈主 / 记录员）才放行；观光位只读。"""
+    role = db.member_role(user["circle_id"], user["username"])
+    if role not in ("owner", "editor"):
+        raise HTTPException(403, "你在这个圈子是观光位，只能看不能记录哦")
+    return user
+
+
 # ---------- 认证接口 ----------
 
 class LoginReq(BaseModel):
-    username: str
+    email: str
     password: str
 
 
@@ -142,53 +144,47 @@ class ChangePasswordReq(BaseModel):
 
 
 class RegisterReq(BaseModel):
-    username: str
-    password: str
-    invite_code: str
     email: str
     code: str
+    password: str
+    nickname: str
 
 
 @app.post("/api/auth/login")
 def post_login(req: LoginReq):
-    user = db.get_user(req.username)
+    user = db.get_user_by_email((req.email or "").strip().lower())
     if not user or not auth.verify_password(req.password, user["password_hash"]):
-        raise HTTPException(401, "用户名或密码错误")
+        raise HTTPException(401, "邮箱或密码错误")
     token = auth.make_token(user["username"], user["role"])
-    return {"token": token, "username": user["username"], "role": user["role"]}
+    return {"token": token, "username": user["username"],
+            "nickname": user.get("nickname") or user["username"], "role": user["role"]}
 
 
 @app.post("/api/auth/register")
 def post_register(req: RegisterReq):
-    code = req.invite_code.strip().upper()
-    username = req.username.strip()
+    """开放注册：邮箱+验证码+密码+昵称 → 自动建内部 username + 自己的圈子（当圈主）。
+    加入别人的圈子是注册后用邀请码的独立动作（/circles/join）。"""
     email = (req.email or "").strip().lower()
-    inv = db.get_invite(code)
-    if not inv:
-        raise HTTPException(400, "邀请码无效")
-    if inv.get("used_by"):
-        raise HTTPException(400, "邀请码已被使用")
-    if not username:
-        raise HTTPException(400, "用户名不能为空")
-    if db.get_user(username):
-        raise HTTPException(400, "用户名已存在")
+    nickname = (req.nickname or "").strip()
     if not _valid_email(email):
         raise HTTPException(400, "邮箱格式不对")
     if db.get_user_by_email(email):
-        raise HTTPException(400, "这个邮箱已经注册过啦")
+        raise HTTPException(400, "这个邮箱已经注册过啦，直接登录或找回密码吧")
+    if not nickname:
+        raise HTTPException(400, "起个昵称吧")
+    if len(nickname) > 20:
+        raise HTTPException(400, "昵称太长啦（≤20 字）")
     if len(req.password) < 4:
         raise HTTPException(400, "密码至少 4 位")
     if not _check_code(email, req.code, "register"):
         raise HTTPException(400, "邮箱验证码不对或已过期")
-    # 邀请码带圈子：None=新建独立圈子（给朋友），否则加入该圈子（情侣共享一张图）
-    circle_id = inv.get("circle_id")
-    if circle_id is None:
-        circle_id = db.create_circle(username)
+    username = _gen_username(email)
+    circle_id = db.create_circle(f"{nickname}的美食圈", owner_username=username)
     db.create_user(username, auth.hash_password(req.password), role="user",
-                   circle_id=circle_id, email=email)
-    db.mark_invite_used(code, username)
+                   circle_id=circle_id, email=email, nickname=nickname)
+    db.add_member(circle_id, username, role="owner")
     token = auth.make_token(username, "user")
-    return {"token": token, "username": username, "role": "user"}
+    return {"token": token, "username": username, "nickname": nickname, "role": "user"}
 
 
 # ---------- 邮箱验证码（注册验证 + 找回密码 共用一套） ----------
@@ -212,6 +208,18 @@ class ResetPasswordReq(BaseModel):
 
 def _valid_email(email: str) -> bool:
     return bool(email) and len(email) <= 100 and bool(_EMAIL_RE.match(email))
+
+
+def _gen_username(email: str) -> str:
+    """注册时从邮箱前缀生成内部用户名（用户不感知）；冲突就加序号。"""
+    base = re.sub(r"[^a-z0-9_]", "", email.split("@")[0].lower())[:20] or "user"
+    if not db.get_user(base):
+        return base
+    for i in range(2, 10000):
+        cand = f"{base}{i}"
+        if not db.get_user(cand):
+            return cand
+    return f"{base}{secrets.token_hex(3)}"
 
 
 def _send_verification(email: str, purpose: str) -> Optional[str]:
@@ -285,47 +293,201 @@ def reset_password(req: ResetPasswordReq):
     return {"ok": True}
 
 
-class InviteReq(BaseModel):
-    new_circle: bool = False  # True=新建独立圈子（仅管理员）；False=加入自己的圈子
+# ---------- 圈子：列表 / 创建 / 切换 / 加入 / 成员 / 管理 + 可复用邀请码 ----------
+
+def _my_role(circle_id: int, username: str):
+    return db.member_role(circle_id, username)
 
 
-@app.post("/api/auth/invites")
-def gen_invite(req: InviteReq = InviteReq(), user: dict = Depends(current_user)):
-    is_admin = user.get("role") == "admin"
-    if req.new_circle and not is_admin:
-        raise HTTPException(403, "只有管理员能创建「新圈子」邀请码")
-    # 新圈子 → circle_id=None（注册时再建）；加入我的圈子 → 我的 circle_id
-    circle_id = None if req.new_circle else user.get("circle_id")
-    code = secrets.token_hex(4).upper()  # 8 位十六进制，比如 A1B2C3D4
-    db.create_invite(code, user["username"], circle_id)
-    return {"code": code}
+def _require_circle_role(circle_id: int, username: str, allowed: tuple) -> str:
+    role = _my_role(circle_id, username)
+    if role is None:
+        raise HTTPException(403, "你不在这个圈子里")
+    if role not in allowed:
+        raise HTTPException(403, "权限不够哦")
+    return role
 
 
-@app.get("/api/auth/invites")
-def get_invites(user: dict = Depends(current_user)):
-    items = db.list_invites()
-    if user.get("role") != "admin":
-        # 普通用户只看自己生成的邀请码
-        items = [i for i in items if i.get("created_by") == user["username"]]
-    return items
+def _ensure_personal_circle(username: str) -> int:
+    """用户退出/被踢/解散后没圈子了 → 兜底建个个人圈，避免活跃圈悬空。"""
+    u = db.get_user(username)
+    nick = (u.get("nickname") if u else None) or username
+    cid = db.create_circle(f"{nick}的美食圈", owner_username=username)
+    db.add_member(cid, username, role="owner")
+    db.set_active_circle(username, cid)
+    return cid
 
 
-@app.delete("/api/auth/invites/{code}")
-def revoke_invite(code: str, user: dict = Depends(current_user)):
+def _relocate_if_active(username: str, leaving_cid: int) -> None:
+    """某人正停在 leaving_cid 这个圈 → 迁到 ta 的其它圈，没有就兜底个人圈。"""
+    mu = db.get_user(username)
+    if not mu or mu["circle_id"] != leaving_cid:
+        return
+    rest = [c for c in db.list_my_circles(username) if c["id"] != leaving_cid]
+    if rest:
+        db.set_active_circle(username, rest[0]["id"])
+    else:
+        _ensure_personal_circle(username)
+
+
+class CircleCreateReq(BaseModel):
+    name: str = ""
+
+
+class SwitchCircleReq(BaseModel):
+    circle_id: int
+
+
+class JoinReq(BaseModel):
+    code: str
+
+
+class InviteCreateReq(BaseModel):
+    role: str = "viewer"            # editor | viewer
+    expires_hours: int = 24         # 默认 1 天
+    max_uses: Optional[int] = None  # None = 不限次
+
+
+class RenameCircleReq(BaseModel):
+    name: str
+
+
+class MemberRoleReq(BaseModel):
+    role: str  # editor | viewer
+
+
+@app.get("/api/circles")
+def my_circles(user: dict = Depends(current_user)):
+    return {"active_circle_id": user["circle_id"], "circles": db.list_my_circles(user["username"])}
+
+
+@app.post("/api/circles")
+def create_circle_api(req: CircleCreateReq, user: dict = Depends(current_user)):
+    nick = user.get("nickname") or user["username"]
+    name = (req.name or "").strip() or f"{nick}的美食圈"
+    if len(name) > 20:
+        raise HTTPException(400, "圈子名太长啦（≤20 字）")
+    cid = db.create_circle(name, owner_username=user["username"])
+    db.add_member(cid, user["username"], role="owner")
+    db.set_active_circle(user["username"], cid)
+    return {"circle_id": cid, "name": name}
+
+
+@app.post("/api/circles/switch")
+def switch_circle(req: SwitchCircleReq, user: dict = Depends(current_user)):
+    if not db.get_member(req.circle_id, user["username"]):
+        raise HTTPException(403, "你不在这个圈子里")
+    db.set_active_circle(user["username"], req.circle_id)
+    return {"ok": True, "active_circle_id": req.circle_id}
+
+
+@app.post("/api/circles/join")
+def join_circle(req: JoinReq, user: dict = Depends(current_user)):
+    code = (req.code or "").strip().upper()
     inv = db.get_invite(code)
-    if not inv:
+    if not inv or inv.get("circle_id") is None:
+        raise HTTPException(404, "邀请码无效")
+    if inv.get("expires_at"):
+        try:
+            if datetime.fromisoformat(inv["expires_at"]) < datetime.now():
+                raise HTTPException(400, "邀请码已过期")
+        except ValueError:
+            pass
+    if inv.get("max_uses") is not None and (inv.get("use_count") or 0) >= inv["max_uses"]:
+        raise HTTPException(400, "邀请码用完啦")
+    cid = inv["circle_id"]
+    circle = db.get_circle(cid)
+    if not circle:
+        raise HTTPException(404, "圈子不存在了")
+    if db.get_member(cid, user["username"]):
+        db.set_active_circle(user["username"], cid)
+        return {"ok": True, "circle_id": cid, "name": circle.get("name"), "already": True}
+    role = inv.get("role") if inv.get("role") in ("editor", "viewer") else "viewer"
+    db.add_member(cid, user["username"], role=role)
+    db.increment_invite_use(code, user["username"])
+    db.set_active_circle(user["username"], cid)
+    return {"ok": True, "circle_id": cid, "name": circle.get("name"), "role": role}
+
+
+@app.get("/api/circles/{cid}/members")
+def circle_members_api(cid: int, user: dict = Depends(current_user)):
+    if not db.get_member(cid, user["username"]):
+        raise HTTPException(403, "你不在这个圈子里")
+    circle = db.get_circle(cid) or {}
+    return {"name": circle.get("name"), "owner": circle.get("owner_username"),
+            "my_role": _my_role(cid, user["username"]), "members": db.list_members(cid)}
+
+
+@app.post("/api/circles/{cid}/invites")
+def create_invite_api(cid: int, req: InviteCreateReq, user: dict = Depends(current_user)):
+    role = _require_circle_role(cid, user["username"], ("owner", "editor"))
+    want = req.role if req.role in ("editor", "viewer") else "viewer"
+    if role == "editor" and want != "viewer":  # 记录员只能拉观光位
+        raise HTTPException(403, "记录员只能邀请观光位成员哦")
+    hours = max(1, min(req.expires_hours or 24, 24 * 30))
+    expires_at = (datetime.now() + timedelta(hours=hours)).isoformat(timespec="seconds")
+    code = secrets.token_hex(4).upper()
+    db.create_invite(code, cid, user["username"], role=want, expires_at=expires_at, max_uses=req.max_uses)
+    return {"code": code, "role": want, "expires_at": expires_at, "max_uses": req.max_uses}
+
+
+@app.patch("/api/circles/{cid}")
+def rename_circle_api(cid: int, req: RenameCircleReq, user: dict = Depends(current_user)):
+    _require_circle_role(cid, user["username"], ("owner",))
+    name = (req.name or "").strip()
+    if not name or len(name) > 20:
+        raise HTTPException(400, "圈子名 1–20 字")
+    db.rename_circle(cid, name)
+    return {"ok": True, "name": name}
+
+
+@app.patch("/api/circles/{cid}/members/{target}")
+def set_member_role_api(cid: int, target: str, req: MemberRoleReq, user: dict = Depends(current_user)):
+    _require_circle_role(cid, user["username"], ("owner",))
+    if req.role not in ("editor", "viewer"):
+        raise HTTPException(400, "角色只能是 记录员 或 观光位")
+    circle = db.get_circle(cid) or {}
+    if target == circle.get("owner_username"):
+        raise HTTPException(400, "不能改圈主的角色")
+    if not db.get_member(cid, target):
+        raise HTTPException(404, "TA 不在这个圈子里")
+    db.update_member_role(cid, target, req.role)
+    return {"ok": True}
+
+
+@app.delete("/api/circles/{cid}/members/{target}")
+def remove_member_api(cid: int, target: str, user: dict = Depends(current_user)):
+    circle = db.get_circle(cid)
+    if not circle:
+        raise HTTPException(404, "圈子不存在")
+    me = user["username"]
+    if target != me and _my_role(cid, me) != "owner":
+        raise HTTPException(403, "只有圈主能移除别人")
+    if target == circle.get("owner_username"):
+        raise HTTPException(400, "圈主不能退出/被踢，先转让或解散圈子")
+    if db.get_member(cid, target):
+        db.remove_member(cid, target)
+        _relocate_if_active(target, cid)
+    return {"ok": True}
+
+
+@app.delete("/api/circles/{cid}")
+def disband_circle_api(cid: int, user: dict = Depends(current_user)):
+    circle = db.get_circle(cid)
+    if not circle:
         return {"ok": True}
-    if user.get("role") != "admin" and inv.get("created_by") != user["username"]:
-        raise HTTPException(403, "不能撤销别人的邀请码")
-    if inv.get("used_by"):
-        raise HTTPException(400, "已使用的邀请码不能删")
-    db.delete_invite(code)
+    _require_circle_role(cid, user["username"], ("owner",))
+    members = [m["username"] for m in db.list_members(cid)]
+    db.delete_circle(cid)
+    for m in members:
+        _relocate_if_active(m, cid)
     return {"ok": True}
 
 
 @app.get("/api/auth/me")
 def get_me(user: dict = Depends(current_user)):
-    return {"username": user["username"], "role": user["role"]}
+    return {"username": user["username"], "nickname": user.get("nickname") or user["username"],
+            "role": user["role"], "circle_id": user["circle_id"]}
 
 
 @app.post("/api/auth/change-password")
@@ -455,7 +617,7 @@ def get_stats(user: dict = Depends(current_user)):
 
 
 @app.post("/api/reset-mine")
-def reset_mine(user: dict = Depends(current_user)):
+def reset_mine(user: dict = Depends(require_writer)):
     """清空"我"在本圈子记的所有记录（吃过 + 想去），同伴的保留。"""
     res = db.reset_my_records(user["username"], user["circle_id"])
     for ph in res.pop("photos", []):  # 清空记录时一并删掉这些图片文件
@@ -512,7 +674,7 @@ def post_parse(req: ParseReq, _: dict = Depends(current_user)):
 
 
 @app.post("/api/store")
-def post_store(req: StoreReq, _: dict = Depends(current_user)):
+def post_store(req: StoreReq, _: dict = Depends(require_writer)):
     """从前端搜索结果里挑了一家后，上传 poi 字典让后端 upsert 并返回标准化的 store。"""
     store = amap.poi_to_store(req.poi)
     db.upsert_store(store)
@@ -541,7 +703,7 @@ def _compute_milestone(poi_id: str, circle_id: int) -> Optional[dict]:
 
 
 @app.post("/api/visit")
-def post_visit(req: VisitReq, user: dict = Depends(current_user)):
+def post_visit(req: VisitReq, user: dict = Depends(require_writer)):
     store_row = db.get_store(req.poi_id)
     if not store_row:
         raise HTTPException(404, "POI 不在 stores 表里——先调 /api/store 入库")
@@ -1116,7 +1278,7 @@ def post_ask(req: AskReq, user: dict = Depends(current_user)):
 
 
 @app.post("/api/upload")
-async def post_upload(file: UploadFile = File(...), _: dict = Depends(current_user)):
+async def post_upload(file: UploadFile = File(...), _: dict = Depends(require_writer)):
     """接收前端上传的图片（已在前端压缩），保存到 data/photos/ 并返回 URL。"""
     suffix = Path(file.filename or "img.jpg").suffix.lower() or ".jpg"
     if suffix not in {".jpg", ".jpeg", ".png", ".webp", ".heic"}:
@@ -1142,7 +1304,7 @@ async def post_upload(file: UploadFile = File(...), _: dict = Depends(current_us
 
 
 @app.post("/api/wish")
-def post_wish(req: WishReq, user: dict = Depends(current_user)):
+def post_wish(req: WishReq, user: dict = Depends(require_writer)):
     wish = db.Wish(
         store_hint=req.store_hint, poi_id=req.poi_id,
         source=req.source, reason=req.reason,
@@ -1176,7 +1338,7 @@ class WishPatchReq(BaseModel):
 
 
 @app.patch("/api/visit/{visit_id}")
-def patch_visit(visit_id: str, req: VisitPatchReq, user: dict = Depends(current_user)):
+def patch_visit(visit_id: str, req: VisitPatchReq, user: dict = Depends(require_writer)):
     v = db.get_visit(visit_id)
     if not v or v.get("circle_id") != user["circle_id"]:
         raise HTTPException(404, "记录不存在")
@@ -1212,7 +1374,7 @@ def patch_visit(visit_id: str, req: VisitPatchReq, user: dict = Depends(current_
 
 
 @app.delete("/api/visit/{visit_id}")
-def delete_visit_endpoint(visit_id: str, user: dict = Depends(current_user)):
+def delete_visit_endpoint(visit_id: str, user: dict = Depends(require_writer)):
     v = db.get_visit(visit_id)
     if not v or v.get("circle_id") != user["circle_id"]:
         raise HTTPException(404, "记录不存在")
@@ -1227,7 +1389,7 @@ def delete_visit_endpoint(visit_id: str, user: dict = Depends(current_user)):
 
 
 @app.patch("/api/wish/{wish_id}")
-def patch_wish(wish_id: str, req: WishPatchReq, user: dict = Depends(current_user)):
+def patch_wish(wish_id: str, req: WishPatchReq, user: dict = Depends(require_writer)):
     w = db.get_wish(wish_id)
     if not w or w.get("circle_id") != user["circle_id"]:
         raise HTTPException(404, "记录不存在")
@@ -1238,7 +1400,7 @@ def patch_wish(wish_id: str, req: WishPatchReq, user: dict = Depends(current_use
 
 
 @app.delete("/api/wish/{wish_id}")
-def delete_wish_endpoint(wish_id: str, user: dict = Depends(current_user)):
+def delete_wish_endpoint(wish_id: str, user: dict = Depends(require_writer)):
     w = db.get_wish(wish_id)
     if not w or w.get("circle_id") != user["circle_id"]:
         raise HTTPException(404, "记录不存在")

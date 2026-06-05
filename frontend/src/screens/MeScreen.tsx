@@ -3,30 +3,22 @@ import Icon from '../ui/Icon'
 import SheetShell from '../ui/SheetShell'
 import StickerButton from '../ui/StickerButton'
 import MemoryScreen from './MemoryScreen'
-import {
-  getStats,
-  getPoints,
-  exportData,
-  resetMine,
-  changePassword,
-  genInvite,
-  listInvites,
-  revokeInvite,
-  listUsers,
-  deleteUserApi,
-} from '../api'
-import type { MeInfo, Point, InviteCode, UserItem } from '../api'
+import CircleSheet from './CircleSheet'
+import { getStats, getPoints, exportData, resetMine, changePassword, getCircles } from '../api'
+import type { MeInfo, Point } from '../api'
 
 type MeScreenProps = Readonly<{
   me: MeInfo
   onLogout: () => void
+  onCircleChanged: () => void
 }>
 
-type Sheet = 'invite' | 'pw' | null
+type Sheet = 'circle' | 'pw' | null
 
-export default function MeScreen({ me, onLogout }: MeScreenProps) {
-  const isAdmin = me.role === 'admin'
+export default function MeScreen({ me, onLogout, onCircleChanged }: MeScreenProps) {
   const [meals, setMeals] = useState<number | null>(null)
+  const [circleName, setCircleName] = useState<string>('')
+  const [circleCount, setCircleCount] = useState<number>(0)
   const [sheet, setSheet] = useState<Sheet>(null)
   const [memory, setMemory] = useState<Point[] | null>(null)
   const [loadingMem, setLoadingMem] = useState(false)
@@ -37,11 +29,17 @@ export default function MeScreen({ me, onLogout }: MeScreenProps) {
   const [exportMsg, setExportMsg] = useState<string | null>(null)
   const [confirmLogout, setConfirmLogout] = useState(false)
 
+  // 随当前活跃圈子刷新：顿数 + 圈名
   useEffect(() => {
-    getStats()
-      .then((s) => setMeals(s.total_visits))
+    getStats().then((s) => setMeals(s.total_visits)).catch(() => {})
+    getCircles()
+      .then((r) => {
+        const active = r.circles.find((c) => c.id === r.active_circle_id)
+        setCircleName(active?.name || '')
+        setCircleCount(r.circles.length)
+      })
       .catch(() => {})
-  }, [])
+  }, [me.circle_id])
 
   async function openMemory() {
     if (loadingMem) return
@@ -91,20 +89,27 @@ export default function MeScreen({ me, onLogout }: MeScreenProps) {
     }
   }
 
+  const initial = (me.nickname || me.username || '?').slice(0, 1).toUpperCase()
+
   return (
     <div className="h-full flex flex-col">
       <div className="flex-1 min-h-0 overflow-y-auto px-5 pt-[calc(env(safe-area-inset-top)_+_1.5rem)] pb-10 space-y-5">
         {/* 资料卡 */}
         <div className="sticker rounded-2xl p-5 flex items-center gap-4">
           <div className="w-20 h-20 rounded-full border-2 border-on-surface bg-accent flex items-center justify-center font-headline text-3xl shrink-0">
-            {me.username.slice(0, 1).toUpperCase()}
+            {initial}
           </div>
           <div className="flex flex-col gap-2 min-w-0">
-            <h3 className="font-headline text-2xl truncate">{me.username}</h3>
-            <span className="bg-primary/10 border border-primary/25 rounded-full px-3 py-1 text-primary font-bold text-sm w-fit">
-              {isAdmin ? '管理员' : '成员'}
-              {meals != null && ` · 一起 ${meals} 顿`}
-            </span>
+            <h3 className="font-headline text-2xl truncate">{me.nickname || me.username}</h3>
+            <button
+              onClick={() => setSheet('circle')}
+              className="flex items-center gap-1 bg-primary/10 border border-primary/25 rounded-full pl-2.5 pr-2 py-1 text-primary font-bold text-sm w-fit press-sm"
+            >
+              <Icon name="group" className="text-base" />
+              <span className="truncate max-w-[140px]">{circleName || '我的圈子'}</span>
+              {meals != null && <span className="text-primary/70">· {meals}顿</span>}
+              <Icon name="expand_more" className="text-base" />
+            </button>
           </div>
         </div>
 
@@ -120,7 +125,7 @@ export default function MeScreen({ me, onLogout }: MeScreenProps) {
             </span>
             <div>
               <h4 className="font-headline text-xl text-white">美食回忆报告</h4>
-              <p className="text-white/90 text-sm">{loadingMem ? '正在翻看你们的足迹…' : '翻翻你俩的年度食光故事'}</p>
+              <p className="text-white/90 text-sm">{loadingMem ? '正在翻看你们的足迹…' : '翻翻这个圈子的食光故事'}</p>
             </div>
           </div>
           <span className="w-10 h-10 bg-white/20 rounded-full flex items-center justify-center shrink-0">
@@ -130,8 +135,8 @@ export default function MeScreen({ me, onLogout }: MeScreenProps) {
 
         {/* 设置列表 */}
         <div className="sticker rounded-2xl overflow-hidden divide-y-2 divide-on-surface/10">
+          <Row icon="group" box="bg-[#fef2f2]" label={`我的圈子${circleCount > 1 ? ` · ${circleCount} 个` : ''}`} onClick={() => setSheet('circle')} />
           <Row icon="cloud_download" box="bg-[#f0f9ff]" label={exporting ? '导出中…' : '数据备份与导出'} onClick={doExport} />
-          <Row icon="group_add" box="bg-[#fef2f2]" label="邀请 TA 加入食光圈" onClick={() => setSheet('invite')} />
           <Row icon="lock_reset" box="bg-[#fdf2f8]" label="修改密码" onClick={() => setSheet('pw')} />
           <Row icon="logout" box="bg-[#fff7ed]" label="退出登录" onClick={() => setConfirmLogout(true)} />
         </div>
@@ -141,11 +146,11 @@ export default function MeScreen({ me, onLogout }: MeScreenProps) {
         <div className="pt-2 pb-2 flex flex-col items-center gap-3">
           {!confirmReset ? (
             <button onClick={() => setConfirmReset(true)} className="text-xs font-bold text-on-surface-variant flex items-center gap-1">
-              <Icon name="mop" className="text-sm" /> 只清空我记录的数据
+              <Icon name="mop" className="text-sm" /> 只清空我在本圈记录的数据
             </button>
           ) : (
             <div className="text-center">
-              <p className="text-xs text-on-surface-variant mb-1.5">只清你记的吃过/想去，同伴的保留 · 删了找不回</p>
+              <p className="text-xs text-on-surface-variant mb-1.5">只清你在当前圈记的吃过/想去，圈友的保留 · 删了找不回</p>
               <div className="flex gap-2 justify-center">
                 <button onClick={() => setConfirmReset(false)} className="px-4 py-1.5 rounded-full border-2 border-on-surface bg-white text-sm font-bold press-sm">
                   取消
@@ -158,13 +163,13 @@ export default function MeScreen({ me, onLogout }: MeScreenProps) {
           )}
           {resetMsg && <p className="text-xs text-on-surface-variant">{resetMsg}</p>}
           <p className="text-[10px] font-black text-on-surface-variant/60 tracking-widest text-center">
-            吃了么 · 你俩一起点亮的食光地图 · v2.0
+            吃了么 · 和饭搭子一起点亮的美食地图 · v3.0
           </p>
         </div>
       </div>
 
       {memory && <MemoryScreen points={memory} onClose={() => setMemory(null)} />}
-      {sheet === 'invite' && <InviteSheet isAdmin={isAdmin} myUsername={me.username} onClose={() => setSheet(null)} />}
+      {sheet === 'circle' && <CircleSheet me={me} onClose={() => setSheet(null)} onChanged={onCircleChanged} />}
       {sheet === 'pw' && <ChangePwSheet onClose={() => setSheet(null)} />}
 
       {confirmLogout && (
@@ -196,113 +201,6 @@ function Row({ icon, box, label, onClick }: RowProps) {
       </span>
       <Icon name="chevron_right" className="text-on-surface-variant" />
     </button>
-  )
-}
-
-/* ===== 邀请码 + 成员（admin） ===== */
-function InviteSheet({ isAdmin, myUsername, onClose }: { isAdmin: boolean; myUsername: string; onClose: () => void }) {
-  const [invites, setInvites] = useState<InviteCode[]>([])
-  const [busy, setBusy] = useState<'mine' | 'new' | null>(null)
-  const [copied, setCopied] = useState<string | null>(null)
-  const [err, setErr] = useState<string | null>(null)
-  const [users, setUsers] = useState<UserItem[]>([])
-
-  async function refresh() {
-    try {
-      setInvites(await listInvites())
-    } catch {}
-    if (isAdmin) {
-      try {
-        setUsers(await listUsers())
-      } catch {}
-    }
-  }
-  useEffect(() => {
-    refresh()
-  }, []) // eslint-disable-line
-
-  async function generate(newCircle: boolean) {
-    setBusy(newCircle ? 'new' : 'mine')
-    setErr(null)
-    try {
-      await genInvite(newCircle)
-      await refresh()
-    } catch (e: any) {
-      setErr(e?.response?.data?.detail || '生成失败')
-    } finally {
-      setBusy(null)
-    }
-  }
-  async function copy(code: string) {
-    try {
-      await navigator.clipboard.writeText(code)
-      setCopied(code)
-      setTimeout(() => setCopied(null), 1500)
-    } catch {
-      setErr(`复制失败，手动记下：${code}`)
-    }
-  }
-  const unused = invites.filter((i) => !i.used_by)
-
-  return (
-    <SheetShell onClose={onClose}>
-      <h3 className="font-headline text-xl mb-3">🎟️ 邀请 TA 加入</h3>
-      <div className="flex flex-col gap-2 mb-2">
-        <StickerButton full disabled={busy !== null} onClick={() => generate(false)}>
-          {busy === 'mine' ? '生成中…' : '👫 邀请进我的地图'}
-        </StickerButton>
-        {isAdmin && (
-          <button
-            onClick={() => generate(true)}
-            disabled={busy !== null}
-            className="w-full py-3 rounded-full border-2 border-on-surface bg-white font-bold press-sm"
-          >
-            {busy === 'new' ? '生成中…' : '🌱 给朋友建新地图'}
-          </button>
-        )}
-      </div>
-      <p className="text-xs text-on-surface-variant mb-3">把邀请码发给另一半 → TA 注册后和你共享同一张地图。</p>
-      {err && <div className="text-primary font-bold text-sm bg-primary/10 rounded-lg px-3 py-2 mb-2">{err}</div>}
-
-      <div className="flex flex-col gap-2">
-        {unused.map((i) => (
-          <div key={i.code} className="flex items-center gap-2 rounded-xl border-2 border-on-surface bg-white shadow-sticker-sm px-3 py-2">
-            <code className="font-num font-bold text-lg tracking-wider flex-1">{i.code}</code>
-            <span className={`text-xs font-bold px-2 py-0.5 rounded-full border-2 border-on-surface ${i.circle_id == null ? 'bg-tertiary' : 'bg-accent'}`}>
-              {i.circle_id == null ? '新地图' : '我的图'}
-            </span>
-            <button onClick={() => copy(i.code)} className="text-sm font-bold text-primary">
-              {copied === i.code ? '已复制✓' : '复制'}
-            </button>
-            <button onClick={() => revokeInvite(i.code).then(refresh)} className="text-sm text-on-surface-variant">
-              撤销
-            </button>
-          </div>
-        ))}
-        {unused.length === 0 && <p className="text-center text-on-surface-variant text-sm py-2">还没有未使用的邀请码</p>}
-      </div>
-
-      {isAdmin && users.length > 0 && (
-        <div className="mt-4 pt-3 border-t-2 border-dashed border-on-surface/15">
-          <div className="font-bold mb-2">👥 成员（{users.length}）</div>
-          <div className="flex flex-col gap-1.5">
-            {users.map((u) => (
-              <div key={u.id} className="flex items-center justify-between text-sm">
-                <span className="font-bold">{u.username}</span>
-                <span className="flex items-center gap-2">
-                  <span className="text-on-surface-variant text-xs">{u.role === 'admin' ? '管理员' : '成员'}</span>
-                  {u.username !== myUsername && (
-                    <button onClick={() => deleteUserApi(u.username).then(refresh)} className="text-primary text-xs">
-                      删除
-                    </button>
-                  )}
-                </span>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-    </SheetShell>
   )
 }
 

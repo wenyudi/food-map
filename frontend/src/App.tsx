@@ -6,7 +6,7 @@ import MapScreen from './screens/MapScreen'
 import ListScreen from './screens/ListScreen'
 import AddScreen from './screens/AddScreen'
 import MeScreen from './screens/MeScreen'
-import { getMe, getToken, clearToken } from './api'
+import { getMe, getToken, clearToken, invalidatePoints } from './api'
 import type { MeInfo } from './api'
 
 export default function App() {
@@ -45,6 +45,15 @@ export default function App() {
   function handleSubmitted() {
     setRefreshKey((k) => k + 1)
     setTab('map')
+  }
+  async function handleCircleChanged() {
+    invalidatePoints()
+    try {
+      setMe(await getMe())
+    } catch {
+      /* ignore */
+    }
+    setRefreshKey((k) => k + 1)
   }
 
   if (authState === 'loading') {
@@ -86,7 +95,7 @@ export default function App() {
         />
       )}
       {tab === 'add' && <AddScreen onSubmitted={handleSubmitted} />}
-      {tab === 'me' && <MeScreen me={me} onLogout={handleLogout} />}
+      {tab === 'me' && <MeScreen me={me} onLogout={handleLogout} onCircleChanged={handleCircleChanged} />}
     </Phone>
   )
 }

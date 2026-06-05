@@ -102,7 +102,17 @@ SCHEMA = """
 CREATE TABLE IF NOT EXISTS circles (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     name TEXT,
+    owner_username TEXT,
     created_at TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS circle_members (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    circle_id INTEGER NOT NULL,
+    username TEXT NOT NULL,
+    role TEXT NOT NULL DEFAULT 'editor',   -- owner | editor | viewer
+    joined_at TEXT NOT NULL,
+    UNIQUE(circle_id, username)
 );
 
 CREATE TABLE IF NOT EXISTS stores (
@@ -144,6 +154,7 @@ CREATE TABLE IF NOT EXISTS users (
     password_hash TEXT NOT NULL,
     role TEXT NOT NULL DEFAULT 'user',
     email TEXT,
+    nickname TEXT,
     circle_id INTEGER,
     created_at TEXT NOT NULL
 );
@@ -151,9 +162,13 @@ CREATE TABLE IF NOT EXISTS users (
 CREATE TABLE IF NOT EXISTS invite_codes (
     code TEXT PRIMARY KEY,
     created_by TEXT,
-    circle_id INTEGER,          -- NULL = 注册时新建独立圈子；否则加入该圈子
+    circle_id INTEGER,              -- 邀请加入哪个圈子
+    role TEXT DEFAULT 'editor',     -- 进来给什么角色：editor | viewer
+    expires_at TEXT,                -- 过期时间；NULL = 不过期
+    max_uses INTEGER,               -- 可用次数上限；NULL = 不限次
+    use_count INTEGER DEFAULT 0,    -- 已用次数
     created_at TEXT NOT NULL,
-    used_by TEXT,
+    used_by TEXT,                   -- 最后使用者（兼容旧字段）
     used_at TEXT
 );
 
@@ -178,6 +193,8 @@ CREATE INDEX IF NOT EXISTS idx_visits_poi ON visits(poi_id);
 CREATE INDEX IF NOT EXISTS idx_wishes_poi_status ON wishes(poi_id, status);
 CREATE INDEX IF NOT EXISTS idx_users_username ON users(username);
 CREATE INDEX IF NOT EXISTS idx_email_codes ON email_codes(email, purpose, created_at);
+CREATE INDEX IF NOT EXISTS idx_circle_members_user ON circle_members(username);
+CREATE INDEX IF NOT EXISTS idx_circle_members_circle ON circle_members(circle_id);
 """
 # 注：circle_id 的索引放在 _migrate() 里建——老库 executescript 时该列还不存在，
 # 直接写进 SCHEMA 会因「no such column: circle_id」报错。
@@ -226,7 +243,34 @@ def _migrate(c: sqlite3.Connection) -> None:
     ucols = {r["name"] for r in c.execute("PRAGMA table_info(users)")}
     if "email" not in ucols:
         c.execute("ALTER TABLE users ADD COLUMN email TEXT")
+    if "nickname" not in ucols:
+        c.execute("ALTER TABLE users ADD COLUMN nickname TEXT")
     c.execute("CREATE UNIQUE INDEX IF NOT EXISTS idx_users_email ON users(email) WHERE email IS NOT NULL")
+    c.execute("UPDATE users SET nickname=username WHERE nickname IS NULL OR nickname=''")  # 老号昵称默认=用户名
+
+    # ===== 圈子多人化：circle_members 多对多 + 活跃圈子（users.circle_id 语义改为「当前活跃圈」）=====
+    ccols = {r["name"] for r in c.execute("PRAGMA table_info(circles)")}
+    if "owner_username" not in ccols:
+        c.execute("ALTER TABLE circles ADD COLUMN owner_username TEXT")
+    icols = {r["name"] for r in c.execute("PRAGMA table_info(invite_codes)")}
+    for col, ddl in (("role", "TEXT DEFAULT 'editor'"), ("expires_at", "TEXT"),
+                     ("max_uses", "INTEGER"), ("use_count", "INTEGER DEFAULT 0")):
+        if col not in icols:
+            c.execute(f"ALTER TABLE invite_codes ADD COLUMN {col} {ddl}")
+    # 回填成员关系：现有每个 user → 其 circle_id 圈的成员（admin→owner，其余→editor）。
+    # INSERT OR IGNORE + owner_username IS NULL 双重幂等，重复迁移不出错。
+    now = datetime.now().isoformat(timespec="seconds")
+    for u in c.execute("SELECT username, role, circle_id FROM users WHERE circle_id IS NOT NULL").fetchall():
+        mrole = "owner" if u["role"] == "admin" else "editor"
+        c.execute(
+            "INSERT OR IGNORE INTO circle_members (circle_id, username, role, joined_at) VALUES (?, ?, ?, ?)",
+            (u["circle_id"], u["username"], mrole, now),
+        )
+    for ci in c.execute("SELECT id FROM circles WHERE owner_username IS NULL").fetchall():
+        owner = (c.execute("SELECT username FROM circle_members WHERE circle_id=? AND role='owner' LIMIT 1", (ci["id"],)).fetchone()
+                 or c.execute("SELECT username FROM circle_members WHERE circle_id=? LIMIT 1", (ci["id"],)).fetchone())
+        if owner:
+            c.execute("UPDATE circles SET owner_username=? WHERE id=?", (owner["username"], ci["id"]))
 
 
 _init_lock = threading.Lock()
@@ -529,28 +573,128 @@ def ai_cache_delete_prefix(prefix: str) -> None:
         c.execute("DELETE FROM ai_cache WHERE key LIKE ?", (prefix + "%",))
 
 
-# ---------- 圈子 CRUD ----------
+# ---------- 圈子 / 成员 CRUD ----------
 
-def create_circle(name: str = "") -> int:
+def create_circle(name: str = "", owner_username: Optional[str] = None) -> int:
     with _conn() as c:
         now = datetime.now().isoformat(timespec="seconds")
         cur = c.execute(
-            "INSERT INTO circles (name, created_at) VALUES (?, ?)",
-            (name, now),
+            "INSERT INTO circles (name, owner_username, created_at) VALUES (?, ?, ?)",
+            (name, owner_username, now),
         )
         return int(cur.lastrowid or 0)
+
+
+def get_circle(circle_id: int) -> Optional[dict]:
+    with _conn() as c:
+        row = c.execute("SELECT * FROM circles WHERE id=?", (circle_id,)).fetchone()
+        return _row_to_dict(row) if row else None
+
+
+def rename_circle(circle_id: int, name: str) -> None:
+    with _conn() as c:
+        c.execute("UPDATE circles SET name=? WHERE id=?", (name, circle_id))
+
+
+def set_circle_owner(circle_id: int, username: str) -> None:
+    with _conn() as c:
+        c.execute("UPDATE circles SET owner_username=? WHERE id=?", (username, circle_id))
+
+
+def delete_circle(circle_id: int) -> None:
+    """解散圈子：删圈子 + 成员关系 + 邀请码 + 该圈记录（visits/wishes）。stores 全局共享不删。"""
+    with _conn() as c:
+        c.execute("DELETE FROM visits WHERE circle_id=?", (circle_id,))
+        c.execute("DELETE FROM wishes WHERE circle_id=?", (circle_id,))
+        c.execute("DELETE FROM circle_members WHERE circle_id=?", (circle_id,))
+        c.execute("DELETE FROM invite_codes WHERE circle_id=?", (circle_id,))
+        c.execute("DELETE FROM circles WHERE id=?", (circle_id,))
+
+
+def add_member(circle_id: int, username: str, role: str = "editor") -> None:
+    with _conn() as c:
+        now = datetime.now().isoformat(timespec="seconds")
+        c.execute(
+            "INSERT OR IGNORE INTO circle_members (circle_id, username, role, joined_at) VALUES (?, ?, ?, ?)",
+            (circle_id, username, role, now),
+        )
+
+
+def get_member(circle_id: int, username: str) -> Optional[dict]:
+    with _conn() as c:
+        row = c.execute(
+            "SELECT * FROM circle_members WHERE circle_id=? AND username=?",
+            (circle_id, username),
+        ).fetchone()
+        return _row_to_dict(row) if row else None
+
+
+def member_role(circle_id: int, username: str) -> Optional[str]:
+    m = get_member(circle_id, username)
+    return m["role"] if m else None
+
+
+def list_members(circle_id: int) -> list[dict]:
+    with _conn() as c:
+        rows = c.execute(
+            "SELECT m.username, m.role, m.joined_at, u.email, u.nickname "
+            "FROM circle_members m LEFT JOIN users u ON u.username=m.username "
+            "WHERE m.circle_id=? ORDER BY m.joined_at",
+            (circle_id,),
+        ).fetchall()
+        return [_row_to_dict(r) for r in rows]
+
+
+def list_my_circles(username: str) -> list[dict]:
+    """我加入的圈子 + 我的角色 + 成员数（按加入时间）。"""
+    with _conn() as c:
+        rows = c.execute(
+            "SELECT c.id, c.name, c.owner_username, m.role, "
+            "  (SELECT COUNT(*) FROM circle_members WHERE circle_id=c.id) AS member_count "
+            "FROM circle_members m JOIN circles c ON c.id=m.circle_id "
+            "WHERE m.username=? ORDER BY m.joined_at",
+            (username,),
+        ).fetchall()
+        return [_row_to_dict(r) for r in rows]
+
+
+def update_member_role(circle_id: int, username: str, role: str) -> None:
+    with _conn() as c:
+        c.execute(
+            "UPDATE circle_members SET role=? WHERE circle_id=? AND username=?",
+            (role, circle_id, username),
+        )
+
+
+def remove_member(circle_id: int, username: str) -> None:
+    with _conn() as c:
+        c.execute("DELETE FROM circle_members WHERE circle_id=? AND username=?", (circle_id, username))
+
+
+def count_members(circle_id: int) -> int:
+    with _conn() as c:
+        return int(c.execute(
+            "SELECT COUNT(*) n FROM circle_members WHERE circle_id=?", (circle_id,)
+        ).fetchone()["n"])
+
+
+def set_active_circle(username: str, circle_id: int) -> None:
+    """切换当前活跃圈子（= users.circle_id，下游所有数据接口据此隔离）。"""
+    with _conn() as c:
+        c.execute("UPDATE users SET circle_id=? WHERE username=?", (circle_id, username))
 
 
 # ---------- 用户 CRUD ----------
 
 def create_user(username: str, password_hash: str, role: str = "user",
-                circle_id: Optional[int] = None, email: Optional[str] = None) -> int:
+                circle_id: Optional[int] = None, email: Optional[str] = None,
+                nickname: Optional[str] = None) -> int:
     with _conn() as c:
         now = datetime.now().isoformat(timespec="seconds")
         cur = c.execute(
-            "INSERT INTO users (username, password_hash, role, email, circle_id, created_at) "
-            "VALUES (?, ?, ?, ?, ?, ?)",
-            (username, password_hash, role, email, circle_id, now),
+            "INSERT INTO users (username, password_hash, role, email, nickname, circle_id, created_at) "
+            "VALUES (?, ?, ?, ?, ?, ?, ?)",
+            (username, password_hash, role, email, nickname or username, circle_id, now),
         )
         return int(cur.lastrowid or 0)
 
@@ -563,7 +707,7 @@ def get_user(username: str) -> Optional[dict]:
 
 def list_users() -> list[dict]:
     with _conn() as c:
-        rows = c.execute("SELECT id, username, role, email, created_at FROM users ORDER BY id").fetchall()
+        rows = c.execute("SELECT id, username, nickname, role, email, created_at FROM users ORDER BY id").fetchall()
         return [_row_to_dict(r) for r in rows]
 
 
@@ -629,12 +773,24 @@ def count_users() -> int:
 
 # ---------- 邀请码 CRUD ----------
 
-def create_invite(code: str, created_by: str, circle_id: Optional[int] = None) -> None:
-    """circle_id 为 None 表示「注册时新建独立圈子」；否则注册者加入该圈子。"""
+def create_invite(code: str, circle_id: int, created_by: str, role: str = "viewer",
+                  expires_at: Optional[str] = None, max_uses: Optional[int] = None) -> None:
+    """可复用邀请码：绑定圈子 + 进来给的角色 + 过期时间 + 次数上限（NULL=不限）。"""
     with _conn() as c:
         c.execute(
-            "INSERT INTO invite_codes (code, created_by, circle_id, created_at) VALUES (?, ?, ?, ?)",
-            (code, created_by, circle_id, datetime.now().isoformat(timespec="seconds")),
+            "INSERT INTO invite_codes (code, circle_id, created_by, role, expires_at, max_uses, use_count, created_at) "
+            "VALUES (?, ?, ?, ?, ?, ?, 0, ?)",
+            (code, circle_id, created_by, role, expires_at, max_uses,
+             datetime.now().isoformat(timespec="seconds")),
+        )
+
+
+def increment_invite_use(code: str, used_by: str) -> None:
+    """邀请码被用一次：次数 +1，记录最后使用者。"""
+    with _conn() as c:
+        c.execute(
+            "UPDATE invite_codes SET use_count=use_count+1, used_by=?, used_at=? WHERE code=?",
+            (used_by, datetime.now().isoformat(timespec="seconds"), code),
         )
 
 

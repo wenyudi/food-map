@@ -14,22 +14,20 @@ type Mode = 'login' | 'register' | 'reset'
 
 const emailValid = (e: string) => /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(e.trim())
 
-/** 登录 / 注册 / 找回密码 —— 吃了么 hero + 贴纸风，接真实 JWT + 邮箱验证码 */
+/** 登录 / 注册 / 找回密码 —— 邮箱登录 + 昵称 + 邮箱验证码（贴纸风） */
 export default function LoginScreen({ onLoggedIn }: LoginScreenProps) {
   const [mode, setMode] = useState<Mode>('login')
   const [showPw, setShowPw] = useState(false)
-  const [username, setUsername] = useState('')
-  const [password, setPassword] = useState('')
-  const [invite, setInvite] = useState('')
   const [email, setEmail] = useState('')
+  const [password, setPassword] = useState('')
   const [code, setCode] = useState('')
+  const [nickname, setNickname] = useState('')
   const [busy, setBusy] = useState(false)
   const [sending, setSending] = useState(false)
   const [cooldown, setCooldown] = useState(0)
   const [err, setErr] = useState<string | null>(null)
   const [ok, setOk] = useState<string | null>(null)
 
-  // 验证码发送倒计时
   useEffect(() => {
     if (cooldown <= 0) return
     const t = setTimeout(() => setCooldown((s) => s - 1), 1000)
@@ -63,28 +61,29 @@ export default function LoginScreen({ onLoggedIn }: LoginScreenProps) {
   async function submit() {
     setErr(null)
     setOk(null)
+    const mail = email.trim().toLowerCase()
     if (mode === 'login') {
-      if (!username.trim() || !password) return
+      if (!emailValid(email) || !password) return setErr('填一下邮箱和密码')
       setBusy(true)
       try {
-        const r = await login(username.trim(), password)
+        const r = await login(mail, password)
         setToken(r.token)
-        onLoggedIn({ username: r.username, role: r.role })
+        onLoggedIn({ username: r.username, nickname: r.nickname, role: r.role, circle_id: r.circle_id })
       } catch (e: any) {
         setErr(e?.response?.data?.detail || '登录失败')
       } finally {
         setBusy(false)
       }
     } else if (mode === 'register') {
-      if (!username.trim() || !password) return
       if (!emailValid(email)) return setErr('先填一个正确的邮箱')
       if (!code.trim()) return setErr('请填邮箱验证码')
-      if (!invite.trim()) return setErr('请填邀请码')
+      if (!nickname.trim()) return setErr('起个昵称吧')
+      if (password.length < 4) return setErr('密码至少 4 位')
       setBusy(true)
       try {
-        const r = await register(username.trim(), password, invite.trim(), email.trim().toLowerCase(), code.trim())
+        const r = await register(mail, code.trim(), password, nickname.trim())
         setToken(r.token)
-        onLoggedIn({ username: r.username, role: r.role })
+        onLoggedIn({ username: r.username, nickname: r.nickname, role: r.role, circle_id: r.circle_id })
       } catch (e: any) {
         setErr(e?.response?.data?.detail || '注册失败')
       } finally {
@@ -97,7 +96,7 @@ export default function LoginScreen({ onLoggedIn }: LoginScreenProps) {
       if (password.length < 4) return setErr('新密码至少 4 位')
       setBusy(true)
       try {
-        await resetPassword(email.trim().toLowerCase(), code.trim(), password)
+        await resetPassword(mail, code.trim(), password)
         setMode('login')
         setCode('')
         setPassword('')
@@ -113,8 +112,8 @@ export default function LoginScreen({ onLoggedIn }: LoginScreenProps) {
   const submitLabel = mode === 'login' ? '登 录' : mode === 'register' ? '注 册' : '重置密码'
   const submitDisabled =
     busy ||
-    (mode === 'login' && (!username.trim() || !password)) ||
-    (mode === 'register' && (!username.trim() || !password || !emailValid(email) || !code.trim() || !invite.trim())) ||
+    (mode === 'login' && (!emailValid(email) || !password)) ||
+    (mode === 'register' && (!emailValid(email) || !code.trim() || !nickname.trim() || password.length < 4)) ||
     (mode === 'reset' && (!emailValid(email) || !code.trim() || password.length < 4))
 
   return (
@@ -127,13 +126,12 @@ export default function LoginScreen({ onLoggedIn }: LoginScreenProps) {
           }}
           className="sticker rounded-2xl px-6 pt-8 pb-7 flex flex-col items-center"
         >
-          {/* App 图标 */}
           <div className="w-20 h-20 rounded-2xl border-2 border-on-surface bg-accent shadow-sticker flex items-center justify-center mb-4">
             <Icon name="ramen_dining" className="text-4xl text-on-surface" />
           </div>
 
           <Wordmark className="text-4xl" />
-          <p className="text-on-surface-variant font-bold text-sm mt-2 mb-6">你俩一起点亮的食光地图</p>
+          <p className="text-on-surface-variant font-bold text-sm mt-2 mb-6">和饭搭子一起点亮的美食地图</p>
 
           {/* 登录 / 注册 切换；找回密码时换成返回入口 */}
           {mode === 'reset' ? (
@@ -167,33 +165,19 @@ export default function LoginScreen({ onLoggedIn }: LoginScreenProps) {
             <p className="self-start -mt-1 mb-3 text-base font-headline font-bold text-on-surface">找回密码 🔑</p>
           )}
 
-          {/* 用户名：登录 / 注册 用 */}
-          {mode !== 'reset' && (
-            <Field
-              icon="person"
-              label="用户名"
-              placeholder="你的吃货暗号"
-              value={username}
-              onChange={setUsername}
-              autoComplete="username"
-            />
-          )}
+          {/* 邮箱：所有模式都要 */}
+          <Field
+            icon="mail"
+            label="邮箱"
+            placeholder={mode === 'login' ? '登录邮箱' : '收验证码的邮箱'}
+            type="email"
+            inputMode="email"
+            value={email}
+            onChange={setEmail}
+            autoComplete="email"
+          />
 
-          {/* 邮箱：注册 / 找回 用 */}
-          {mode !== 'login' && (
-            <Field
-              icon="mail"
-              label="邮箱"
-              placeholder="收验证码的邮箱"
-              type="email"
-              inputMode="email"
-              value={email}
-              onChange={setEmail}
-              autoComplete="email"
-            />
-          )}
-
-          {/* 验证码：注册 / 找回 用，带发送按钮 + 倒计时 */}
+          {/* 验证码：注册 / 找回，带发送按钮 + 倒计时 */}
           {mode !== 'login' && (
             <Field
               icon="pin"
@@ -220,6 +204,18 @@ export default function LoginScreen({ onLoggedIn }: LoginScreenProps) {
             />
           )}
 
+          {/* 昵称：仅注册 */}
+          {mode === 'register' && (
+            <Field
+              icon="sentiment_satisfied"
+              label="昵称"
+              placeholder="圈子里大家怎么称呼你"
+              maxLength={20}
+              value={nickname}
+              onChange={setNickname}
+            />
+          )}
+
           {/* 密码（找回时是「新密码」） */}
           <Field
             icon="lock"
@@ -235,11 +231,6 @@ export default function LoginScreen({ onLoggedIn }: LoginScreenProps) {
               </button>
             }
           />
-
-          {/* 邀请码：仅注册 */}
-          {mode === 'register' && (
-            <Field icon="key" label="邀请码" placeholder="对象给你的暗号" value={invite} onChange={setInvite} />
-          )}
 
           {/* 忘记密码入口：仅登录 */}
           {mode === 'login' && (
@@ -264,7 +255,7 @@ export default function LoginScreen({ onLoggedIn }: LoginScreenProps) {
           )}
 
           {mode === 'register' && (
-            <p className="self-start mt-1 mb-1 text-xs font-bold text-on-surface-variant">没有邀请码？找管理员要一个 🎟️</p>
+            <p className="self-start mt-1 mb-1 text-xs font-bold text-on-surface-variant">注册后会自动给你建一个专属美食圈 🍜</p>
           )}
 
           <StickerButton full type="submit" disabled={submitDisabled} className="mt-4 py-4 text-lg">

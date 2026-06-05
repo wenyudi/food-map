@@ -32,23 +32,62 @@ api.interceptors.response.use(
 // 认证接口
 export interface MeInfo {
   username: string
+  nickname: string
   role: 'admin' | 'user'
+  circle_id?: number
 }
 export interface LoginResp extends MeInfo {
   token: string
 }
 
-export const login = (username: string, password: string) =>
-  api.post<LoginResp>('/auth/login', { username, password }).then(r => r.data)
+export const login = (email: string, password: string) =>
+  api.post<LoginResp>('/auth/login', { email, password }).then(r => r.data)
 
-export const register = (username: string, password: string, invite_code: string, email: string, code: string) =>
-  api.post<LoginResp>('/auth/register', { username, password, invite_code, email, code }).then(r => r.data)
+export const register = (email: string, code: string, password: string, nickname: string) =>
+  api.post<LoginResp>('/auth/register', { email, code, password, nickname }).then(r => r.data)
 
 export const sendCode = (email: string, purpose: 'register' | 'reset') =>
   api.post<{ ok: boolean; cooldown: number; dev_mode: boolean }>('/auth/send-code', { email, purpose }).then(r => r.data)
 
 export const resetPassword = (email: string, code: string, new_password: string) =>
   api.post<{ ok: boolean }>('/auth/reset-password', { email, code, new_password }).then(r => r.data)
+
+// ---------- 圈子 ----------
+export type CircleRole = 'owner' | 'editor' | 'viewer'
+export interface CircleBrief {
+  id: number
+  name: string
+  owner_username: string
+  role: CircleRole
+  member_count: number
+}
+export interface CircleMember {
+  username: string
+  nickname?: string
+  role: CircleRole
+  joined_at: string
+  email?: string
+}
+export const getCircles = () =>
+  api.get<{ active_circle_id: number; circles: CircleBrief[] }>('/circles').then(r => r.data)
+export const createCircleApi = (name: string) =>
+  api.post<{ circle_id: number; name: string }>('/circles', { name }).then(r => r.data)
+export const switchCircleApi = (circle_id: number) =>
+  api.post<{ ok: boolean; active_circle_id: number }>('/circles/switch', { circle_id }).then(r => r.data)
+export const joinCircleApi = (code: string) =>
+  api.post<{ ok: boolean; circle_id: number; name: string; role?: CircleRole; already?: boolean }>('/circles/join', { code }).then(r => r.data)
+export const getMembers = (cid: number) =>
+  api.get<{ name: string; owner: string; my_role: CircleRole; members: CircleMember[] }>(`/circles/${cid}/members`).then(r => r.data)
+export const createInviteApi = (cid: number, role: 'editor' | 'viewer', expires_hours = 24, max_uses?: number | null) =>
+  api.post<{ code: string; role: CircleRole; expires_at: string; max_uses: number | null }>(`/circles/${cid}/invites`, { role, expires_hours, max_uses }).then(r => r.data)
+export const renameCircleApi = (cid: number, name: string) =>
+  api.patch<{ ok: boolean; name: string }>(`/circles/${cid}`, { name }).then(r => r.data)
+export const setMemberRoleApi = (cid: number, username: string, role: 'editor' | 'viewer') =>
+  api.patch(`/circles/${cid}/members/${encodeURIComponent(username)}`, { role }).then(r => r.data)
+export const removeMemberApi = (cid: number, username: string) =>
+  api.delete(`/circles/${cid}/members/${encodeURIComponent(username)}`).then(r => r.data)
+export const disbandCircleApi = (cid: number) =>
+  api.delete(`/circles/${cid}`).then(r => r.data)
 
 export const getMe = () => api.get<MeInfo>('/auth/me').then(r => r.data)
 
@@ -213,7 +252,7 @@ export const invalidatePoints = () => {
 
 export const getStats = () => api.get<Stats>('/stats').then(r => r.data)
 
-// 只清空"我"记录的数据（同伴的保留）
+// 只清空"我"记录的数据（圈友的保留）
 export const resetMine = () =>
   api.post<{ ok: boolean; visits: number; wishes: number }>('/reset-mine').then(r => { invalidatePoints(); return r.data })
 
