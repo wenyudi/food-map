@@ -303,11 +303,4 @@
   .mood-glyph {
     animation: none !important;
   }
-  /* 年度回忆报告：关掉极光漂移 / 微粒闪烁 / 浮动 / 入场，保留静态构图 */
-  .animate-mem-aurora,
-  .animate-mem-twinkle,
-  .animate-mem-float,
-  .animate-mem-in {
-    animation: none !important;
-  }
 }

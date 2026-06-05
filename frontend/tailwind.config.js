@@ -29,9 +29,6 @@ export default {
         body: ['"Plus Jakarta Sans"', '"PingFang SC"', '"Microsoft YaHei"', 'sans-serif'],
         label: ['"Public Sans"', '"PingFang SC"', 'sans-serif'],
         num: ['Fredoka', '"Plus Jakarta Sans"', 'sans-serif'], // 大数字
-        // 年度回忆报告（暗色编辑杂志风）：拉丁大数字衬线 + 中文衬线
-        playfair: ['"Playfair Display"', 'Georgia', 'serif'],
-        serifcjk: ['"Noto Serif SC"', '"Source Han Serif SC"', '"Songti SC"', '"STSong"', 'serif'],
       },
       fontSize: {
         'headline-sm': '1.5rem',
@@ -46,32 +43,10 @@ export default {
       keyframes: {
         'spin-slow': { to: { transform: 'rotate(360deg)' } },
         pop: { '0%': { transform: 'scale(.8)', opacity: '0' }, '100%': { transform: 'scale(1)', opacity: '1' } },
-        // 年度回忆报告
-        'mem-in': {
-          '0%': { opacity: '0', transform: 'translateY(16px) scale(.985)' },
-          '100%': { opacity: '1', transform: 'translateY(0) scale(1)' },
-        },
-        'mem-aurora': {
-          '0%, 100%': { transform: 'translate3d(0,0,0) scale(1)' },
-          '33%': { transform: 'translate3d(6%,-5%,0) scale(1.18)' },
-          '66%': { transform: 'translate3d(-6%,5%,0) scale(1.06)' },
-        },
-        'mem-twinkle': {
-          '0%, 100%': { opacity: '.12', transform: 'scale(.7)' },
-          '50%': { opacity: '.9', transform: 'scale(1)' },
-        },
-        'mem-float': {
-          '0%, 100%': { transform: 'translateY(0)' },
-          '50%': { transform: 'translateY(-7px)' },
-        },
       },
       animation: {
         'spin-slow': 'spin-slow 10s linear infinite',
         pop: 'pop .18s ease-out',
-        'mem-in': 'mem-in .5s cubic-bezier(.22,.61,.36,1) both',
-        'mem-aurora': 'mem-aurora 17s ease-in-out infinite',
-        'mem-twinkle': 'mem-twinkle 3.4s ease-in-out infinite',
-        'mem-float': 'mem-float 5s ease-in-out infinite',
       },
     },
   },
