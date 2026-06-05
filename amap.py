@@ -21,12 +21,24 @@ REGEO_URL = "https://restapi.amap.com/v3/geocode/regeo"
 SHOW_FIELDS = "business,photos,children,navi"
 
 
-def _call(url: str, params: dict) -> list[dict]:
-    resp = requests.get(url, params=params, timeout=10)
-    data = resp.json()
+def _get(url: str, params: dict) -> dict:
+    """统一请求：网络错 / 非 2xx / 非 JSON 全收敛成 RuntimeError（上层 except RuntimeError 已接住），
+    再校验高德业务 status——避免网关 502、超时直接冒成未捕获的 500。"""
+    try:
+        resp = requests.get(url, params=params, timeout=10)
+        resp.raise_for_status()
+        data = resp.json()
+    except requests.RequestException as e:
+        raise RuntimeError(f"高德连接失败：{e}") from e
+    except ValueError as e:
+        raise RuntimeError("高德返回了无法解析的内容") from e
     if data.get("status") != "1":
         raise RuntimeError(f"高德 API 报错：{data.get('info')} (code={data.get('infocode')})")
-    return data.get("pois", []) or []
+    return data
+
+
+def _call(url: str, params: dict) -> list[dict]:
+    return _get(url, params).get("pois", []) or []
 
 
 def search_poi(keywords: str, region: Optional[str] = None, location: Optional[str] = None,
@@ -59,10 +71,7 @@ def regeo(location: str) -> dict:
 
     注意：直辖市（北京/上海/重庆/天津）的 city 字段返回空数组 []，此时回退到 province。
     """
-    resp = requests.get(REGEO_URL, params={"key": AMAP_KEY, "location": location}, timeout=10)
-    data = resp.json()
-    if data.get("status") != "1":
-        raise RuntimeError(f"高德 regeo 报错：{data.get('info')} (code={data.get('infocode')})")
+    data = _get(REGEO_URL, {"key": AMAP_KEY, "location": location})
     comp = (data.get("regeocode") or {}).get("addressComponent") or {}
 
     def _s(v):  # 高德空值常是 []，统一成字符串

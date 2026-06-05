@@ -22,10 +22,12 @@ type MapScreenProps = Readonly<{
   focusPoiId?: string | null
   onConsumeFocus?: () => void
   onJumpToAdd?: () => void
+  onInvite?: () => void
   myUsername?: string
+  circleRole?: string
 }>
 
-export default function MapScreen({ refreshKey, focusPoiId, onConsumeFocus, onJumpToAdd, myUsername }: MapScreenProps) {
+export default function MapScreen({ refreshKey, focusPoiId, onConsumeFocus, onJumpToAdd, onInvite, myUsername, circleRole }: MapScreenProps) {
   const [points, setPoints] = useState<Point[]>([])
   const [stats, setStats] = useState<Stats | null>(null)
   const [loading, setLoading] = useState(true)
@@ -35,6 +37,7 @@ export default function MapScreen({ refreshKey, focusPoiId, onConsumeFocus, onJu
   const markerRefs = useRef<Record<string, L.Marker>>({})
   const mapRef = useRef<L.Map | null>(null)
   const [hereBusy, setHereBusy] = useState(false)
+  const [toast, setToast] = useState<string | null>(null)
 
   const [areaMode, setAreaMode] = useState(false)
   const [activeArea, setActiveArea] = useState<Area | null>(null)
@@ -105,7 +108,8 @@ export default function MapScreen({ refreshKey, focusPoiId, onConsumeFocus, onJu
     try {
       const loc = await getMyLocation()
       if (!loc) {
-        alert('定位失败 —— 可能没授权，或在 HTTP 局域网下浏览器不允许')
+        setToast('📍 定位没成功，检查下定位权限')
+        setTimeout(() => setToast(null), 2200)
         return
       }
       map.flyTo([loc.lat, loc.lng], 15, { duration: 0.8 })
@@ -145,7 +149,7 @@ export default function MapScreen({ refreshKey, focusPoiId, onConsumeFocus, onJu
                 icon={L.divIcon({
                   html: `<div class="marker-dot${getStatus(p).key === 'want' ? ' want' : ''}" style="--ring:${
                     STATUS_COLOR[getStatus(p).key]
-                  }">${p.emoji}</div>`,
+                  }">${p.emoji}<span style="position:absolute;top:-6px;right:-6px;width:17px;height:17px;border-radius:50%;background:#fff;border:2px solid #3d2b1a;display:flex;align-items:center;justify-content:center;font-size:10px;box-shadow:1px 1px 0 0 rgba(61,43,26,1)">${getStatus(p).icon}</span></div>`,
                   className: '',
                   iconSize: [38, 38],
                   iconAnchor: [19, 19],
@@ -213,14 +217,27 @@ export default function MapScreen({ refreshKey, focusPoiId, onConsumeFocus, onJu
             <div className="sticker rounded-2xl p-6 text-center max-w-[280px]">
               <div className="text-5xl mb-2">🗺️</div>
               <div className="font-headline text-xl mb-1">地图还空着</div>
-              <div className="text-sm text-on-surface-variant mb-4">记下第一顿，就会在这里亮起一个点</div>
-              {onJumpToAdd && (
-                <button
-                  onClick={onJumpToAdd}
-                  className="bg-primary text-white rounded-full border-2 border-on-surface shadow-sticker px-5 py-2.5 font-headline font-bold press"
-                >
-                  ✏️ 去记第一笔
-                </button>
+              {circleRole === 'viewer' ? (
+                <div className="text-sm text-on-surface-variant">等记录员点亮第一家店 🍜</div>
+              ) : (
+                <>
+                  <div className="text-sm text-on-surface-variant mb-4">记下第一顿，就会在这里亮起一个点</div>
+                  <div className="flex flex-col items-center gap-2.5">
+                    {onJumpToAdd && (
+                      <button
+                        onClick={onJumpToAdd}
+                        className="bg-primary text-white rounded-full border-2 border-on-surface shadow-sticker px-5 py-2.5 font-headline font-bold press"
+                      >
+                        ✏️ 去记第一顿
+                      </button>
+                    )}
+                    {onInvite && (
+                      <button onClick={onInvite} className="text-sm font-bold text-on-surface-variant underline underline-offset-2 press-sm">
+                        或 👯 拉饭搭子进圈一起记
+                      </button>
+                    )}
+                  </div>
+                </>
               )}
             </div>
           </div>
@@ -302,6 +319,11 @@ export default function MapScreen({ refreshKey, focusPoiId, onConsumeFocus, onJu
             </button>
           </div>
         </div>
+        {toast && (
+          <div className="absolute bottom-28 left-1/2 -translate-x-1/2 z-[500] bg-on-surface text-white rounded-full px-4 py-2 text-sm font-bold shadow-sticker whitespace-nowrap">
+            {toast}
+          </div>
+        )}
       </main>
 
       {suggestOpen && (

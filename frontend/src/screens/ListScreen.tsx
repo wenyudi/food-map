@@ -10,10 +10,8 @@ import type { Point } from '../api'
 import { cleanTag } from '../lib/format'
 import { TimelineRow, buildTimeline, getStatus, STATUS_TONE, storeCuisine } from '../components/StoreTimeline'
 import type { StoreStatus } from '../components/StoreTimeline'
-
-type Mood = '😋' | '🤤' | '😂' | '😐' | '🤮'
-const MOODS: Mood[] = ['😋', '🤤', '😂', '😐', '🤮']
-const MOOD_LABEL: Record<Mood, string> = { '😋': '太好吃', '🤤': '好吃', '😂': '一般', '😐': '不咋地', '🤮': '踩雷' }
+import { MOODS, MOOD_LABEL } from '../lib/moods'
+import type { Mood } from '../lib/moods'
 type StatusKey = 'fav' | 'want' | 'fulfilled' | 'repeat'
 const STATUS_OPTS: { key: StatusKey; label: string; icon: string }[] = [
   { key: 'fav', label: '想再来', icon: 'star' },
@@ -59,11 +57,12 @@ type ListScreenProps = Readonly<{
   focusPoiId?: string | null
   onPickStore?: (poiId: string) => void
   onJumpToAdd?: () => void
+  onInvite?: () => void
   myUsername?: string
   circleRole?: string
 }>
 
-export default function ListScreen({ refreshKey, focusPoiId, onPickStore, onJumpToAdd, myUsername, circleRole }: ListScreenProps) {
+export default function ListScreen({ refreshKey, focusPoiId, onPickStore, onJumpToAdd, onInvite, myUsername, circleRole }: ListScreenProps) {
   const [points, setPoints] = useState<Point[]>([])
   const [loading, setLoading] = useState(true)
   const [filters, setFilters] = useState<Filters>({ moods: [], status: [], cuisines: [], authors: [] })
@@ -248,15 +247,31 @@ export default function ListScreen({ refreshKey, focusPoiId, onPickStore, onJump
         {!loading && points.length === 0 && (
           <div className="flex flex-col items-center text-center py-16">
             <div className="text-5xl mb-2">🍜</div>
-            <div className="font-headline text-xl mb-1">还没有记录</div>
-            <div className="text-sm text-on-surface-variant mb-4">记下第一家店，这里就会热闹起来</div>
-            {onJumpToAdd && (
-              <button
-                onClick={onJumpToAdd}
-                className="bg-primary text-white rounded-full border-2 border-on-surface shadow-sticker px-5 py-2.5 font-headline font-bold press"
-              >
-                ✏️ 去记第一笔
-              </button>
+            {circleRole === 'viewer' ? (
+              <>
+                <div className="font-headline text-xl mb-1">这个圈还空着</div>
+                <div className="text-sm text-on-surface-variant">等记录员添上第一家，这里就热闹了 🍜</div>
+              </>
+            ) : (
+              <>
+                <div className="font-headline text-xl mb-1">还没有记录</div>
+                <div className="text-sm text-on-surface-variant mb-4">记下第一家店，这里就会热闹起来</div>
+                <div className="flex flex-col items-center gap-2.5">
+                  {onJumpToAdd && (
+                    <button
+                      onClick={onJumpToAdd}
+                      className="bg-primary text-white rounded-full border-2 border-on-surface shadow-sticker px-5 py-2.5 font-headline font-bold press"
+                    >
+                      ✏️ 去记第一笔
+                    </button>
+                  )}
+                  {onInvite && (
+                    <button onClick={onInvite} className="text-sm font-bold text-on-surface-variant underline underline-offset-2 press-sm">
+                      或 👯 拉饭搭子进圈一起记
+                    </button>
+                  )}
+                </div>
+              </>
             )}
           </div>
         )}
@@ -401,7 +416,7 @@ function StoreCard({
 
       {/* 底部：看地图(左) · 想再来(中) · 分享(右) */}
       <div className="grid grid-cols-3 items-center mt-3 pt-3 border-t-2 border-dashed border-on-surface/15">
-        <button onClick={hasCoords ? onClick : undefined} className="justify-self-start text-xs font-bold text-on-surface-variant py-1 -my-1 press-sm">
+        <button onClick={hasCoords ? onClick : undefined} className="justify-self-start text-xs font-bold text-on-surface-variant py-2 -my-1.5 px-1.5 -ml-1.5 press-sm">
           {hasCoords ? '看在地图上 →' : '📍 未定位'}
         </button>
         <div className="justify-self-center">
@@ -414,7 +429,7 @@ function StoreCard({
             e.stopPropagation()
             onShare()
           }}
-          className="justify-self-end text-xs font-bold text-primary flex items-center gap-0.5 py-1 -my-1 press-sm"
+          className="justify-self-end text-xs font-bold text-primary flex items-center gap-0.5 py-2 -my-1.5 px-1.5 -mr-1.5 press-sm"
         >
           <Icon name="ios_share" className="text-sm" /> 分享
         </button>

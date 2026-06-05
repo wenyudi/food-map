@@ -6,16 +6,19 @@ import MemoryScreen from './MemoryScreen'
 import CircleSheet from './CircleSheet'
 import { getStats, getPoints, exportData, resetMine, changePassword, getCircles } from '../api'
 import type { MeInfo, Point } from '../api'
+import { inputClass } from '../lib/format'
 
 type MeScreenProps = Readonly<{
   me: MeInfo
   onLogout: () => void
   onCircleChanged: () => void
+  autoOpenCircle?: boolean
+  onCircleOpened?: () => void
 }>
 
 type Sheet = 'circle' | 'pw' | null
 
-export default function MeScreen({ me, onLogout, onCircleChanged }: MeScreenProps) {
+export default function MeScreen({ me, onLogout, onCircleChanged, autoOpenCircle, onCircleOpened }: MeScreenProps) {
   const [meals, setMeals] = useState<number | null>(null)
   const [circleName, setCircleName] = useState<string>('')
   const [circleCount, setCircleCount] = useState<number>(0)
@@ -40,6 +43,14 @@ export default function MeScreen({ me, onLogout, onCircleChanged }: MeScreenProp
       })
       .catch(() => {})
   }, [me.circle_id])
+
+  // 从空状态「拉饭搭子进圈」跳进来时，自动展开圈子管理（直达邀请）
+  useEffect(() => {
+    if (autoOpenCircle) {
+      setSheet('circle')
+      onCircleOpened?.()
+    }
+  }, [autoOpenCircle, onCircleOpened])
 
   async function openMemory() {
     if (loadingMem) return
@@ -210,7 +221,7 @@ function ChangePwSheet({ onClose }: { onClose: () => void }) {
   const [newPw, setNewPw] = useState('')
   const [busy, setBusy] = useState(false)
   const [msg, setMsg] = useState<string | null>(null)
-  const input = 'w-full rounded-xl border-2 border-on-surface bg-white px-3 py-2.5 outline-none font-body shadow-sticker-sm mb-3'
+  const input = inputClass + ' mb-3'
 
   async function submit() {
     if (newPw.length < 4) {

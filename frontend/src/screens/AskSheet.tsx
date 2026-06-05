@@ -75,7 +75,7 @@ export default function AskSheet({ onClose }: AskSheetProps) {
             {EXAMPLES.map((e) => (
               <button
                 key={e.q}
-                onClick={() => setQ(e.q)}
+                onClick={() => ask(e.q)}
                 className="flex flex-col gap-1.5 text-left bg-white rounded-2xl border-2 border-on-surface shadow-sticker-sm p-3 press-sm"
               >
                 <span className="text-2xl leading-none">{e.icon}</span>

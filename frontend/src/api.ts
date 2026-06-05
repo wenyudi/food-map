@@ -87,6 +87,8 @@ export const setMemberRoleApi = (cid: number, username: string, role: 'editor' |
   api.patch(`/circles/${cid}/members/${encodeURIComponent(username)}`, { role }).then(r => r.data)
 export const removeMemberApi = (cid: number, username: string) =>
   api.delete(`/circles/${cid}/members/${encodeURIComponent(username)}`).then(r => r.data)
+export const transferOwnerApi = (cid: number, username: string) =>
+  api.post(`/circles/${cid}/transfer`, { target: username }).then(r => r.data)
 export const disbandCircleApi = (cid: number) =>
   api.delete(`/circles/${cid}`).then(r => r.data)
 

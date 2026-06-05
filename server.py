@@ -374,6 +374,10 @@ class MemberRoleReq(BaseModel):
     role: str  # editor | viewer
 
 
+class TransferOwnerReq(BaseModel):
+    target: str
+
+
 @app.get("/api/circles")
 def my_circles(user: dict = Depends(current_user)):
     return {"active_circle_id": user["circle_id"], "circles": db.list_my_circles(user["username"])}
@@ -471,6 +475,21 @@ def set_member_role_api(cid: int, target: str, req: MemberRoleReq, user: dict = 
     if not db.get_member(cid, target):
         raise HTTPException(404, "TA 不在这个圈子里")
     db.update_member_role(cid, target, req.role)
+    _invalidate_circle_ai(cid)
+    return {"ok": True}
+
+
+@app.post("/api/circles/{cid}/transfer")
+def transfer_owner_api(cid: int, req: TransferOwnerReq, user: dict = Depends(current_user)):
+    """把圈主转让给同圈另一位成员（仅现任圈主可操作）。转让后自己自动降为记录员。
+    这样圈主想退出时不必解散圈子（解散会清掉全圈记录）。"""
+    _require_circle_role(cid, user["username"], ("owner",))
+    target = (req.target or "").strip()
+    if target == user["username"]:
+        raise HTTPException(400, "你已经是圈主啦")
+    if not db.get_member(cid, target):
+        raise HTTPException(404, "TA 不在这个圈子里")
+    db.transfer_owner(cid, user["username"], target)
     _invalidate_circle_ai(cid)
     return {"ok": True}
 
@@ -770,8 +789,9 @@ def _invalidate_visit_caches(circle_id: int, date_str: str) -> None:
 
 
 def _invalidate_wish_caches(circle_id: int) -> None:
-    """wish 写入：想去清单影响所有月份回忆的展望段 + 问答上下文 → 整圈失效。"""
-    db.ai_cache_delete_prefix(f"story:{circle_id}:")
+    """wish 写入：只失效当月回忆（展望段）+ 问答上下文。
+    过往月份的回忆是定格的记忆，不该被「现在新种的草」改写——也省掉每加一条想去就重烧全部月份的 DeepSeek。"""
+    db.ai_cache_delete(_story_key(circle_id, datetime.now().strftime("%Y-%m")))
     db.ai_cache_delete_prefix(f"askctx:{circle_id}:")
 
 

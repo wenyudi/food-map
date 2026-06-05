@@ -17,6 +17,28 @@ DEEPSEEK_KEY = os.environ.get("DEEPSEEK_KEY", "")
 API_URL = "https://api.deepseek.com/v1/chat/completions"
 MODEL = "deepseek-chat"
 
+
+def _post_json(payload: dict, timeout: int) -> dict:
+    """统一 DeepSeek 调用：网络错 / 非 2xx / 非 JSON 全收敛成 RuntimeError；再校验业务 error 字段。
+    避免网关 502、超时、空响应直接冒成未捕获的 500（上层多处 except 已接 RuntimeError/Exception）。"""
+    try:
+        resp = requests.post(
+            API_URL,
+            headers={"Authorization": f"Bearer {DEEPSEEK_KEY}", "Content-Type": "application/json"},
+            json=payload,
+            timeout=timeout,
+        )
+        resp.raise_for_status()
+        data = resp.json()
+    except requests.RequestException as e:
+        raise RuntimeError(f"DeepSeek 连接失败：{e}") from e
+    except ValueError as e:
+        raise RuntimeError("DeepSeek 返回了无法解析的内容") from e
+    if "error" in data:
+        raise RuntimeError(f"DeepSeek 报错：{data['error']}")
+    return data
+
+
 SYSTEM_PROMPT = """你是「吃了么」美食记录助手。用户用一句话描述"刚吃过的店"或"想去种草的店"，你把它拆成结构化字段。只输出 JSON，不解释、不加 markdown、不加 ``` 包裹。
 
 字段与规则：
@@ -71,25 +93,14 @@ STORY_SYSTEM_PROMPT = """你是「吃了么」的回忆录助手。
 
 def generate_monthly_story(brief: str, timeout: int = 60) -> str:
     """传入 markdown 格式的当月清单，返回一段叙事文字。"""
-    resp = requests.post(
-        API_URL,
-        headers={
-            "Authorization": f"Bearer {DEEPSEEK_KEY}",
-            "Content-Type": "application/json",
-        },
-        json={
-            "model": MODEL,
-            "messages": [
-                {"role": "system", "content": STORY_SYSTEM_PROMPT},
-                {"role": "user", "content": brief},
-            ],
-            "temperature": 0.5,  # 适中——既有叙事感又不至于编
-        },
-        timeout=timeout,
-    )
-    data = resp.json()
-    if "error" in data:
-        raise RuntimeError(f"DeepSeek 报错：{data['error']}")
+    data = _post_json({
+        "model": MODEL,
+        "messages": [
+            {"role": "system", "content": STORY_SYSTEM_PROMPT},
+            {"role": "user", "content": brief},
+        ],
+        "temperature": 0.5,  # 适中——既有叙事感又不至于编
+    }, timeout)
     return data["choices"][0]["message"]["content"].strip()
 
 
@@ -116,26 +127,15 @@ AREA_TITLE_SYSTEM_PROMPT = """你是「吃了么」的"片区称号官"，本人
 
 def generate_area_titles(brief: str, timeout: int = 40) -> dict:
     """传入各片区的战绩清单，返回 {"areas":[{"name","title","blurb"}]}。"""
-    resp = requests.post(
-        API_URL,
-        headers={
-            "Authorization": f"Bearer {DEEPSEEK_KEY}",
-            "Content-Type": "application/json",
-        },
-        json={
-            "model": MODEL,
-            "messages": [
-                {"role": "system", "content": AREA_TITLE_SYSTEM_PROMPT},
-                {"role": "user", "content": brief},
-            ],
-            "temperature": 1.3,  # 创意写作档——没喂菜系，可放心拉满发散、玩梗不重样
-            "response_format": {"type": "json_object"},
-        },
-        timeout=timeout,
-    )
-    data = resp.json()
-    if "error" in data:
-        raise RuntimeError(f"DeepSeek 报错：{data['error']}")
+    data = _post_json({
+        "model": MODEL,
+        "messages": [
+            {"role": "system", "content": AREA_TITLE_SYSTEM_PROMPT},
+            {"role": "user", "content": brief},
+        ],
+        "temperature": 1.3,  # 创意写作档——没喂菜系，可放心拉满发散、玩梗不重样
+        "response_format": {"type": "json_object"},
+    }, timeout)
     return json.loads(data["choices"][0]["message"]["content"])
 
 
@@ -162,50 +162,28 @@ ASK_SYSTEM_PROMPT = """你是用户「吃了么」美食记录的问答助手。
 
 def answer_question(context: str, question: str, timeout: int = 30) -> str:
     """context=整理好的统计+明细，question=用户问题，返回一段自然语言回答。"""
-    resp = requests.post(
-        API_URL,
-        headers={
-            "Authorization": f"Bearer {DEEPSEEK_KEY}",
-            "Content-Type": "application/json",
-        },
-        json={
-            "model": MODEL,
-            "messages": [
-                {"role": "system", "content": ASK_SYSTEM_PROMPT},
-                {"role": "user", "content": f"【数据】\n{context}\n\n【问题】{question}"},
-            ],
-            "temperature": 0.2,  # 偏低——问答要稳，别发挥
-        },
-        timeout=timeout,
-    )
-    data = resp.json()
-    if "error" in data:
-        raise RuntimeError(f"DeepSeek 报错：{data['error']}")
+    data = _post_json({
+        "model": MODEL,
+        "messages": [
+            {"role": "system", "content": ASK_SYSTEM_PROMPT},
+            {"role": "user", "content": f"【数据】\n{context}\n\n【问题】{question}"},
+        ],
+        "temperature": 0.2,  # 偏低——问答要稳，别发挥
+    }, timeout)
     return data["choices"][0]["message"]["content"].strip()
 
 
 def suggest_today(brief: str, timeout: int = 30) -> dict:
     """传入带编号的候选店清单，返回 {"picks":[{"n","reason"}],"note"} 。"""
-    resp = requests.post(
-        API_URL,
-        headers={
-            "Authorization": f"Bearer {DEEPSEEK_KEY}",
-            "Content-Type": "application/json",
-        },
-        json={
-            "model": MODEL,
-            "messages": [
-                {"role": "system", "content": SUGGEST_SYSTEM_PROMPT},
-                {"role": "user", "content": brief},
-            ],
-            "temperature": 0.6,  # 稍高一点，换一批能有变化
-            "response_format": {"type": "json_object"},
-        },
-        timeout=timeout,
-    )
-    data = resp.json()
-    if "error" in data:
-        raise RuntimeError(f"DeepSeek 报错：{data['error']}")
+    data = _post_json({
+        "model": MODEL,
+        "messages": [
+            {"role": "system", "content": SUGGEST_SYSTEM_PROMPT},
+            {"role": "user", "content": brief},
+        ],
+        "temperature": 0.6,  # 稍高一点，换一批能有变化
+        "response_format": {"type": "json_object"},
+    }, timeout)
     return json.loads(data["choices"][0]["message"]["content"])
 
 
@@ -309,22 +287,11 @@ def parse_one_liner(text: str, timeout: int = 30) -> dict:
         messages.append({"role": "assistant", "content": json.dumps(a, ensure_ascii=False)})
     messages.append({"role": "user", "content": text})
 
-    resp = requests.post(
-        API_URL,
-        headers={
-            "Authorization": f"Bearer {DEEPSEEK_KEY}",
-            "Content-Type": "application/json",
-        },
-        json={
-            "model": MODEL,
-            "messages": messages,
-            "temperature": 0.1,
-            "response_format": {"type": "json_object"},
-        },
-        timeout=timeout,
-    )
-    data = resp.json()
-    if "error" in data:
-        raise RuntimeError(f"DeepSeek 报错：{data['error']}")
+    data = _post_json({
+        "model": MODEL,
+        "messages": messages,
+        "temperature": 0.1,
+        "response_format": {"type": "json_object"},
+    }, timeout)
     content = data["choices"][0]["message"]["content"]
     return _normalize_parsed(json.loads(content))

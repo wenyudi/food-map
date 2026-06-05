@@ -4,7 +4,7 @@ import Icon from '../ui/Icon'
 import {
   getCircles, createCircleApi, switchCircleApi, joinCircleApi,
   getMembers, createInviteApi, renameCircleApi, setMemberRoleApi,
-  removeMemberApi, disbandCircleApi,
+  removeMemberApi, transferOwnerApi, disbandCircleApi,
 } from '../api'
 import type { MeInfo, CircleBrief, CircleMember, CircleRole } from '../api'
 
@@ -33,6 +33,7 @@ export default function CircleSheet({ me, onClose, onChanged }: Props) {
   const [editingName, setEditingName] = useState(false)
   const [renameVal, setRenameVal] = useState('')
   const [confirmDanger, setConfirmDanger] = useState<'leave' | 'disband' | null>(null)
+  const [memberAction, setMemberAction] = useState<{ username: string; action: 'kick' | 'transfer' } | null>(null)
 
   async function load() {
     setErr(null)
@@ -191,32 +192,77 @@ export default function CircleSheet({ me, onClose, onChanged }: Props) {
 
             {/* 成员列表 */}
             <div className="flex flex-col gap-1.5 mb-3">
-              {members.map((m) => (
-                <div key={m.username} className="flex items-center justify-between text-sm">
-                  <span className="font-bold truncate">
-                    {m.nickname || m.username}
-                    {m.username === me.username && ' （我）'}
-                  </span>
-                  <span className="flex items-center gap-1.5 shrink-0">
-                    <span className={`px-2 py-0.5 rounded-full border-2 border-on-surface text-xs font-bold ${ROLE_TONE[m.role]}`}>{ROLE_CN[m.role]}</span>
-                    {isOwner && m.username !== owner && (
-                      <>
+              {members.map((m) => {
+                const manageable = isOwner && m.username !== owner
+                const confirming = memberAction?.username === m.username
+                return (
+                  <div key={m.username} className="flex flex-col gap-1 text-sm">
+                    <div className="flex items-center justify-between">
+                      <span className="font-bold truncate">
+                        {m.nickname || m.username}
+                        {m.username === me.username && ' （我）'}
+                      </span>
+                      <span className={`shrink-0 px-2 py-0.5 rounded-full border-2 border-on-surface text-xs font-bold ${ROLE_TONE[m.role]}`}>{ROLE_CN[m.role]}</span>
+                    </div>
+                    {manageable && !confirming && (
+                      <div className="flex flex-wrap gap-1.5">
                         <button
                           disabled={busy}
                           onClick={() => act(() => setMemberRoleApi(active.id, m.username, m.role === 'editor' ? 'viewer' : 'editor'))}
-                          className="text-xs text-on-surface-variant"
+                          className="text-xs font-bold text-on-surface-variant px-2.5 py-1 rounded-full border-2 border-on-surface/20 bg-white press-sm"
                         >
-                          {m.role === 'editor' ? '降观光' : '升记录'}
+                          {m.role === 'editor' ? '设为观光位' : '设为记录员'}
                         </button>
-                        <button disabled={busy} onClick={() => act(() => removeMemberApi(active.id, m.username))} className="text-xs text-primary">
-                          踢
+                        <button
+                          disabled={busy}
+                          onClick={() => setMemberAction({ username: m.username, action: 'transfer' })}
+                          className="text-xs font-bold text-on-surface-variant px-2.5 py-1 rounded-full border-2 border-on-surface/20 bg-white press-sm"
+                        >
+                          转让圈主
                         </button>
-                      </>
+                        <button
+                          disabled={busy}
+                          onClick={() => setMemberAction({ username: m.username, action: 'kick' })}
+                          className="text-xs font-bold text-primary px-2.5 py-1 rounded-full border-2 border-on-surface/20 bg-white press-sm"
+                        >
+                          移出
+                        </button>
+                      </div>
                     )}
-                  </span>
-                </div>
-              ))}
+                    {manageable && confirming && (
+                      <div className="flex items-center justify-between gap-2 bg-surface border-2 border-dashed border-on-surface/20 rounded-lg px-2.5 py-1.5">
+                        <span className="text-xs text-on-surface-variant min-w-0">
+                          {memberAction?.action === 'transfer' ? '转让后你将变成记录员' : '移出后 TA 就看不到这个圈了'}
+                        </span>
+                        <span className="flex gap-1.5 shrink-0">
+                          <button onClick={() => setMemberAction(null)} className="text-xs font-bold px-2.5 py-1 rounded-full border-2 border-on-surface bg-white">
+                            取消
+                          </button>
+                          <button
+                            disabled={busy}
+                            onClick={() =>
+                              act(
+                                () =>
+                                  memberAction?.action === 'transfer'
+                                    ? transferOwnerApi(active.id, m.username)
+                                    : removeMemberApi(active.id, m.username),
+                                () => setMemberAction(null),
+                              )
+                            }
+                            className="text-xs font-bold px-2.5 py-1 rounded-full border-2 border-on-surface bg-primary text-white"
+                          >
+                            {memberAction?.action === 'transfer' ? '确认转让' : '确认移出'}
+                          </button>
+                        </span>
+                      </div>
+                    )}
+                  </div>
+                )
+              })}
             </div>
+
+            {/* 角色说明：让分配权限的人一眼看懂三种角色能干嘛 */}
+            <p className="text-[11px] text-on-surface-variant mb-3 -mt-1">💡 记录员能记能改 · 观光位只看不记 · 圈主管成员</p>
 
             {/* 邀请码（圈主可邀记录员/观光位；记录员只能邀观光位） */}
             {canWrite && (

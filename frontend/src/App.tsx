@@ -1,13 +1,15 @@
-import { useEffect, useState } from 'react'
+import { lazy, Suspense, useEffect, useState } from 'react'
 import TabBar from './ui/TabBar'
 import type { TabKey } from './ui/TabBar'
 import LoginScreen from './screens/LoginScreen'
-import MapScreen from './screens/MapScreen'
 import ListScreen from './screens/ListScreen'
 import AddScreen from './screens/AddScreen'
 import MeScreen from './screens/MeScreen'
 import { getMe, getToken, clearToken, invalidatePoints } from './api'
 import type { MeInfo } from './api'
+
+// 地图页带 leaflet（~150KB），懒加载——首屏壳先出来，地图块随后到
+const MapScreen = lazy(() => import('./screens/MapScreen'))
 
 export default function App() {
   const [authState, setAuthState] = useState<'loading' | 'login' | 'app'>('loading')
@@ -15,6 +17,7 @@ export default function App() {
   const [tab, setTab] = useState<TabKey>('map')
   const [refreshKey, setRefreshKey] = useState(0)
   const [focusPoiId, setFocusPoiId] = useState<string | null>(null)
+  const [openCircle, setOpenCircle] = useState(false)
 
   useEffect(() => {
     if (!getToken()) {
@@ -38,6 +41,7 @@ export default function App() {
   }
   function handleLogout() {
     clearToken()
+    invalidatePoints()  // 别让下一个登录的人在 60s TTL 内闪到上个号的数据
     setMe(null)
     setAuthState('login')
     setTab('map')
@@ -54,6 +58,10 @@ export default function App() {
       /* ignore */
     }
     setRefreshKey((k) => k + 1)
+  }
+  function goInvite() {
+    setTab('me')
+    setOpenCircle(true)
   }
 
   if (authState === 'loading') {
@@ -75,13 +83,17 @@ export default function App() {
   return (
     <Phone tab={tab} onTab={setTab}>
       {tab === 'map' && (
-        <MapScreen
-          refreshKey={refreshKey}
-          focusPoiId={focusPoiId}
-          onConsumeFocus={() => setFocusPoiId(null)}
-          onJumpToAdd={() => setTab('add')}
-          myUsername={me.username}
-        />
+        <Suspense fallback={<div className="h-full flex items-center justify-center text-on-surface-variant font-bold">⌛️ 地图加载中…</div>}>
+          <MapScreen
+            refreshKey={refreshKey}
+            focusPoiId={focusPoiId}
+            onConsumeFocus={() => setFocusPoiId(null)}
+            onJumpToAdd={() => setTab('add')}
+            onInvite={goInvite}
+            myUsername={me.username}
+            circleRole={me.circle_role}
+          />
+        </Suspense>
       )}
       {tab === 'list' && (
         <ListScreen
@@ -92,12 +104,21 @@ export default function App() {
             setTab('map')
           }}
           onJumpToAdd={() => setTab('add')}
+          onInvite={goInvite}
           myUsername={me.username}
           circleRole={me.circle_role}
         />
       )}
       {tab === 'add' && <AddScreen onSubmitted={handleSubmitted} circleRole={me.circle_role} />}
-      {tab === 'me' && <MeScreen me={me} onLogout={handleLogout} onCircleChanged={handleCircleChanged} />}
+      {tab === 'me' && (
+        <MeScreen
+          me={me}
+          onLogout={handleLogout}
+          onCircleChanged={handleCircleChanged}
+          autoOpenCircle={openCircle}
+          onCircleOpened={() => setOpenCircle(false)}
+        />
+      )}
     </Phone>
   )
 }

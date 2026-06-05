@@ -10,24 +10,9 @@ import { parseText, search, upsertStore, addVisit, addWish, regeo, getPoints } f
 import type { ParsedSentence, Point } from '../api'
 import { getMyLocation, haversine } from '../lib/geo'
 import type { MyLocation } from '../lib/geo'
-import { cleanTag, fmtDist } from '../lib/format'
-
-type Mood = '😋' | '🤤' | '😂' | '😐' | '🤮'
-const EMOJI_OPTIONS: Array<{ emoji: Mood; label: string }> = [
-  { emoji: '😋', label: '太好吃' },
-  { emoji: '🤤', label: '好吃' },
-  { emoji: '😂', label: '一般' },
-  { emoji: '😐', label: '不咋地' },
-  { emoji: '🤮', label: '踩雷' },
-]
-// 选中那颗的 CSS 动效（在 tailwind.css 里定义）
-const MOOD_ANIM: Record<Mood, string> = {
-  '😋': 'm-yum',
-  '🤤': 'm-drool',
-  '😂': 'm-laugh',
-  '😐': 'm-meh',
-  '🤮': 'm-vomit',
-}
+import { cleanTag, fmtDist, inputClass } from '../lib/format'
+import MoodPicker from '../components/MoodPicker'
+import type { Mood } from '../lib/moods'
 
 const LS_CITY = 'last_city'
 const LS_COMPANIONS = 'last_companions'
@@ -537,19 +522,7 @@ export default function AddScreen({ onSubmitted, circleRole }: AddScreenProps) {
               <div className="space-y-4">
                 <div>
                   <p className="font-headline text-lg mb-2">这一顿，好吃吗？</p>
-                  <div className="flex justify-between">
-                    {EMOJI_OPTIONS.map((o) => (
-                      <button
-                        key={o.emoji}
-                        onClick={() => setEmoji(o.emoji)}
-                        className={`w-16 h-16 rounded-full bg-white flex items-center justify-center text-[32px] press transition-all ${
-                          emoji === o.emoji ? 'border-[3px] border-primary shadow-sticker' : 'border-2 border-on-surface shadow-sticker-sm opacity-70'
-                        }`}
-                      >
-                        <span className={`mood-glyph ${emoji === o.emoji ? MOOD_ANIM[o.emoji] : ''}`}>{o.emoji}</span>
-                      </button>
-                    ))}
-                  </div>
+                  <MoodPicker value={emoji} onChange={setEmoji} />
                 </div>
 
                 <div>
@@ -718,7 +691,7 @@ export default function AddScreen({ onSubmitted, circleRole }: AddScreenProps) {
   )
 }
 
-const INPUT = 'w-full rounded-xl border-2 border-on-surface bg-white px-3 py-2.5 outline-none font-body shadow-sticker-sm'
+const INPUT = inputClass
 
 function Field({ label, children, className = '' }: { label: string; children: ReactNode; className?: string }) {
   return (

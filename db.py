@@ -301,6 +301,7 @@ def _conn():
     DATA_FILE.parent.mkdir(parents=True, exist_ok=True)
     c = sqlite3.connect(DATA_FILE)
     c.row_factory = sqlite3.Row
+    c.execute("PRAGMA busy_timeout=5000")  # 并发写时等锁 5s，而不是立刻 SQLITE_BUSY 冒成 500（多人同时记一笔）
     _ensure_initialized(c)
     try:
         yield c
@@ -572,6 +573,14 @@ def rename_circle(circle_id: int, name: str) -> None:
 def set_circle_owner(circle_id: int, username: str) -> None:
     with _conn() as c:
         c.execute("UPDATE circles SET owner_username=? WHERE id=?", (username, circle_id))
+
+
+def transfer_owner(circle_id: int, old_username: str, new_username: str) -> None:
+    """转让圈主：circles.owner_username 换人 + 新主升 owner + 旧主降 editor，一次事务完成（不留半截）。"""
+    with _conn() as c:
+        c.execute("UPDATE circles SET owner_username=? WHERE id=?", (new_username, circle_id))
+        c.execute("UPDATE circle_members SET role='owner' WHERE circle_id=? AND username=?", (circle_id, new_username))
+        c.execute("UPDATE circle_members SET role='editor' WHERE circle_id=? AND username=?", (circle_id, old_username))
 
 
 def delete_circle(circle_id: int) -> list[str]:

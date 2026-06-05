@@ -4,17 +4,10 @@ import StickerButton from '../ui/StickerButton'
 import DateTimeWheel from '../ui/WheelPicker'
 import PhotoPicker from '../components/PhotoPicker'
 import Stepper from '../ui/Stepper'
+import MoodPicker from '../components/MoodPicker'
+import { inputClass } from '../lib/format'
 import { updateVisit, deleteVisit, updateWish, deleteWish } from '../api'
-
-type Mood = '😋' | '🤤' | '😂' | '😐' | '🤮'
-const EMOJI_OPTIONS: Mood[] = ['😋', '🤤', '😂', '😐', '🤮']
-const MOOD_ANIM: Record<Mood, string> = {
-  '😋': 'm-yum',
-  '🤤': 'm-drool',
-  '😂': 'm-laugh',
-  '😐': 'm-meh',
-  '🤮': 'm-vomit',
-}
+import type { Mood } from '../lib/moods'
 
 type Props = Readonly<{
   kind: 'visit' | 'wish'
@@ -86,7 +79,7 @@ export default function EditRecordSheet({ kind, data, storeName, onClose, onChan
     }
   }
 
-  const input = 'w-full rounded-xl border-2 border-on-surface bg-white px-3 py-2 outline-none font-body shadow-sticker-sm'
+  const input = inputClass
   const perPerson = (() => {
     const a = Number(amount)
     const n = Number(people)
@@ -103,6 +96,7 @@ export default function EditRecordSheet({ kind, data, storeName, onClose, onChan
         {kind === 'visit' && (
           <button
             onClick={() => setWantAgain((a) => !a)}
+            disabled={readonly}
             className={`shrink-0 px-3 py-1 rounded-full border-2 border-on-surface text-xs font-bold shadow-sticker-sm press-sm ${
               wantAgain ? 'bg-primary text-white' : 'bg-white text-on-surface-variant'
             }`}
@@ -112,22 +106,16 @@ export default function EditRecordSheet({ kind, data, storeName, onClose, onChan
         )}
       </div>
 
+      {readonly && (
+        <div className="text-xs text-on-surface-variant text-center mb-2 bg-surface border-2 border-dashed border-on-surface/20 rounded-lg py-1.5">
+          👀 {recordedByName || '圈友'} 记的，你只能看
+        </div>
+      )}
+      <div className={readonly ? 'pointer-events-none select-none' : ''}>
       {kind === 'visit' ? (
         <div className="space-y-1.5">
           {/* 心情：5 个表情圈 */}
-          <div className="flex justify-between">
-            {EMOJI_OPTIONS.map((o) => (
-              <button
-                key={o}
-                onClick={() => setEmoji(o)}
-                className={`w-16 h-16 rounded-full bg-white flex items-center justify-center text-[32px] press transition-all ${
-                  emoji === o ? 'border-[3px] border-primary shadow-sticker' : 'border-2 border-on-surface shadow-sticker-sm opacity-70'
-                }`}
-              >
-                <span className={`mood-glyph ${emoji === o ? MOOD_ANIM[o] : ''}`}>{o}</span>
-              </button>
-            ))}
-          </div>
+          <MoodPicker value={emoji} onChange={setEmoji} readonly={readonly} />
 
           {/* 时间滚轮 */}
           <Row label="📅 哪天 · 哪顿">
@@ -172,12 +160,12 @@ export default function EditRecordSheet({ kind, data, storeName, onClose, onChan
           </Row>
         </div>
       )}
+      </div>
 
       {err && <div className="text-primary font-bold text-sm bg-primary/10 border-2 border-primary/25 rounded-lg px-3 py-2 mt-3">{err}</div>}
 
       {readonly ? (
         <div className="mt-3">
-          <p className="text-xs text-on-surface-variant text-center mb-2">👀 这是 {recordedByName || '圈友'} 记的，你只能看</p>
           <button onClick={onClose} className="w-full py-2.5 rounded-full border-2 border-on-surface bg-white font-bold press-sm">关闭</button>
         </div>
       ) : !confirmDel ? (

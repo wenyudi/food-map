@@ -16,14 +16,14 @@ export default function Stepper({ value, onChange, min = 1, max = 30, unit = 'äº
     <div
       className={`${full ? 'flex w-full justify-between' : 'inline-flex gap-3'} items-center rounded-xl border-2 border-on-surface bg-white px-2 py-1.5 shadow-sticker-sm`}
     >
-      <button type="button" onMouseDown={(e) => e.preventDefault()} onClick={dec} className="w-7 h-7 rounded-full border-2 border-on-surface bg-white text-lg font-bold leading-none press-sm">
+      <button type="button" onMouseDown={(e) => e.preventDefault()} onClick={dec} className="w-9 h-9 rounded-full border-2 border-on-surface bg-white text-lg font-bold leading-none press-sm">
         âˆ’
       </button>
       <span className="min-w-[3ch] text-center font-bold font-num">
         {value}
         {unit}
       </span>
-      <button type="button" onMouseDown={(e) => e.preventDefault()} onClick={inc} className="w-7 h-7 rounded-full border-2 border-on-surface bg-accent text-lg font-bold leading-none press-sm">
+      <button type="button" onMouseDown={(e) => e.preventDefault()} onClick={inc} className="w-9 h-9 rounded-full border-2 border-on-surface bg-accent text-lg font-bold leading-none press-sm">
         +
       </button>
     </div>
