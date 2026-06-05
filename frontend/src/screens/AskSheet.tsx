@@ -4,12 +4,14 @@ import Icon from '../ui/Icon'
 import { askMap } from '../api'
 
 const EXAMPLES = [
-  '这个月花了多少？比上个月多还是少',
-  '有没有又便宜、又想再来的店',
-  '种草清单里挑一家周末适合去的',
-  '我俩最常吃什么菜系？想换口味去哪',
-  '最近有没有踩雷的，哪几家',
-  '性价比最高的一顿是哪次',
+  { icon: '🌙', q: '今晚就近吃，挑家常去的店' },
+  { icon: '💸', q: '哪几家又好吃又不贵' },
+  { icon: '❤️', q: '想再来的店还有哪些没再去' },
+  { icon: '🌱', q: '种草清单挑一家周末去' },
+  { icon: '🌶️', q: '老吃这几样，想换个菜系' },
+  { icon: '🥂', q: '请朋友吃饭哪家拿得出手' },
+  { icon: '⚠️', q: '最近有没有踩雷的几家' },
+  { icon: '📅', q: '这个月吃了多少，比上月多吗' },
 ]
 
 type AskSheetProps = Readonly<{ onClose: () => void }>
@@ -68,16 +70,20 @@ export default function AskSheet({ onClose }: AskSheetProps) {
       </div>
 
       {!answer && !loading && !err && (
-        <div className="flex flex-wrap gap-2">
-          {EXAMPLES.map((e) => (
-            <button
-              key={e}
-              onClick={() => ask(e)}
-              className="bg-white rounded-full border-2 border-on-surface shadow-sticker-sm px-3 py-1.5 text-sm font-bold press-sm"
-            >
-              {e}
-            </button>
-          ))}
+        <div className="mt-1">
+          <p className="text-xs font-bold text-on-surface-variant/60 mb-2 px-0.5">试试这样问 👇</p>
+          <div className="grid grid-cols-2 gap-2.5">
+            {EXAMPLES.map((e) => (
+              <button
+                key={e.q}
+                onClick={() => ask(e.q)}
+                className="flex flex-col gap-1.5 text-left bg-white rounded-2xl border-2 border-on-surface shadow-sticker-sm p-3 press-sm"
+              >
+                <span className="text-2xl leading-none">{e.icon}</span>
+                <span className="text-sm font-bold leading-snug text-on-surface">{e.q}</span>
+              </button>
+            ))}
+          </div>
         </div>
       )}
 
