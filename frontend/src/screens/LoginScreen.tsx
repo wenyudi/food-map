@@ -68,7 +68,7 @@ export default function LoginScreen({ onLoggedIn }: LoginScreenProps) {
       try {
         const r = await login(mail, password)
         setToken(r.token)
-        onLoggedIn({ username: r.username, nickname: r.nickname, role: r.role, circle_id: r.circle_id })
+        onLoggedIn({ username: r.username, nickname: r.nickname, role: r.role, circle_id: r.circle_id, circle_role: r.circle_role })
       } catch (e: any) {
         setErr(e?.response?.data?.detail || '登录失败')
       } finally {
@@ -83,7 +83,7 @@ export default function LoginScreen({ onLoggedIn }: LoginScreenProps) {
       try {
         const r = await register(mail, code.trim(), password, nickname.trim())
         setToken(r.token)
-        onLoggedIn({ username: r.username, nickname: r.nickname, role: r.role, circle_id: r.circle_id })
+        onLoggedIn({ username: r.username, nickname: r.nickname, role: r.role, circle_id: r.circle_id, circle_role: r.circle_role })
       } catch (e: any) {
         setErr(e?.response?.data?.detail || '注册失败')
       } finally {

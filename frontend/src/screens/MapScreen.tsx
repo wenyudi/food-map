@@ -44,6 +44,8 @@ export default function MapScreen({ refreshKey, focusPoiId, onConsumeFocus, onJu
   const [authorTrayOpen, setAuthorTrayOpen] = useState(false)
 
   useEffect(() => {
+    setSelectedAuthor(null)  // 切圈/刷新后清掉旧圈的记录者筛选，避免筛到空白
+    setAuthorTrayOpen(false)
     setLoading(true)
     getPoints()
       .then((p) => {

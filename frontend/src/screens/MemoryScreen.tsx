@@ -267,7 +267,7 @@ function buildCards(points: Point[]): Card[] {
       value: <>「{topOcc[0]}」饭</>,
       detail: (
         <>
-          一起吃了 <Num value={topOcc[1]} /> 顿 · 把寻常过成了浪漫
+          一起吃了 <Num value={topOcc[1]} /> 顿 · 把日子吃出了花样
         </>
       ),
     })

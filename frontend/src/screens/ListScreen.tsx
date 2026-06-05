@@ -40,7 +40,7 @@ function buildShareText(p: Point): string {
   const meta = [p.business_area, cleanTag(p.tag), p.cost && `人均¥${p.cost}`].filter(Boolean).join(' · ')
   if (meta) lines.push(meta)
   const lastVisit = [...p.visits].sort((a, b) => a.date.localeCompare(b.date)).slice(-1)[0]
-  if (lastVisit) lines.push([lastVisit.mood_emoji, lastVisit.feeling].filter(Boolean).join(' ') || '我记过一笔')
+  if (lastVisit) lines.push([lastVisit.mood_emoji, lastVisit.feeling].filter(Boolean).join(' ') || '记过一笔')
   else if (p.wish?.reason) lines.push(`想去：${p.wish.reason}`)
   lines.push('—— 来自我的美食地图')
   return lines.join('\n')
@@ -295,7 +295,7 @@ export default function ListScreen({ refreshKey, focusPoiId, onPickStore, onJump
           storeName={editing.storeName}
           onClose={() => setEditing(null)}
           onChanged={load}
-          readonly={!(editing.data.recorded_by === myUsername || circleRole === 'owner')}
+          readonly={!(!editing.data.recorded_by || editing.data.recorded_by === myUsername || circleRole === 'owner')}
           recordedByName={editing.data.recorded_by_name}
         />
       )}

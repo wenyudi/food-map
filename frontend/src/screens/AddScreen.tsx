@@ -180,6 +180,10 @@ export default function AddScreen({ onSubmitted, circleRole }: AddScreenProps) {
       want_again: null,
       source: null,
       reason: null,
+      cuisine: null,
+      flavors: null,
+      dishes: null,
+      occasion: null,
     })
     setPois([])
     setIntent('visit')
@@ -667,7 +671,7 @@ export default function AddScreen({ onSubmitted, circleRole }: AddScreenProps) {
             <input
               value={companions}
               onChange={(e) => setCompanions(e.target.value)}
-              placeholder="比如：饼饼 / 同事 / 一个人"
+              placeholder="比如：朋友 / 同事 / 一个人"
               className={INPUT}
             />
           </Field>

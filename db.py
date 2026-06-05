@@ -325,7 +325,8 @@ def upsert_store(s: Store) -> None:
     with _conn() as c:
         cols = list(asdict(s).keys())
         placeholders = ",".join(f":{k}" for k in cols)
-        updates = ",".join(f"{k}=excluded.{k}" for k in cols if k != "poi_id")
+        # created_at 不覆盖（保留首次入库时间）；其余按高德最新覆盖（同一 poi 信息基本一致）
+        updates = ",".join(f"{k}=excluded.{k}" for k in cols if k not in ("poi_id", "created_at"))
         c.execute(
             f"INSERT INTO stores ({','.join(cols)}) VALUES ({placeholders}) "
             f"ON CONFLICT(poi_id) DO UPDATE SET {updates}",
@@ -573,14 +574,20 @@ def set_circle_owner(circle_id: int, username: str) -> None:
         c.execute("UPDATE circles SET owner_username=? WHERE id=?", (username, circle_id))
 
 
-def delete_circle(circle_id: int) -> None:
-    """解散圈子：删圈子 + 成员关系 + 邀请码 + 该圈记录（visits/wishes）。stores 全局共享不删。"""
+def delete_circle(circle_id: int) -> list[str]:
+    """解散圈子：删圈子 + 成员关系 + 邀请码 + 该圈记录（visits/wishes）。stores 全局共享不删。
+    返回被删 visits 的 my_photos，交上层清图片文件；整段一次事务提交，避免中途崩溃留半截。"""
     with _conn() as c:
+        photos = [r["my_photos"] for r in c.execute(
+            "SELECT my_photos FROM visits WHERE circle_id=? AND my_photos IS NOT NULL AND my_photos!=''",
+            (circle_id,),
+        ).fetchall()]
         c.execute("DELETE FROM visits WHERE circle_id=?", (circle_id,))
         c.execute("DELETE FROM wishes WHERE circle_id=?", (circle_id,))
         c.execute("DELETE FROM circle_members WHERE circle_id=?", (circle_id,))
         c.execute("DELETE FROM invite_codes WHERE circle_id=?", (circle_id,))
         c.execute("DELETE FROM circles WHERE id=?", (circle_id,))
+        return photos
 
 
 def add_member(circle_id: int, username: str, role: str = "editor") -> None:
@@ -726,6 +733,20 @@ def bump_email_code_attempts(code_id: int) -> None:
         c.execute("UPDATE email_codes SET attempts=attempts+1 WHERE id=?", (code_id,))
 
 
+def recent_code_count(since_iso: str) -> int:
+    """某时间点之后全局发了多少验证码（全局限频用，防换邮箱轰炸刷额度）。"""
+    with _conn() as c:
+        return int(c.execute(
+            "SELECT COUNT(*) n FROM email_codes WHERE created_at > ?", (since_iso,)
+        ).fetchone()["n"])
+
+
+def delete_email_code(code_id: int) -> None:
+    """发信失败时回滚刚写入的码，别让它白占住冷却窗口。"""
+    with _conn() as c:
+        c.execute("DELETE FROM email_codes WHERE id=?", (code_id,))
+
+
 def count_users() -> int:
     with _conn() as c:
         row = c.execute("SELECT COUNT(*) c FROM users").fetchone()
@@ -746,13 +767,15 @@ def create_invite(code: str, circle_id: int, created_by: str, role: str = "viewe
         )
 
 
-def increment_invite_use(code: str, used_by: str) -> None:
-    """邀请码被用一次：次数 +1，记录最后使用者。"""
+def consume_invite(code: str, used_by: str) -> bool:
+    """原子消费一次邀请码：次数 +1，但仅当未超上限（防并发同时通过校验导致超用）。返回是否成功。"""
     with _conn() as c:
-        c.execute(
-            "UPDATE invite_codes SET use_count=use_count+1, used_by=?, used_at=? WHERE code=?",
+        cur = c.execute(
+            "UPDATE invite_codes SET use_count=use_count+1, used_by=?, used_at=? "
+            "WHERE code=? AND (max_uses IS NULL OR use_count < max_uses)",
             (used_by, datetime.now().isoformat(timespec="seconds"), code),
         )
+        return cur.rowcount > 0
 
 
 def get_invite(code: str) -> Optional[dict]:

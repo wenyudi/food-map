@@ -62,6 +62,17 @@ app.mount("/photos", StaticFiles(directory=PHOTOS_DIR), name="photos")
 MAX_UPLOAD_BYTES = 8 * 1024 * 1024  # 8MB 兜底；前端已压到几百 KB，这里只防恶意大图爆内存
 
 
+def _looks_like_image(head: bytes) -> bool:
+    """看文件头几字节是不是真图片（防把任意字节伪装成 .jpg 上传到公开的 /photos）。"""
+    return (
+        head.startswith(b"\xff\xd8\xff")                    # JPEG
+        or head.startswith(b"\x89PNG\r\n\x1a\n")            # PNG
+        or head.startswith(b"GIF8")                         # GIF
+        or (head[:4] == b"RIFF" and head[8:12] == b"WEBP")  # WEBP
+        or head[4:8] == b"ftyp"                             # HEIC/HEIF
+    )
+
+
 def _unlink_photos(my_photos: str) -> None:
     """删掉 my_photos 里引用的本地图片文件。只清我们自己托管的 /photos/ 图、按 basename
     取（杜绝路径穿越）、文件不存在就跳过——给删记录/编辑换图收尾，避免磁盘只增不减。"""
@@ -108,6 +119,13 @@ def current_user(authorization: Optional[str] = Header(None)) -> dict:
     user = db.get_user(payload["username"])
     if not user:
         raise HTTPException(401, "用户不存在")
+    # 活跃圈兜底：已不是该圈成员（被踢 / 圈被解散 / 悬空）→ 迁到其它圈，没有就建个人圈。
+    # 这同时让「被踢成员手里的旧 token」立刻失去对原圈的访问。
+    if user.get("circle_id") is None or not db.get_member(user["circle_id"], user["username"]):
+        rest = [c for c in db.list_my_circles(user["username"]) if c["id"] != user.get("circle_id")]
+        new_cid = rest[0]["id"] if rest else _ensure_personal_circle(user["username"])
+        db.set_active_circle(user["username"], new_cid)
+        user = db.get_user(payload["username"])
     return user
 
 
@@ -152,7 +170,8 @@ def post_login(req: LoginReq):
         raise HTTPException(401, "邮箱或密码错误")
     token = auth.make_token(user["username"], user["role"])
     return {"token": token, "username": user["username"],
-            "nickname": user.get("nickname") or user["username"], "role": user["role"]}
+            "nickname": user.get("nickname") or user["username"], "role": user["role"],
+            "circle_role": db.member_role(user["circle_id"], user["username"])}
 
 
 @app.post("/api/auth/register")
@@ -179,7 +198,7 @@ def post_register(req: RegisterReq):
                    circle_id=circle_id, email=email, nickname=nickname)
     db.add_member(circle_id, username, role="owner")
     token = auth.make_token(username, "user")
-    return {"token": token, "username": username, "nickname": nickname, "role": "user"}
+    return {"token": token, "username": username, "nickname": nickname, "role": "user", "circle_role": "owner"}
 
 
 # ---------- 邮箱验证码（注册验证 + 找回密码 共用一套） ----------
@@ -188,6 +207,7 @@ _EMAIL_RE = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
 CODE_TTL_MIN = 10          # 验证码有效期（分钟）
 CODE_COOLDOWN_SEC = 60     # 同邮箱重发冷却（秒）
 CODE_MAX_ATTEMPTS = 5      # 单条码最多校验失败次数，超了即作废（防暴力猜码）
+GLOBAL_CODE_PER_MIN = 20   # 全局每分钟最多发多少码（防换邮箱轰炸刷邮件额度）
 
 
 class SendCodeReq(BaseModel):
@@ -229,11 +249,12 @@ def _send_verification(email: str, purpose: str) -> Optional[str]:
             pass
     vcode = f"{secrets.randbelow(10 ** 6):06d}"
     expires = (datetime.now() + timedelta(minutes=CODE_TTL_MIN)).isoformat(timespec="seconds")
-    db.save_email_code(email, vcode, purpose, expires)
+    code_id = db.save_email_code(email, vcode, purpose, expires)
     try:
         mailer.send_code(email, vcode, purpose)
     except Exception as e:
         logger.warning("send-code 发信失败 %s: %s", email, e)
+        db.delete_email_code(code_id)  # 没发出去就别占住冷却
         return "验证码发送失败，稍后再试 😅"
     return None
 
@@ -261,14 +282,16 @@ def send_verification_code(req: SendCodeReq):
     purpose = req.purpose if req.purpose in ("register", "reset") else "register"
     if not _valid_email(email):
         raise HTTPException(400, "邮箱格式不对")
+    # 全局限频：防「换邮箱」绕过单邮箱冷却来轰炸、刷爆邮件额度
+    since = (datetime.now() - timedelta(seconds=60)).isoformat(timespec="seconds")
+    if db.recent_code_count(since) >= GLOBAL_CODE_PER_MIN:
+        raise HTTPException(429, "发得太频繁了，过一会儿再试")
     existing = db.get_user_by_email(email)
-    if purpose == "register" and existing:
-        raise HTTPException(400, "这个邮箱已经注册过啦，直接登录或找回密码吧")
-    if purpose == "reset" and not existing:
-        raise HTTPException(404, "这个邮箱还没注册过哦")
-    err = _send_verification(email, purpose)
-    if err:
-        raise HTTPException(429, err)
+    # 防邮箱枚举：响应一律「已发送」，不暴露邮箱是否注册；只在合理时才真发码。
+    if (purpose == "register" and not existing) or (purpose == "reset" and existing):
+        err = _send_verification(email, purpose)
+        if err:
+            raise HTTPException(429, err)
     return {"ok": True, "cooldown": CODE_COOLDOWN_SEC, "dev_mode": not mailer.mail_enabled()}
 
 
@@ -277,12 +300,12 @@ def reset_password(req: ResetPasswordReq):
     email = (req.email or "").strip().lower()
     if not _valid_email(email):
         raise HTTPException(400, "邮箱格式不对")
-    user = db.get_user_by_email(email)
-    if not user:
-        raise HTTPException(404, "这个邮箱还没注册过哦")
     if len(req.new_password) < 4:
         raise HTTPException(400, "密码至少 4 位")
     if not _check_code(email, req.code, "reset"):
+        raise HTTPException(400, "验证码不对或已过期")
+    user = db.get_user_by_email(email)
+    if not user:  # 防枚举：统一成「码不对」，不暴露邮箱是否注册
         raise HTTPException(400, "验证码不对或已过期")
     db.update_user_password(user["username"], auth.hash_password(req.new_password))
     return {"ok": True}
@@ -384,12 +407,11 @@ def join_circle(req: JoinReq, user: dict = Depends(current_user)):
         raise HTTPException(404, "邀请码无效")
     if inv.get("expires_at"):
         try:
-            if datetime.fromisoformat(inv["expires_at"]) < datetime.now():
-                raise HTTPException(400, "邀请码已过期")
+            expired = datetime.fromisoformat(inv["expires_at"]) < datetime.now()
         except ValueError:
-            pass
-    if inv.get("max_uses") is not None and (inv.get("use_count") or 0) >= inv["max_uses"]:
-        raise HTTPException(400, "邀请码用完啦")
+            expired = True  # 解析不了按已过期，别静默放行
+        if expired:
+            raise HTTPException(400, "邀请码已过期")
     cid = inv["circle_id"]
     circle = db.get_circle(cid)
     if not circle:
@@ -397,10 +419,12 @@ def join_circle(req: JoinReq, user: dict = Depends(current_user)):
     if db.get_member(cid, user["username"]):
         db.set_active_circle(user["username"], cid)
         return {"ok": True, "circle_id": cid, "name": circle.get("name"), "already": True}
+    if not db.consume_invite(code, user["username"]):  # 原子占名额，防并发超用
+        raise HTTPException(400, "邀请码用完啦")
     role = inv.get("role") if inv.get("role") in ("editor", "viewer") else "viewer"
     db.add_member(cid, user["username"], role=role)
-    db.increment_invite_use(code, user["username"])
     db.set_active_circle(user["username"], cid)
+    _invalidate_circle_ai(cid)  # 新成员加入 → 多人视角变
     return {"ok": True, "circle_id": cid, "name": circle.get("name"), "role": role}
 
 
@@ -447,6 +471,7 @@ def set_member_role_api(cid: int, target: str, req: MemberRoleReq, user: dict = 
     if not db.get_member(cid, target):
         raise HTTPException(404, "TA 不在这个圈子里")
     db.update_member_role(cid, target, req.role)
+    _invalidate_circle_ai(cid)
     return {"ok": True}
 
 
@@ -463,6 +488,7 @@ def remove_member_api(cid: int, target: str, user: dict = Depends(current_user))
     if db.get_member(cid, target):
         db.remove_member(cid, target)
         _relocate_if_active(target, cid)
+        _invalidate_circle_ai(cid)  # 成员变动 → AI 多人视角变
     return {"ok": True}
 
 
@@ -473,7 +499,8 @@ def disband_circle_api(cid: int, user: dict = Depends(current_user)):
         return {"ok": True}
     _require_circle_role(cid, user["username"], ("owner",))
     members = [m["username"] for m in db.list_members(cid)]
-    db.delete_circle(cid)
+    for ph in db.delete_circle(cid):  # 返回被删 visits 的图片，清掉文件别留孤儿
+        _unlink_photos(ph)
     for m in members:
         _relocate_if_active(m, cid)
     return {"ok": True}
@@ -642,7 +669,7 @@ def get_regeo(location: str, _: dict = Depends(current_user)):
 @app.post("/api/parse")
 def post_parse(req: ParseReq, _: dict = Depends(current_user)):
     try:
-        return ai.parse_one_liner(req.text)
+        return ai.parse_one_liner((req.text or "")[:500])
     except Exception as e:
         logger.warning("parse 失败: %s", e)
         raise HTTPException(500, "AI 没认出来，换句话再说说？😅")
@@ -746,6 +773,13 @@ def _invalidate_wish_caches(circle_id: int) -> None:
     """wish 写入：想去清单影响所有月份回忆的展望段 + 问答上下文 → 整圈失效。"""
     db.ai_cache_delete_prefix(f"story:{circle_id}:")
     db.ai_cache_delete_prefix(f"askctx:{circle_id}:")
+
+
+def _invalidate_circle_ai(circle_id: int) -> None:
+    """成员/角色变动 → 回忆录/问答/片区称号的多人视角会变（你↔你们、谁记的），整圈 AI 缓存失效。"""
+    db.ai_cache_delete_prefix(f"story:{circle_id}:")
+    db.ai_cache_delete_prefix(f"askctx:{circle_id}:")
+    db.ai_cache_delete(f"areatitles:{circle_id}")
 
 
 def _build_story_brief(year_month: str, circle_id: int) -> Optional[str]:
@@ -1106,7 +1140,7 @@ def _build_suggest_brief(circle_id: int, location: Optional[str], craving: Optio
 @app.get("/api/suggest")
 def get_suggest(location: Optional[str] = None, craving: Optional[str] = None,
                 user: dict = Depends(current_user)):
-    brief, candidates = _build_suggest_brief(user["circle_id"], location, craving)
+    brief, candidates = _build_suggest_brief(user["circle_id"], location, (craving or "")[:100] or None)
     if not brief:
         return {"empty": True, "note": "先去种草几家、或记几顿「想再来」的，我才好帮你挑 😋", "picks": []}
     try:
@@ -1250,7 +1284,7 @@ def _build_ask_context(circle_id: int) -> Optional[str]:
 
 @app.post("/api/ask")
 def post_ask(req: AskReq, user: dict = Depends(current_user)):
-    q = (req.q or "").strip()
+    q = (req.q or "").strip()[:300]
     if not q:
         raise HTTPException(400, "问点啥呢？")
     cid = user["circle_id"]
@@ -1282,12 +1316,17 @@ async def post_upload(file: UploadFile = File(...), _: dict = Depends(require_wr
     dest = PHOTOS_DIR / fname
     # 分块写入并卡上限：任何时刻只在内存里留 1MB，超限即停、删掉半截文件
     size = 0
+    checked = False
     try:
         with dest.open("wb") as f:
             while True:
                 chunk = await file.read(1024 * 1024)
                 if not chunk:
                     break
+                if not checked:
+                    checked = True
+                    if not _looks_like_image(chunk[:12]):
+                        raise HTTPException(400, "这文件看起来不是图片哦")
                 size += len(chunk)
                 if size > MAX_UPLOAD_BYTES:
                     raise HTTPException(413, f"图片太大了（>{MAX_UPLOAD_BYTES // (1024 * 1024)}MB），换张小点的吧")

@@ -82,6 +82,7 @@ export default function MeScreen({ me, onLogout, onCircleChanged }: MeScreenProp
       const r = await resetMine()
       setResetMsg(`已清空你记的 ${r.visits} 条吃过、${r.wishes} 条想去`)
       setConfirmReset(false)
+      onCircleChanged()  // 全局刷新地图/列表/统计，别让 TTL 内还显示已清的记录
     } catch (e: any) {
       setResetMsg(e?.response?.data?.detail || '清空失败')
     } finally {

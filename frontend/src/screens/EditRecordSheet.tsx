@@ -153,7 +153,7 @@ export default function EditRecordSheet({ kind, data, storeName, onClose, onChan
               <input value={feeling} onChange={(e) => setFeeling(e.target.value)} placeholder="好吃在哪" className={input} />
             </Row>
             <Row label="和谁">
-              <input value={companions} onChange={(e) => setCompanions(e.target.value)} placeholder="饼饼" className={input} />
+              <input value={companions} onChange={(e) => setCompanions(e.target.value)} placeholder="和谁一起" className={input} />
             </Row>
           </div>
 
