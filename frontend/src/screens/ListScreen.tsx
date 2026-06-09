@@ -10,6 +10,7 @@ import type { Point } from '../api'
 import { cleanTag } from '../lib/format'
 import { TimelineRow, buildTimeline, getStatus, STATUS_TONE, storeCuisine } from '../components/StoreTimeline'
 import type { StoreStatus } from '../components/StoreTimeline'
+import OpenHours from '../components/OpenHours'
 import { MOODS, MOOD_LABEL } from '../lib/moods'
 import type { Mood } from '../lib/moods'
 type StatusKey = 'fav' | 'want' | 'fulfilled' | 'repeat'
@@ -397,6 +398,7 @@ function StoreCard({
               .filter(Boolean)
               .join(' · ')}
           </div>
+          <OpenHours opentime={point.opentime} className="mt-0.5" />
         </button>
       </div>
 

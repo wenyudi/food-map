@@ -13,6 +13,7 @@ import type { Area } from '../lib/areas'
 import { getMyLocation } from '../lib/geo'
 import { useCountUp } from '../lib/useCountUp'
 import { TimelineRow, buildTimeline, getStatus, STATUS_COLOR, storeCuisine } from '../components/StoreTimeline'
+import OpenHours from '../components/OpenHours'
 
 const esc = (s: string) =>
   s.replace(/[&<>"]/g, (c) => (c === '&' ? '&amp;' : c === '<' ? '&lt;' : c === '>' ? '&gt;' : '&quot;'))
@@ -437,6 +438,7 @@ function PopupContent({ point: p, showAuthor, myUsername }: { point: Point; show
       <div className="text-xs font-bold text-on-surface-variant mt-0.5">
         {[p.business_area, storeCuisine(p), p.rating && `⭐${p.rating}`, p.cost && `¥${p.cost}/人`].filter(Boolean).join(' · ')}
       </div>
+      <OpenHours opentime={p.opentime} className="mt-1" />
       {/* 店铺照片：最多 3 张高德图，完整展示 */}
       {photos.length > 0 && (
         <div className="grid grid-cols-3 gap-1.5 mt-2">
