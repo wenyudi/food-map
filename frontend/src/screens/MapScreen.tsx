@@ -444,9 +444,9 @@ function PopupContent({ point: p, showAuthor, myUsername }: { point: Point; show
           href={amapNavUrl(p.lng, p.lat, p.name)}
           target="_blank"
           rel="noopener noreferrer"
-          className="inline-flex items-center gap-1 mt-2 px-3 py-1.5 rounded-full border-2 border-on-surface bg-primary text-white text-xs font-bold shadow-sticker-sm press-sm"
+          className="inline-flex items-center gap-0.5 mt-2 text-xs font-bold text-primary press-sm"
         >
-          <span aria-hidden>🧭</span> 导航去这儿
+          🧭 导航去这儿 →
         </a>
       )}
       {/* 店铺照片：最多 3 张高德图，完整展示 */}
