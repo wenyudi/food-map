@@ -7,6 +7,7 @@
 from __future__ import annotations
 
 import os
+import re
 from typing import Optional
 
 import requests
@@ -18,6 +19,7 @@ AMAP_KEY = os.environ.get("AMAP_KEY", "")
 SEARCH_URL = "https://restapi.amap.com/v5/place/text"
 AROUND_URL = "https://restapi.amap.com/v5/place/around"
 REGEO_URL = "https://restapi.amap.com/v3/geocode/regeo"
+INPUTTIPS_URL = "https://restapi.amap.com/v3/assistant/inputtips"
 SHOW_FIELDS = "business,photos,children,navi"
 
 
@@ -41,29 +43,83 @@ def _call(url: str, params: dict) -> list[dict]:
     return _get(url, params).get("pois", []) or []
 
 
+def _norm_name(s: str) -> str:
+    """店名归一化（去空格/分隔符/大小写），用于去重和匹配。"""
+    return re.sub(r"[\s·・.\-—()（）]", "", (s or "")).lower()
+
+
+def _tip_to_poi(tip: dict) -> dict:
+    """把 inputtips 候选转成与 place/text 一致的 poi 形状（缺的 business 字段留空）。"""
+    district = (tip.get("district") or "").strip()
+    short = (district.split("市")[-1] or district) if "市" in district else district
+    return {
+        "id": tip.get("id", ""),
+        "name": tip.get("name", ""),
+        "location": tip.get("location", ""),
+        "typecode": tip.get("typecode", ""),
+        "type": "",
+        "pname": "", "cityname": "", "adname": short,
+        "address": tip.get("address", ""),
+        "business": {"business_area": short} if short else {},
+        "photos": [],
+    }
+
+
+def input_tips(keywords: str, city: Optional[str] = None, location: Optional[str] = None) -> list[dict]:
+    """高德「输入提示」≈ App 搜索框：对店名匹配远好于 place/text，能搜到很多 place/text 漏掉的店。
+    只取带坐标的 POI，转成 poi 形状返回。"""
+    params = {"key": AMAP_KEY, "keywords": keywords, "datatype": "poi"}
+    if city:
+        params["city"] = city
+    if location:
+        params["location"] = location  # 周边优先排序
+    data = _get(INPUTTIPS_URL, params)
+    out = []
+    for t in (data.get("tips") or []):
+        if isinstance(t, dict) and isinstance(t.get("location"), str) and t.get("location").strip():
+            out.append(_tip_to_poi(t))
+    return out
+
+
+def _merge_pois(keywords: str, text_pois: list[dict], tip_pois: list[dict]) -> list[dict]:
+    """合并 place/text 与 inputtips：inputtips 里 place/text 没返回的补进来；与关键词强匹配的
+    （多半是用户真正想找的那家）排最前，避免被 place/text 的模糊错配挡住。"""
+    kw = _norm_name(keywords)
+    text_names = {_norm_name(p.get("name")) for p in text_pois}
+    extra = [p for p in tip_pois if _norm_name(p.get("name")) not in text_names]
+    strong = [p for p in extra if kw and (kw in _norm_name(p.get("name")) or _norm_name(p.get("name")) in kw)]
+    weak = [p for p in extra if p not in strong]
+    return strong + text_pois + weak
+
+
 def search_poi(keywords: str, region: Optional[str] = None, location: Optional[str] = None,
                limit: int = 5, around_radius: int = 5000) -> list[dict]:
-    """搜店铺。
+    """搜店铺：place/text（周边优先→全市/全国）+ inputtips 兜底合并。
 
-    优先级：
-      1. 有 location → 先周边搜（around_radius 米），结果会按距离排序
-      2. 周边没结果（或没有 location）→ region 全市搜
-      3. 都没有 → 全国搜
+    place/text 关键字搜索覆盖有限（很多店搜不到，还可能模糊错配）；inputtips 与高德 App 一致、
+    匹配强但无 business 字段。place/text 没强匹配时才查 inputtips，强匹配结果排最前。
     """
     common = {"key": AMAP_KEY, "keywords": keywords, "show_fields": SHOW_FIELDS, "page_size": limit}
 
-    # 1. 周边优先
+    # 1. place/text：有定位先周边搜，否则全市 / 全国
+    text_pois: list[dict] = []
     if location:
-        pois = _call(AROUND_URL, {**common, "location": location, "radius": around_radius})
-        if pois:
-            return pois
+        text_pois = _call(AROUND_URL, {**common, "location": location, "radius": around_radius})
+    if not text_pois:
+        text_pois = (_call(SEARCH_URL, {**common, "region": region, "city_limit": "true"})
+                     if region else _call(SEARCH_URL, common))
 
-    # 2. region fallback
-    if region:
-        return _call(SEARCH_URL, {**common, "region": region, "city_limit": "true"})
+    # 2. place/text 没有强匹配（空 or 模糊错配）→ inputtips 兜底（失败不影响主流程）
+    kw = _norm_name(keywords)
+    has_strong = any(kw and (kw in _norm_name(p.get("name")) or _norm_name(p.get("name")) in kw) for p in text_pois)
+    tip_pois: list[dict] = []
+    if not has_strong:
+        try:
+            tip_pois = input_tips(keywords, city=region, location=location)
+        except RuntimeError:
+            tip_pois = []
 
-    # 3. 全国搜
-    return _call(SEARCH_URL, common)
+    return _merge_pois(keywords, text_pois, tip_pois)[:limit]
 
 
 def regeo(location: str) -> dict:
