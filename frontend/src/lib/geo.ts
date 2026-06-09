@@ -59,6 +59,13 @@ export function haversine(lng1: number, lat1: number, lng2: number, lat2: number
   return 2 * R * Math.asin(Math.min(1, Math.sqrt(a)))
 }
 
+/** 跳高德地图的 URL：店铺坐标已是 GCJ-02，coordinate=gaode 直接用、不转换。
+ *  装了高德 App 会唤起 App（callnative=1），没装则落到高德网页地图，点「路线」即按当前位置导航。 */
+export function amapNavUrl(lng: number, lat: number, name: string): string {
+  const n = encodeURIComponent((name || '目的地').slice(0, 40))
+  return `https://uri.amap.com/marker?position=${lng},${lat}&name=${n}&src=chiledme&coordinate=gaode&callnative=1`
+}
+
 /**
  * 拿当前位置（GCJ-02，已转好可以直接给高德用）。
  * 用户首次会被浏览器问授权；拒绝或失败时返回 null。

@@ -10,7 +10,7 @@ import type { Point, Stats, AreaTitle } from '../api'
 import { buildAreas } from '../lib/areas'
 import { deriveStats } from '../lib/stats'
 import type { Area } from '../lib/areas'
-import { getMyLocation } from '../lib/geo'
+import { getMyLocation, amapNavUrl } from '../lib/geo'
 import { useCountUp } from '../lib/useCountUp'
 import { TimelineRow, buildTimeline, getStatus, STATUS_COLOR, storeCuisine } from '../components/StoreTimeline'
 import OpenHours from '../components/OpenHours'
@@ -439,6 +439,16 @@ function PopupContent({ point: p, showAuthor, myUsername }: { point: Point; show
         {[p.business_area, storeCuisine(p), p.rating && `⭐${p.rating}`, p.cost && `¥${p.cost}/人`].filter(Boolean).join(' · ')}
       </div>
       <OpenHours opentime={p.opentime} className="mt-1" />
+      {!!(p.lng && p.lat) && (
+        <a
+          href={amapNavUrl(p.lng, p.lat, p.name)}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="inline-flex items-center gap-1 mt-2 px-3 py-1.5 rounded-full border-2 border-on-surface bg-primary text-white text-xs font-bold shadow-sticker-sm press-sm"
+        >
+          <span aria-hidden>🧭</span> 导航去这儿
+        </a>
+      )}
       {/* 店铺照片：最多 3 张高德图，完整展示 */}
       {photos.length > 0 && (
         <div className="grid grid-cols-3 gap-1.5 mt-2">
