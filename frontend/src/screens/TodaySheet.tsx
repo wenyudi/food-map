@@ -89,6 +89,12 @@ export default function SuggestSheet({ onClose, onFocus }: Props) {
                   <div className="pt-1">
                     <div className="font-headline text-xl">{p.name}</div>
                     <div className="text-sm text-on-surface-variant my-1">{p.reason}</div>
+                    {p.open_now === false && (
+                      <div className="text-xs font-bold text-primary/80 mb-1">🌙 现在可能已打烊</div>
+                    )}
+                    {p.open_now === true && (
+                      <div className="text-xs font-bold text-green-accent mb-1">🟢 现在营业中</div>
+                    )}
                     {p.has_coords && (
                       <span className="text-primary font-bold text-sm flex items-center gap-0.5">
                         地图上看 <Icon name="chevron_right" className="text-base" />

@@ -286,6 +286,8 @@ export interface SuggestPick {
   kind: 'wish' | 'fav'
   reason: string
   has_coords: boolean
+  open_now?: boolean | null
+  opentime?: string
 }
 export interface Suggestion {
   note: string

@@ -1057,6 +1057,30 @@ def _taste_profile(visits: list) -> tuple:
     return top_c, top_f
 
 
+_OPEN_RANGE_RE = re.compile(r"(\d{1,2}):(\d{2})\s*[-–~至到]\s*(\d{1,2}):(\d{2})")
+
+
+def _open_now(opentime: Optional[str], now: Optional[datetime] = None) -> Optional[bool]:
+    """从高德 opentime 串判断此刻是否营业：能抽到时间段→True/False；纯文字抽不到→None。
+    与前端 lib/hours.ts 同口径（跨夜、午晚分段、24 小时）。"""
+    s = (opentime or "").strip()
+    if not s:
+        return None
+    if re.search(r"24\s*小时|全天|00:00\s*[-–~]\s*24:00", s):
+        return True
+    now = now or datetime.now()
+    cur = now.hour * 60 + now.minute
+    matched = False
+    for m in _OPEN_RANGE_RE.finditer(s):
+        matched = True
+        start = int(m.group(1)) * 60 + int(m.group(2))
+        end = int(m.group(3)) * 60 + int(m.group(4))
+        within = (start <= cur < end) if end > start else (cur >= start or cur < end)
+        if within:
+            return True
+    return False if matched else None
+
+
 def _build_suggest_brief(circle_id: int, location: Optional[str], craving: Optional[str]):
     """攒候选店（想去 + 想再来的老店），整理成带编号清单喂 AI。返回 (brief, candidates)。"""
     data = db.load_all(circle_id)
@@ -1089,6 +1113,7 @@ def _build_suggest_brief(circle_id: int, location: Optional[str], craving: Optio
             "reason": w.get("reason", ""), "source": w.get("source", ""),
             "cuisine": (w.get("cuisine") or "").strip(),
             "flavors": (w.get("flavors") or "").strip(),
+            "opentime": s.get("opentime", ""),
             "lng": s.get("lng"), "lat": s.get("lat"),
         })
 
@@ -1113,6 +1138,7 @@ def _build_suggest_brief(circle_id: int, location: Optional[str], craving: Optio
             "feeling": last.get("feeling", ""), "times": len(vs),
             "cuisine": (last.get("cuisine") or "").strip(),
             "flavors": (last.get("flavors") or "").strip(),
+            "opentime": s.get("opentime", ""),
             "lng": s.get("lng"), "lat": s.get("lat"),
         })
 
@@ -1125,8 +1151,11 @@ def _build_suggest_brief(circle_id: int, location: Optional[str], craving: Optio
                 c["dist"] = _haversine_m(uloc[0], uloc[1], c["lng"], c["lat"])
         candidates.sort(key=lambda c: c.get("dist", 9_999_999))
     candidates = candidates[:12]
+    now = datetime.now()
+    for c in candidates:
+        c["open_now"] = _open_now(c.get("opentime"), now)
 
-    hour = datetime.now().hour
+    hour = now.hour
     period = "早餐" if hour < 10 else "午餐" if hour < 15 else "晚餐" if hour < 21 else "夜宵"
     lines = [f"现在大概是【{period}】时段。"]
     top_c, top_f = _taste_profile(data["visits"])
@@ -1139,6 +1168,8 @@ def _build_suggest_brief(circle_id: int, location: Optional[str], craving: Optio
         lines.append("你们的口味画像：" + " · ".join(prof) + "（可顺着推，也可故意换个没怎么吃的换口味，理由里点明）")
     if craving:
         lines.append(f"今天特别想吃：{craving}（优先满足这个）")
+    if any(c.get("open_now") is not None for c in candidates):
+        lines.append("每条末尾标了营业状态：优先推🟢营业中的；🔴已打烊的尽量别选，要选就在理由里提醒一句「现在可能没开」。")
     lines.append("\n候选店（只能从下面挑，按编号）：")
     for i, c in enumerate(candidates, 1):
         bits = [f"{i}. {c['name']}"]
@@ -1153,6 +1184,10 @@ def _build_suggest_brief(circle_id: int, location: Optional[str], craving: Optio
         if c.get("dist") is not None:
             d = c["dist"]
             bits.append(f"· 距你{round(d / 1000, 1)}km" if d >= 1000 else f"· 距你{d}m")
+        if c.get("open_now") is True:
+            bits.append("· 🟢营业中")
+        elif c.get("open_now") is False:
+            bits.append("· 🔴已打烊")
         lines.append(" ".join(bits))
     return "\n".join(lines), candidates
 
@@ -1181,6 +1216,8 @@ def get_suggest(location: Optional[str] = None, craving: Optional[str] = None,
                 "poi_id": c["poi_id"], "name": c["name"], "kind": c["kind"],
                 "reason": p.get("reason", ""),
                 "has_coords": bool(c.get("lng") and c.get("lat")),
+                "open_now": c.get("open_now"),
+                "opentime": c.get("opentime", ""),
             })
     return {"note": result.get("note", ""), "picks": picks}
 

@@ -12,6 +12,7 @@ import { getMyLocation, haversine } from '../lib/geo'
 import type { MyLocation } from '../lib/geo'
 import { cleanTag, fmtDist, inputClass } from '../lib/format'
 import MoodPicker from '../components/MoodPicker'
+import OpenHours from '../components/OpenHours'
 import type { Mood } from '../lib/moods'
 
 const LS_CITY = 'last_city'
@@ -447,6 +448,7 @@ export default function AddScreen({ onSubmitted, circleRole }: AddScreenProps) {
                     .filter(Boolean)
                     .join(' · ') || '点「换一家」选一个'}
                 </div>
+                <OpenHours opentime={selectedPoi?.business?.opentime_today || selectedPoi?.business?.opentime_week} className="mt-0.5" />
               </div>
               <button
                 onClick={() => setStoreSheet(true)}
@@ -597,6 +599,7 @@ export default function AddScreen({ onSubmitted, circleRole }: AddScreenProps) {
                         .filter(Boolean)
                         .join(' · ')}
                     </div>
+                    <OpenHours opentime={p.business?.opentime_today || p.business?.opentime_week} className="mt-0.5" />
                     <div className="text-xs text-on-surface-variant/80 mt-0.5 truncate">
                       {p.adname} · {p.address}
                     </div>
