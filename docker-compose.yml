@@ -10,7 +10,7 @@ services:
     container_name: food_map
     restart: unless-stopped
     ports:
-      - "8765:8000"   # NAS 上暴露 8765，frpc 转发给 ECS Caddy
+      - "127.0.0.1:8765:8000"   # 只监听本机，由 Caddy 反代；公网永远走 HTTPS
     volumes:
       - ./data:/data  # 数据 + 照片持久化
     env_file:
