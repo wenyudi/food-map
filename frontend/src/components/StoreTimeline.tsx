@@ -1,5 +1,5 @@
 import type { Point, Wish, Visit } from '../api'
-import { cleanTag } from '../lib/format'
+import { cleanTag, hideOnError } from '../lib/format'
 
 /** 时间线事件：种草(wish) 或 吃过(visit)，按日期排序 */
 export type TimelineEvent = { type: 'wish'; date: string; data: Wish } | { type: 'visit'; date: string; data: Visit }
@@ -161,7 +161,7 @@ export function TimelineRow({
           {showPhotos && (
             <div className={`flex flex-wrap gap-1.5 ${v.feeling || flavors.length > 0 || dishes.length > 0 ? 'mt-2' : ''}`}>
               {photos.slice(0, 4).map((u) => (
-                <img key={u} src={u} className="zoomable w-16 h-16 object-cover rounded-lg border-2 border-on-surface" />
+                <img key={u} src={u} loading="lazy" onError={hideOnError} className="zoomable w-16 h-16 object-cover rounded-lg border-2 border-on-surface" />
               ))}
             </div>
           )}

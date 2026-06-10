@@ -22,6 +22,7 @@ import os
 import re
 import secrets
 import socket
+import time
 import uuid
 from datetime import datetime, timedelta
 from pathlib import Path
@@ -33,7 +34,7 @@ load_dotenv()
 
 from contextlib import asynccontextmanager
 
-from fastapi import Depends, FastAPI, File, Header, HTTPException, UploadFile
+from fastapi import Depends, FastAPI, File, Header, HTTPException, Request, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
@@ -58,6 +59,15 @@ logger = logging.getLogger("foodmap")
 PHOTOS_DIR = Path(os.environ.get("PHOTOS_DIR") or (Path(__file__).parent / "data" / "photos"))
 PHOTOS_DIR.mkdir(parents=True, exist_ok=True)
 app.mount("/photos", StaticFiles(directory=PHOTOS_DIR), name="photos")
+
+
+@app.middleware("http")
+async def _photo_cache_headers(request: Request, call_next):
+    """照片文件名是 UUID、内容永不变 → 让浏览器缓存一年，反复开列表/地图不再重复请求。"""
+    resp = await call_next(request)
+    if request.url.path.startswith("/photos/") and resp.status_code in (200, 304):
+        resp.headers["Cache-Control"] = "public, max-age=31536000, immutable"
+    return resp
 
 MAX_UPLOAD_BYTES = 8 * 1024 * 1024  # 8MB 兜底；前端已压到几百 KB，这里只防恶意大图爆内存
 
@@ -163,11 +173,43 @@ class RegisterReq(BaseModel):
     nickname: str
 
 
+# 登录防爆破：同一 IP 5 分钟内错 10 次就熔断（验证码接口已有限速，登录之前是裸的）。
+# 内存级足矣——单进程 uvicorn，重启即清零；成功登录立即解锁，不误伤记错密码的真人。
+LOGIN_FAIL_WINDOW_SEC = 300
+LOGIN_MAX_FAILS = 10
+_login_fails: dict[str, list[float]] = {}
+
+
+def _client_ip(request: Request) -> str:
+    # 生产在 Caddy 反代后面，真实 IP 在 X-Forwarded-For 第一跳
+    xff = request.headers.get("x-forwarded-for", "")
+    if xff:
+        return xff.split(",")[0].strip()
+    return request.client.host if request.client else "?"
+
+
+def _login_blocked(ip: str) -> bool:
+    if len(_login_fails) > 10000:  # 海量伪造 IP 的极端兜底：宁可重置窗口也不让内存涨
+        _login_fails.clear()
+    now = time.time()
+    fails = [t for t in _login_fails.get(ip, []) if now - t < LOGIN_FAIL_WINDOW_SEC]
+    if fails:
+        _login_fails[ip] = fails
+    else:
+        _login_fails.pop(ip, None)
+    return len(fails) >= LOGIN_MAX_FAILS
+
+
 @app.post("/api/auth/login")
-def post_login(req: LoginReq):
+def post_login(req: LoginReq, request: Request):
+    ip = _client_ip(request)
+    if _login_blocked(ip):
+        raise HTTPException(429, "试得太频繁啦，歇 5 分钟再来")
     user = db.get_user_by_email((req.email or "").strip().lower())
     if not user or not auth.verify_password(req.password, user["password_hash"]):
+        _login_fails.setdefault(ip, []).append(time.time())
         raise HTTPException(401, "邮箱或密码错误")
+    _login_fails.pop(ip, None)
     token = auth.make_token(user["username"], user["role"])
     return {"token": token, "username": user["username"],
             "nickname": user.get("nickname") or user["username"], "role": user["role"],
@@ -673,7 +715,8 @@ def post_search(req: SearchReq, _: dict = Depends(current_user)):
     try:
         return amap.search_poi(req.keywords, region=req.region, location=req.location, limit=5)
     except RuntimeError as e:
-        raise HTTPException(500, str(e))
+        logger.warning("search 失败: %s", e)  # 「高德 API 报错：额度超限」这类细节进日志，不吓用户
+        raise HTTPException(502, "搜索服务开小差了，稍等再试一次")
 
 
 @app.get("/api/regeo")
@@ -682,7 +725,8 @@ def get_regeo(location: str, _: dict = Depends(current_user)):
     try:
         return amap.regeo(location)
     except RuntimeError as e:
-        raise HTTPException(500, str(e))
+        logger.warning("regeo 失败: %s", e)
+        raise HTTPException(502, "定位解析没成功，稍等再试")
 
 
 @app.post("/api/parse")
@@ -690,7 +734,7 @@ def post_parse(req: ParseReq, _: dict = Depends(current_user)):
     try:
         return ai.parse_one_liner((req.text or "")[:500])
     except Exception as e:
-        logger.warning("parse 失败: %s", e)
+        logger.warning("parse 失败: %s", e, exc_info=True)  # 带堆栈，网络错/key 错/模型错一眼分清
         raise HTTPException(500, "AI 没认出来，换句话再说说？😅")
 
 

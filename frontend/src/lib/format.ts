@@ -19,3 +19,8 @@ export function fmtDist(d?: string | number): string {
 // 共用输入框样式（记一笔 / 编辑 / 改密 等表单输入统一外观，避免各文件各写一份）
 export const inputClass =
   'w-full rounded-xl border-2 border-on-surface bg-white px-3 py-2.5 outline-none font-body shadow-sticker-sm'
+
+// 图片加载失败（高德图床偶尔挂 / 弱网）就整个藏掉，不留破图空框
+export const hideOnError = (e: { currentTarget: HTMLImageElement }) => {
+  e.currentTarget.style.display = 'none'
+}

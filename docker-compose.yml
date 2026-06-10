@@ -19,3 +19,16 @@ services:
       # 容器内强制覆盖（避免 .env 里写的是本地相对路径）
       DATABASE_PATH: /data/food_map.db
       PHOTOS_DIR: /data/photos
+    logging:
+      # 不限的话 json 日志会无限涨、迟早吃满磁盘；30MB 滚动对排查足够
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+    healthcheck:
+      # 进程假死时 docker ps 能看到 unhealthy（compose 不会自动重启，仅可观测）
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/', timeout=5)"]
+      interval: 60s
+      timeout: 10s
+      retries: 3
+      start_period: 20s

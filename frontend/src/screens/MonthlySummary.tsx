@@ -50,6 +50,7 @@ export default function MonthlySummary({ points, refreshKey }: Props) {
   const [collapsed, setCollapsed] = useState<boolean>(() => localStorage.getItem(lsKey) !== 'open')
   const [story, setStory] = useState('')
   const [storyLoading, setStoryLoading] = useState(false)
+  const [storyError, setStoryError] = useState(false)
 
   useEffect(() => {
     if (refreshKey === 0) return
@@ -73,11 +74,12 @@ export default function MonthlySummary({ points, refreshKey }: Props) {
   async function loadStory(regenerate = false) {
     if (data.visitCount === 0) return
     setStoryLoading(true)
+    setStoryError(false)
     try {
       const r = await getMonthlyStory(data.yearMonth, regenerate)
       setStory(r.story || '')
     } catch {
-      /* ignore */
+      setStoryError(true)  // 区分「还没生成」和「没加载出来」，给个手动重试入口
     } finally {
       setStoryLoading(false)
     }
@@ -148,9 +150,13 @@ export default function MonthlySummary({ points, refreshKey }: Props) {
               <div className="h-3 bg-on-surface/10 rounded animate-pulse" />
               <div className="h-3 w-4/5 bg-on-surface/10 rounded animate-pulse" />
             </div>
-          ) : (
-            story && <p className={`text-sm leading-relaxed text-on-surface ${storyLoading ? 'opacity-50' : ''}`}>{story}</p>
-          )}
+          ) : story ? (
+            <p className={`text-sm leading-relaxed text-on-surface ${storyLoading ? 'opacity-50' : ''}`}>{story}</p>
+          ) : storyError ? (
+            <button onClick={() => loadStory(false)} className="text-sm text-on-surface-variant underline underline-offset-2 press-sm">
+              回忆没加载出来，点一下重试
+            </button>
+          ) : null}
         </div>
       )}
     </div>

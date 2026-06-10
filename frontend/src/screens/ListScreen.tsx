@@ -66,6 +66,7 @@ type ListScreenProps = Readonly<{
 export default function ListScreen({ refreshKey, focusPoiId, onPickStore, onJumpToAdd, onInvite, myUsername, circleRole }: ListScreenProps) {
   const [points, setPoints] = useState<Point[]>([])
   const [loading, setLoading] = useState(true)
+  const [loadError, setLoadError] = useState(false)
   const [filters, setFilters] = useState<Filters>({ moods: [], status: [], cuisines: [], authors: [] })
   const [filterOpen, setFilterOpen] = useState(false)
   const [query, setQuery] = useState('')
@@ -86,9 +87,16 @@ export default function ListScreen({ refreshKey, focusPoiId, onPickStore, onJump
     setFilters((f) => ({ ...f, authors: f.authors.includes(a) ? f.authors.filter((x) => x !== a) : [...f.authors, a] }))
   const clearFilters = () => setFilters({ moods: [], status: [], cuisines: [], authors: [] })
 
+  // seq 防竞态：切圈/快速刷新时旧请求晚到，不能覆盖新圈数据
+  const loadSeq = useRef(0)
   const load = useCallback(() => {
+    const seq = ++loadSeq.current
     setLoading(true)
-    getPoints().then(setPoints).finally(() => setLoading(false))
+    setLoadError(false)
+    getPoints()
+      .then((p) => { if (seq === loadSeq.current) setPoints(p) })
+      .catch(() => { if (seq === loadSeq.current) { setPoints([]); setLoadError(true) } })
+      .finally(() => { if (seq === loadSeq.current) setLoading(false) })
   }, [])
   useEffect(() => {
     load()
@@ -245,7 +253,22 @@ export default function ListScreen({ refreshKey, focusPoiId, onPickStore, onJump
 
         {loading && <ListSkeleton />}
 
-        {!loading && points.length === 0 && (
+        {/* 加载失败 ≠ 没有记录：明确告知 + 一键重试，别让人误以为记录丢了 */}
+        {!loading && loadError && (
+          <div className="flex flex-col items-center text-center py-16">
+            <div className="text-5xl mb-2">📡</div>
+            <div className="font-headline text-xl mb-1">没连上网</div>
+            <div className="text-sm text-on-surface-variant mb-4">记录都好好的，连上网刷新就回来</div>
+            <button
+              onClick={load}
+              className="bg-primary text-white rounded-full border-2 border-on-surface shadow-sticker px-5 py-2.5 font-headline font-bold press"
+            >
+              🔄 再试一次
+            </button>
+          </div>
+        )}
+
+        {!loading && !loadError && points.length === 0 && (
           <div className="flex flex-col items-center text-center py-16">
             <div className="text-5xl mb-2">🍜</div>
             {circleRole === 'viewer' ? (

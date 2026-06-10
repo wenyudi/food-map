@@ -184,7 +184,7 @@ export default function AddScreen({ onSubmitted, circleRole }: AddScreenProps) {
   }
 
   async function handleSubmit() {
-    if (!selectedPoi || !parsed) return
+    if (busy || !selectedPoi || !parsed) return  // busy 兜底：按钮 disabled 渲染前的连点不重复提交
     setBusy(true)
     setError(null)
     try {

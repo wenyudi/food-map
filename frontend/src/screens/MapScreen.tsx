@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { MapContainer, TileLayer, Marker, Popup, useMap } from 'react-leaflet'
 import L from 'leaflet'
 import Icon from '../ui/Icon'
@@ -11,6 +11,7 @@ import { buildAreas } from '../lib/areas'
 import { deriveStats } from '../lib/stats'
 import type { Area } from '../lib/areas'
 import { getMyLocation, amapNavUrl } from '../lib/geo'
+import { hideOnError } from '../lib/format'
 import { useCountUp } from '../lib/useCountUp'
 import { TimelineRow, buildTimeline, getStatus, STATUS_COLOR, storeCuisine } from '../components/StoreTimeline'
 import OpenHours from '../components/OpenHours'
@@ -32,6 +33,7 @@ export default function MapScreen({ refreshKey, focusPoiId, onConsumeFocus, onJu
   const [points, setPoints] = useState<Point[]>([])
   const [stats, setStats] = useState<Stats | null>(null)
   const [loading, setLoading] = useState(true)
+  const [loadError, setLoadError] = useState(false)
   const [suggestOpen, setSuggestOpen] = useState(false)
   const [suggestFocus, setSuggestFocus] = useState<string | null>(null)
   const [trayOpen, setTrayOpen] = useState(false)
@@ -47,17 +49,26 @@ export default function MapScreen({ refreshKey, focusPoiId, onConsumeFocus, onJu
   const [selectedAuthor, setSelectedAuthor] = useState<string | null>(null)
   const [authorTrayOpen, setAuthorTrayOpen] = useState(false)
 
-  useEffect(() => {
-    setSelectedAuthor(null)  // 切圈/刷新后清掉旧圈的记录者筛选，避免筛到空白
-    setAuthorTrayOpen(false)
+  // seq 防竞态：切圈/快速刷新时旧请求晚到，不能覆盖新圈数据
+  const loadSeq = useRef(0)
+  const load = useCallback(() => {
+    const seq = ++loadSeq.current
     setLoading(true)
+    setLoadError(false)
     getPoints()
       .then((p) => {
+        if (seq !== loadSeq.current) return
         setPoints(p)
         setStats(deriveStats(p))  // 直接从 points 派生，省掉 /stats 往返
       })
-      .finally(() => setLoading(false))
-  }, [refreshKey])
+      .catch(() => { if (seq === loadSeq.current) { setPoints([]); setLoadError(true) } })
+      .finally(() => { if (seq === loadSeq.current) setLoading(false) })
+  }, [])
+  useEffect(() => {
+    setSelectedAuthor(null)  // 切圈/刷新后清掉旧圈的记录者筛选，避免筛到空白
+    setAuthorTrayOpen(false)
+    load()
+  }, [load, refreshKey])
 
   // 记录者列表（筛选用）+ 是否有别人记的（决定是否显示筛选/作者标）
   const authors = useMemo(() => {
@@ -212,8 +223,25 @@ export default function MapScreen({ refreshKey, focusPoiId, onConsumeFocus, onJu
           </div>
         )}
 
+        {/* 加载失败 ≠ 地图空着：明确告知 + 一键重试 */}
+        {!loading && loadError && (
+          <div className="absolute inset-0 z-[450] flex items-center justify-center p-6">
+            <div className="sticker rounded-2xl p-6 text-center max-w-[280px]">
+              <div className="text-5xl mb-2">📡</div>
+              <div className="font-headline text-xl mb-1">没连上网</div>
+              <div className="text-sm text-on-surface-variant mb-4">点位都好好的，连上网刷新就回来</div>
+              <button
+                onClick={load}
+                className="bg-primary text-white rounded-full border-2 border-on-surface shadow-sticker px-5 py-2.5 font-headline font-bold press"
+              >
+                🔄 再试一次
+              </button>
+            </div>
+          </div>
+        )}
+
         {/* 空状态 */}
-        {!loading && points.length === 0 && (
+        {!loading && !loadError && points.length === 0 && (
           <div className="absolute inset-0 z-[450] flex items-center justify-center p-6">
             <div className="sticker rounded-2xl p-6 text-center max-w-[280px]">
               <div className="text-5xl mb-2">🗺️</div>
@@ -453,7 +481,7 @@ function PopupContent({ point: p, showAuthor, myUsername }: { point: Point; show
       {photos.length > 0 && (
         <div className="grid grid-cols-3 gap-1.5 mt-2">
           {photos.map((u) => (
-            <img key={u} src={u} className="zoomable aspect-square w-full object-cover rounded-lg border-2 border-on-surface" />
+            <img key={u} src={u} loading="lazy" onError={hideOnError} className="zoomable aspect-square w-full object-cover rounded-lg border-2 border-on-surface" />
           ))}
         </div>
       )}
