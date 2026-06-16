@@ -10,7 +10,7 @@ import type { Point, Stats, AreaTitle } from '../api'
 import { buildAreas } from '../lib/areas'
 import { deriveStats } from '../lib/stats'
 import type { Area } from '../lib/areas'
-import { getMyLocation, amapNavUrl } from '../lib/geo'
+import { getMyLocation, navOptions } from '../lib/geo'
 import { hideOnError } from '../lib/format'
 import { useCountUp } from '../lib/useCountUp'
 import { TimelineRow, buildTimeline, getStatus, STATUS_COLOR, storeCuisine } from '../components/StoreTimeline'
@@ -468,14 +468,22 @@ function PopupContent({ point: p, showAuthor, myUsername }: { point: Point; show
       </div>
       <OpenHours opentime={p.opentime} className="mt-1" />
       {!!(p.lng && p.lat) && (
-        <a
-          href={amapNavUrl(p.lng, p.lat, p.name)}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="inline-flex items-center gap-0.5 mt-2 text-xs font-bold text-primary press-sm"
-        >
-          🧭 导航去这儿 →
-        </a>
+        <div className="mt-2">
+          <div className="text-[11px] font-bold text-on-surface-variant mb-1">🧭 导航去这儿</div>
+          <div className="flex gap-1.5">
+            {navOptions(p.lng, p.lat, p.name).map((opt) => (
+              <a
+                key={opt.key}
+                href={opt.url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex-1 text-center text-xs font-bold text-on-surface bg-white border-2 border-on-surface rounded-lg py-1.5 press-sm"
+              >
+                {opt.label}
+              </a>
+            ))}
+          </div>
+        </div>
       )}
       {/* 店铺照片：最多 3 张高德图，完整展示 */}
       {photos.length > 0 && (

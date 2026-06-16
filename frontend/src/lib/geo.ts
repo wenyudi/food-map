@@ -59,11 +59,42 @@ export function haversine(lng1: number, lat1: number, lng2: number, lat2: number
   return 2 * R * Math.asin(Math.min(1, Math.sqrt(a)))
 }
 
-/** 跳高德地图的 URL：店铺坐标已是 GCJ-02，coordinate=gaode 直接用、不转换。
- *  装了高德 App 会唤起 App（callnative=1），没装则落到高德网页地图，点「路线」即按当前位置导航。 */
-export function amapNavUrl(lng: number, lat: number, name: string): string {
+const X_PI = (PI * 3000.0) / 180.0
+
+/** GCJ-02 → BD-09（百度坐标系）。百度在 GCJ-02 之上又叠了一层固定偏移，
+ *  不转直接喂经纬度会偏 ~200m——"能打开、却导到隔壁街"。高德/腾讯原生吃 GCJ-02，无需转。 */
+export function gcj02ToBd09(lng: number, lat: number): { lng: number; lat: number } {
+  const z = Math.sqrt(lng * lng + lat * lat) + 0.00002 * Math.sin(lat * X_PI)
+  const theta = Math.atan2(lat, lng) + 0.000003 * Math.cos(lng * X_PI)
+  return { lng: z * Math.cos(theta) + 0.0065, lat: z * Math.sin(theta) + 0.006 }
+}
+
+export interface NavOption { key: string; label: string; url: string }
+
+/** 一键导航到店：给出高德 / 百度 / 腾讯三家地图的跳转链接。
+ *  店铺坐标是 GCJ-02——高德、腾讯原生直接用；百度先转 BD-09。
+ *  三家都优先唤起对应 App（装了就跳 App），没装则落到各自的网页地图，点「路线」即从当前位置导航。
+ *  注意经纬度顺序：高德是 lng,lat，百度/腾讯是 lat,lng。 */
+export function navOptions(lng: number, lat: number, name: string): NavOption[] {
   const n = encodeURIComponent((name || '目的地').slice(0, 40))
-  return `https://uri.amap.com/marker?position=${lng},${lat}&name=${n}&src=chiledme&coordinate=gaode&callnative=1`
+  const bd = gcj02ToBd09(lng, lat)
+  return [
+    {
+      key: 'amap',
+      label: '高德',
+      url: `https://uri.amap.com/marker?position=${lng},${lat}&name=${n}&src=chiledme&coordinate=gaode&callnative=1`,
+    },
+    {
+      key: 'baidu',
+      label: '百度',
+      url: `https://api.map.baidu.com/marker?location=${bd.lat},${bd.lng}&title=${n}&content=${n}&coord_type=bd09ll&output=html&src=chiledme`,
+    },
+    {
+      key: 'tencent',
+      label: '腾讯',
+      url: `https://apis.map.qq.com/uri/v1/marker?marker=coord:${lat},${lng};title:${n};addr:${n}&referer=chiledme`,
+    },
+  ]
 }
 
 /**
