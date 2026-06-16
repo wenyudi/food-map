@@ -468,21 +468,21 @@ function PopupContent({ point: p, showAuthor, myUsername }: { point: Point; show
       </div>
       <OpenHours opentime={p.opentime} className="mt-1" />
       {!!(p.lng && p.lat) && (
-        <div className="mt-2">
-          <div className="text-[11px] font-bold text-on-surface-variant mb-1">🧭 导航去这儿</div>
-          <div className="flex gap-1.5">
+        <div className="mt-1.5 flex items-center flex-wrap gap-x-2.5 gap-y-1 text-xs font-bold">
+          <span className="text-on-surface-variant">🧭 导航</span>
+          <span className="flex items-center gap-2.5">
             {navOptions(p.lng, p.lat, p.name).map((opt) => (
               <a
                 key={opt.key}
                 href={opt.url}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="flex-1 text-center text-xs font-bold text-on-surface bg-white border-2 border-on-surface rounded-lg py-1.5 press-sm"
+                className="text-primary underline underline-offset-2 press-sm"
               >
                 {opt.label}
               </a>
             ))}
-          </div>
+          </span>
         </div>
       )}
       {/* 店铺照片：最多 3 张高德图，完整展示 */}
