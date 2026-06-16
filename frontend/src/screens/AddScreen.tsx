@@ -36,8 +36,10 @@ export default function AddScreen({ onSubmitted, circleRole }: AddScreenProps) {
   const [intent, setIntent] = useState<'visit' | 'wish'>('visit')
   const [pois, setPois] = useState<any[]>([])
   const [selectedPoi, setSelectedPoi] = useState<any>(null)
+  // 城市初值用上次记住的（定位没回来前的占位 + 定位失败兜底），但不再用它锁死定位
   const [city, setCity] = useState(() => localStorage.getItem(LS_CITY) || '重庆')
-  const cityTouched = useRef<boolean>(!!localStorage.getItem(LS_CITY))
+  // 只表示「本次进页面后是否手动改过城市」。每次进录入页都复位 false → 城市能自动跟着定位刷新
+  const cityTouched = useRef(false)
   const [myLocation, setMyLocation] = useState<MyLocation | null>(null)
   const [nearby, setNearby] = useState<Point | null>(null)
   const [allPoints, setAllPoints] = useState<Point[]>([])
@@ -65,7 +67,8 @@ export default function AddScreen({ onSubmitted, circleRole }: AddScreenProps) {
     getPoints().then(setAllPoints).catch(() => {})
   }, [])
 
-  // 定位 + 反查城市
+  // 定位 → 反查当前城市并自动填入：每次进页面都跟随定位（到外地自动变外地、回来自动变回来）。
+  // 仅当本次手动改过城市（cityTouched）才不覆盖；定位失败就保持上次记住的城市不动。
   useEffect(() => {
     getMyLocation().then((loc) => {
       if (!loc) return
@@ -323,7 +326,7 @@ export default function AddScreen({ onSubmitted, circleRole }: AddScreenProps) {
                       setCity(e.target.value)
                     }}
                     placeholder="重庆"
-                    className="w-10 bg-transparent outline-none text-xs font-bold text-on-surface text-center"
+                    className="w-16 bg-transparent outline-none text-xs font-bold text-on-surface text-center"
                   />
                 </label>
                 <button
