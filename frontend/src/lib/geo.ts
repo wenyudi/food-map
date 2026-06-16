@@ -59,6 +59,31 @@ export function haversine(lng1: number, lat1: number, lng2: number, lat2: number
   return 2 * R * Math.asin(Math.min(1, Math.sqrt(a)))
 }
 
+/**
+ * 从一堆店里挑出「主群」——你常待那片，排除出差/旅游随手记的零星远店。
+ *
+ * 为什么要这一步：地图初次进入会把视野框住所有点，只要混进一两家几百公里外的店，
+ * 缩放就被拉到能装下整个跨度，常驻城市的店全挤成一坨、看不清「附近」。
+ * 做法：以地理中位数为中心（中位数天然抗离群，不会被远点带偏），保留到中心距离在
+ * 主群尺度内的点。被排除的远店仍在地图上，缩小 / 拖动就能看到，只是不参与初始框选。
+ *
+ * 阈值 = 到中位中心距离的中位数 ×3，下限 20km（一个大都市圈尺度，避免主群本就集中时误切）。
+ * 没有离群点时所有点都会保留 → 等价于原来的「框住全部」，优雅退化。
+ */
+export function mainCluster<T extends { lng: number; lat: number }>(pts: T[]): T[] {
+  if (pts.length <= 2) return pts
+  const med = (arr: number[]) => {
+    const s = [...arr].sort((a, b) => a - b)
+    return s[Math.floor(s.length / 2)]
+  }
+  const cLng = med(pts.map((p) => p.lng))
+  const cLat = med(pts.map((p) => p.lat))
+  const distOf = (p: T) => haversine(cLng, cLat, p.lng, p.lat)
+  const thresh = Math.max(med(pts.map(distOf)) * 3, 20000)
+  const keep = pts.filter((p) => distOf(p) <= thresh)
+  return keep.length ? keep : pts
+}
+
 const X_PI = (PI * 3000.0) / 180.0
 
 /** GCJ-02 → BD-09（百度坐标系）。百度在 GCJ-02 之上又叠了一层固定偏移，

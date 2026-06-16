@@ -10,7 +10,7 @@ import type { Point, Stats, AreaTitle } from '../api'
 import { buildAreas } from '../lib/areas'
 import { deriveStats } from '../lib/stats'
 import type { Area } from '../lib/areas'
-import { getMyLocation, navOptions } from '../lib/geo'
+import { getMyLocation, navOptions, mainCluster } from '../lib/geo'
 import { hideOnError } from '../lib/format'
 import { useCountUp } from '../lib/useCountUp'
 import { TimelineRow, buildTimeline, getStatus, STATUS_COLOR, storeCuisine } from '../components/StoreTimeline'
@@ -409,8 +409,10 @@ function FitBounds({ points, disabled }: { points: Point[]; disabled: boolean })
       return
     }
     if (points.length > 1) {
-      const bounds = L.latLngBounds(points.map((p) => [p.lat, p.lng] as [number, number]))
-      map.fitBounds(bounds, { padding: [60, 60] })
+      // 只框「主群」，别让几百公里外的出差/旅游店把视野拉远、看不清常驻城市
+      const cluster = mainCluster(points)
+      const bounds = L.latLngBounds(cluster.map((p) => [p.lat, p.lng] as [number, number]))
+      map.fitBounds(bounds, { padding: [60, 60], maxZoom: 16 })
       fitted.current = true
     } else if (points.length === 1) {
       map.setView([points[0].lat, points[0].lng], 15)
