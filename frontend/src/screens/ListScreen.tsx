@@ -403,18 +403,26 @@ function StoreCard({
     >
       {/* 头部 */}
       <div className="flex items-start gap-3">
-        {headPhoto ? (
-          <img
-            src={headPhoto}
-            alt=""
-            loading="lazy"
-            className="w-14 h-14 rounded-full border-2 border-on-surface object-cover shrink-0 bg-white"
-          />
-        ) : (
-          <span className="w-14 h-14 rounded-full border-2 border-on-surface bg-white flex items-center justify-center text-2xl shrink-0">
-            {headEmoji}
+        <div className="relative shrink-0">
+          {headPhoto ? (
+            <img
+              src={headPhoto}
+              alt=""
+              loading="lazy"
+              className="w-14 h-14 rounded-full border-2 border-on-surface object-cover bg-white"
+            />
+          ) : (
+            <span className="w-14 h-14 rounded-full border-2 border-on-surface bg-white flex items-center justify-center text-2xl">
+              {headEmoji}
+            </span>
+          )}
+          {/* 状态标签：压在圆形头像底部 */}
+          <span
+            className={`absolute -bottom-2 left-1/2 -translate-x-1/2 whitespace-nowrap inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full border-2 border-on-surface text-[10px] leading-none font-bold shadow-sticker-sm ${STATUS_TONE[status.key]}`}
+          >
+            {status.icon} {status.label}
           </span>
-        )}
+        </div>
         <button className="flex-1 min-w-0 text-left" onClick={hasCoords ? onClick : undefined}>
           <div className="font-headline text-xl leading-tight">
             {point.name}
@@ -427,18 +435,6 @@ function StoreCard({
           </div>
           <OpenHours opentime={point.opentime} className="mt-0.5" />
         </button>
-        {/* 一键记这家：跳到录入页并预填这家店，省去再搜一遍 */}
-        {onRecord && (
-          <button
-            onClick={(e) => {
-              e.stopPropagation()
-              onRecord()
-            }}
-            className="shrink-0 self-center flex items-center gap-1 text-sm font-bold border-2 border-on-surface rounded-full px-3 py-1.5 bg-primary text-white shadow-sticker-sm press-sm"
-          >
-            <Icon name="edit_note" className="text-base" /> {point.visit_count > 0 ? '再记' : '记这家'}
-          </button>
-        )}
       </div>
 
       {/* 时间线（吃过行 + 种草虚线框；每天记录用虚线隔开） */}
@@ -455,15 +451,24 @@ function StoreCard({
         ))}
       </div>
 
-      {/* 底部：看地图(左) · 想再来(中) · 分享(右) */}
+      {/* 底部：看地图(左) · 记这家(中) · 分享(右) */}
       <div className="grid grid-cols-3 items-center mt-3 pt-3 border-t-2 border-dashed border-on-surface/15">
         <button onClick={hasCoords ? onClick : undefined} className="justify-self-start text-xs font-bold text-on-surface-variant py-2 -my-1.5 px-1.5 -ml-1.5 press-sm">
           {hasCoords ? '看在地图上 →' : '📍 未定位'}
         </button>
         <div className="justify-self-center">
-          <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full border-2 border-on-surface text-xs font-bold shadow-sticker-sm ${STATUS_TONE[status.key]}`}>
-            {status.icon} {status.label}
-          </span>
+          {/* 一键记这家：跳录入页并预填这家店，省去再搜 */}
+          {onRecord && (
+            <button
+              onClick={(e) => {
+                e.stopPropagation()
+                onRecord()
+              }}
+              className="flex items-center gap-1 text-sm font-bold border-2 border-on-surface rounded-full px-3 py-1 bg-primary text-white shadow-sticker-sm press-sm"
+            >
+              <Icon name="edit_note" className="text-base" /> {point.visit_count > 0 ? '再记' : '记这家'}
+            </button>
+          )}
         </div>
         <button
           onClick={(e) => {
