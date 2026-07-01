@@ -6,23 +6,25 @@ import PhotoPicker from '../components/PhotoPicker'
 import Stepper from '../ui/Stepper'
 import MoodPicker from '../components/MoodPicker'
 import { inputClass } from '../lib/format'
-import { updateVisit, deleteVisit, updateWish, deleteWish } from '../api'
+import { updateVisit, deleteVisit, updateWish, deleteWish, renameStore } from '../api'
 import type { Mood } from '../lib/moods'
 
 type Props = Readonly<{
   kind: 'visit' | 'wish'
   data: any
   storeName: string
+  poiId: string
   onClose: () => void
   onChanged: () => void
   readonly?: boolean
   recordedByName?: string
 }>
 
-export default function EditRecordSheet({ kind, data, storeName, onClose, onChanged, readonly = false, recordedByName }: Props) {
+export default function EditRecordSheet({ kind, data, storeName, poiId, onClose, onChanged, readonly = false, recordedByName }: Props) {
   const [busy, setBusy] = useState(false)
   const [err, setErr] = useState<string | null>(null)
   const [confirmDel, setConfirmDel] = useState(false)
+  const [name, setName] = useState(storeName)
 
   const [date, setDate] = useState<string>(data.date || '')
   const [meal, setMeal] = useState<'早' | '中' | '晚'>(['早', '中', '晚'].includes(data.meal_period) ? data.meal_period : '中')
@@ -55,6 +57,9 @@ export default function EditRecordSheet({ kind, data, storeName, onClose, onChan
       } else {
         await updateWish(data.wish_id, { source, reason })
       }
+      // 店名改了就一并更新（改名是店铺层，和这条记录分开）
+      const newName = name.trim()
+      if (newName && newName !== storeName) await renameStore(poiId, newName)
       onChanged()
       onClose()
     } catch (e: any) {
@@ -89,9 +94,21 @@ export default function EditRecordSheet({ kind, data, storeName, onClose, onChan
   return (
     <SheetShell onClose={onClose}>
       <div className="flex items-start justify-between gap-2 mb-3">
-        <div className="min-w-0">
+        <div className="min-w-0 flex-1">
           <h3 className="font-headline text-xl leading-tight">{readonly ? (kind === 'visit' ? '查看记录' : '查看想去') : kind === 'visit' ? '编辑这次记录' : '编辑想去'}</h3>
-          <p className="text-xs text-on-surface-variant">{storeName}</p>
+          {readonly ? (
+            <p className="text-xs text-on-surface-variant">{storeName}</p>
+          ) : (
+            <label className="mt-1 flex items-center gap-1.5">
+              <span className="text-[11px] font-bold text-on-surface-variant shrink-0">🏪 店名</span>
+              <input
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                placeholder="店名填错了？在这改"
+                className="min-w-0 flex-1 bg-transparent border-b-2 border-dashed border-on-surface/30 focus:border-on-surface outline-none font-bold text-on-surface text-sm py-0.5"
+              />
+            </label>
+          )}
         </div>
       </div>
 

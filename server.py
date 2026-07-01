@@ -746,6 +746,23 @@ def post_store(req: StoreReq, _: dict = Depends(require_writer)):
     return {**store.__dict__}
 
 
+class StoreRenameReq(BaseModel):
+    name: str
+
+
+@app.patch("/api/store/{poi_id}")
+def patch_store(poi_id: str, req: StoreRenameReq, user: dict = Depends(require_writer)):
+    """改店名（修正录错的店名）。只允许改「你圈子里有记录/种草」的那家店。"""
+    name = (req.name or "").strip()
+    if not name:
+        raise HTTPException(400, "店名不能为空")
+    if not db.store_in_circle(poi_id, user["circle_id"]):
+        raise HTTPException(404, "这家店不在你的地图里")
+    if not db.rename_store(poi_id, name):
+        raise HTTPException(404, "找不到这家店")
+    return {"ok": True, "name": name}
+
+
 # 里程碑节点：吃饭顿数 / 解锁店数
 _MEAL_MILESTONES = {10, 25, 50, 100, 150, 200, 300, 500, 800, 1000}
 _STORE_MILESTONES = {10, 25, 50, 100, 200}

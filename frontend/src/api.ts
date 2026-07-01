@@ -266,6 +266,10 @@ export const updateWish = (wishId: string, data: any) =>
 export const deleteWish = (wishId: string) =>
   api.delete(`/wish/${wishId}`).then(r => { invalidatePoints(); return r.data })
 
+// 改店名（修正录错的店名）
+export const renameStore = (poiId: string, name: string) =>
+  api.patch(`/store/${encodeURIComponent(poiId)}`, { name }).then(r => { invalidatePoints(); return r.data })
+
 export interface MonthlyStory {
   story: string
   cached?: boolean
