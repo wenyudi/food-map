@@ -57,13 +57,14 @@ type ListScreenProps = Readonly<{
   refreshKey: number
   focusPoiId?: string | null
   onPickStore?: (poiId: string) => void
+  onRecordStore?: (poiId: string) => void
   onJumpToAdd?: () => void
   onInvite?: () => void
   myUsername?: string
   circleRole?: string
 }>
 
-export default function ListScreen({ refreshKey, focusPoiId, onPickStore, onJumpToAdd, onInvite, myUsername, circleRole }: ListScreenProps) {
+export default function ListScreen({ refreshKey, focusPoiId, onPickStore, onRecordStore, onJumpToAdd, onInvite, myUsername, circleRole }: ListScreenProps) {
   const [points, setPoints] = useState<Point[]>([])
   const [loading, setLoading] = useState(true)
   const [loadError, setLoadError] = useState(false)
@@ -320,6 +321,7 @@ export default function ListScreen({ refreshKey, focusPoiId, onPickStore, onJump
                 onClick={() => onPickStore?.(p.poi_id)}
                 onEdit={setEditing}
                 onShare={() => shareStore(p)}
+                onRecord={circleRole !== 'viewer' && onRecordStore ? () => onRecordStore(p.poi_id) : undefined}
                 showAuthor={multiAuthor}
                 myUsername={myUsername}
               />
@@ -373,6 +375,7 @@ function StoreCard({
   onClick,
   onEdit,
   onShare,
+  onRecord,
   showAuthor,
   myUsername,
 }: {
@@ -383,6 +386,7 @@ function StoreCard({
   onClick?: () => void
   onEdit: (t: EditTarget) => void
   onShare: () => void
+  onRecord?: () => void
   showAuthor: boolean
   myUsername?: string
 }) {
@@ -423,6 +427,18 @@ function StoreCard({
           </div>
           <OpenHours opentime={point.opentime} className="mt-0.5" />
         </button>
+        {/* 一键记这家：跳到录入页并预填这家店，省去再搜一遍 */}
+        {onRecord && (
+          <button
+            onClick={(e) => {
+              e.stopPropagation()
+              onRecord()
+            }}
+            className="shrink-0 self-center flex items-center gap-1 text-sm font-bold border-2 border-on-surface rounded-full px-3 py-1.5 bg-primary text-white shadow-sticker-sm press-sm"
+          >
+            <Icon name="edit_note" className="text-base" /> {point.visit_count > 0 ? '再记' : '记这家'}
+          </button>
+        )}
       </div>
 
       {/* 时间线（吃过行 + 种草虚线框；每天记录用虚线隔开） */}

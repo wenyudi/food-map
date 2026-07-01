@@ -24,12 +24,13 @@ type MapScreenProps = Readonly<{
   focusPoiId?: string | null
   onConsumeFocus?: () => void
   onJumpToAdd?: () => void
+  onRecordStore?: (poiId: string) => void
   onInvite?: () => void
   myUsername?: string
   circleRole?: string
 }>
 
-export default function MapScreen({ refreshKey, focusPoiId, onConsumeFocus, onJumpToAdd, onInvite, myUsername, circleRole }: MapScreenProps) {
+export default function MapScreen({ refreshKey, focusPoiId, onConsumeFocus, onJumpToAdd, onRecordStore, onInvite, myUsername, circleRole }: MapScreenProps) {
   const [points, setPoints] = useState<Point[]>([])
   const [stats, setStats] = useState<Stats | null>(null)
   const [loading, setLoading] = useState(true)
@@ -168,7 +169,12 @@ export default function MapScreen({ refreshKey, focusPoiId, onConsumeFocus, onJu
                 })}
               >
                 <Popup maxWidth={300} minWidth={240}>
-                  <PopupContent point={p} showAuthor={multiAuthor} myUsername={myUsername} />
+                  <PopupContent
+                    point={p}
+                    showAuthor={multiAuthor}
+                    myUsername={myUsername}
+                    onRecordStore={circleRole !== 'viewer' ? onRecordStore : undefined}
+                  />
                 </Popup>
               </Marker>
             ))}
@@ -458,7 +464,17 @@ function MapRefBinder({ mapRef }: { mapRef: React.MutableRefObject<L.Map | null>
   return null
 }
 
-function PopupContent({ point: p, showAuthor, myUsername }: { point: Point; showAuthor: boolean; myUsername?: string }) {
+function PopupContent({
+  point: p,
+  showAuthor,
+  myUsername,
+  onRecordStore,
+}: {
+  point: Point
+  showAuthor: boolean
+  myUsername?: string
+  onRecordStore?: (poiId: string) => void
+}) {
   const photos = (p.amap_photos || '').split('|').filter(Boolean).slice(0, 3)
   const timeline = buildTimeline(p).slice(-2) // 最多展示最新两次记录
   return (
@@ -504,6 +520,15 @@ function PopupContent({ point: p, showAuthor, myUsername }: { point: Point; show
         ))}
         {timeline.length === 0 && <div className="text-on-surface-variant text-sm mt-2">还没数据</div>}
       </div>
+      {/* 一键记这家：跳到录入页并预填这家店，省去再搜一遍 */}
+      {onRecordStore && (
+        <button
+          onClick={() => onRecordStore(p.poi_id)}
+          className="mt-3 w-full flex items-center justify-center gap-1 bg-primary text-white font-headline font-bold rounded-full border-2 border-on-surface shadow-sticker-sm py-2 press"
+        >
+          <Icon name="edit_note" className="text-lg" /> {p.visit_count > 0 ? '再记一笔' : '记这家'}
+        </button>
+      )}
     </div>
   )
 }

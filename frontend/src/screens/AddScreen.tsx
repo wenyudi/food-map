@@ -25,9 +25,14 @@ const EXAMPLES: Array<{ kind: 'eat' | 'wish'; text: string }> = [
 
 type Celebration = { emoji: string; title: string; sub: ReactNode }
 
-type AddScreenProps = Readonly<{ onSubmitted: () => void; circleRole?: string }>
+type AddScreenProps = Readonly<{
+  onSubmitted: () => void
+  circleRole?: string
+  presetPoiId?: string | null
+  onConsumePreset?: () => void
+}>
 
-export default function AddScreen({ onSubmitted, circleRole }: AddScreenProps) {
+export default function AddScreen({ onSubmitted, circleRole, presetPoiId, onConsumePreset }: AddScreenProps) {
   const [text, setText] = useState('')
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -98,6 +103,19 @@ export default function AddScreen({ onSubmitted, circleRole }: AddScreenProps) {
     }
     setNearby(best)
   }, [myLocation, allPoints])
+
+  // 从地图/列表点「记这家」进来：店点加载好后，直接把那家店填进录入态（跳过输入+搜索）
+  const presetConsumed = useRef<string | null>(null)
+  useEffect(() => {
+    if (!presetPoiId || allPoints.length === 0) return
+    if (presetConsumed.current === presetPoiId) return
+    const p = allPoints.find((x) => x.poi_id === presetPoiId)
+    if (!p) return
+    presetConsumed.current = presetPoiId
+    recordNearby(p)
+    onConsumePreset?.()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [presetPoiId, allPoints])
 
   async function handleParse() {
     if (!text.trim()) return

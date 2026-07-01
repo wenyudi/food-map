@@ -17,6 +17,7 @@ export default function App() {
   const [tab, setTab] = useState<TabKey>('map')
   const [refreshKey, setRefreshKey] = useState(0)
   const [focusPoiId, setFocusPoiId] = useState<string | null>(null)
+  const [recordPoiId, setRecordPoiId] = useState<string | null>(null)
   const [openCircle, setOpenCircle] = useState(false)
 
   useEffect(() => {
@@ -49,6 +50,11 @@ export default function App() {
   function handleSubmitted() {
     setRefreshKey((k) => k + 1)
     setTab('map')
+  }
+  // 从地图/列表点某家店「记这家」：记住它，跳到录入页直接预填
+  function handleRecordStore(poiId: string) {
+    setRecordPoiId(poiId)
+    setTab('add')
   }
   async function handleCircleChanged() {
     invalidatePoints()
@@ -89,6 +95,7 @@ export default function App() {
             focusPoiId={focusPoiId}
             onConsumeFocus={() => setFocusPoiId(null)}
             onJumpToAdd={() => setTab('add')}
+            onRecordStore={handleRecordStore}
             onInvite={goInvite}
             myUsername={me.username}
             circleRole={me.circle_role}
@@ -104,12 +111,20 @@ export default function App() {
             setTab('map')
           }}
           onJumpToAdd={() => setTab('add')}
+          onRecordStore={handleRecordStore}
           onInvite={goInvite}
           myUsername={me.username}
           circleRole={me.circle_role}
         />
       )}
-      {tab === 'add' && <AddScreen onSubmitted={handleSubmitted} circleRole={me.circle_role} />}
+      {tab === 'add' && (
+        <AddScreen
+          onSubmitted={handleSubmitted}
+          circleRole={me.circle_role}
+          presetPoiId={recordPoiId}
+          onConsumePreset={() => setRecordPoiId(null)}
+        />
+      )}
       {tab === 'me' && (
         <MeScreen
           me={me}
