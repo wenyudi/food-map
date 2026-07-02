@@ -266,6 +266,12 @@ export const updateWish = (wishId: string, data: any) =>
 export const deleteWish = (wishId: string) =>
   api.delete(`/wish/${wishId}`).then(r => { invalidatePoints(); return r.data })
 
+// 店选错了：把这条记录/想去搬到另一家店（传高德 poi 原始字典，后端 upsert 后换绑）
+export const rebindVisit = (visitId: string, poi: any) =>
+  api.post(`/visit/${visitId}/rebind`, { poi }).then(r => { invalidatePoints(); return r.data })
+export const rebindWish = (wishId: string, poi: any) =>
+  api.post(`/wish/${wishId}/rebind`, { poi }).then(r => { invalidatePoints(); return r.data })
+
 export interface MonthlyStory {
   story: string
   cached?: boolean

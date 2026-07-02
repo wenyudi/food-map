@@ -335,6 +335,21 @@ def upsert_store(s: Store) -> None:
         )
 
 
+def rebind_visit_store(visit_id: str, poi_id: str, amap_cost_ref: str, value_label: str, wish_id: str) -> None:
+    """换绑：这条「吃过」搬到另一家店（录错店的修正），性价比参照/种草联动一起更新。"""
+    with _conn() as c:
+        c.execute(
+            "UPDATE visits SET poi_id=?, amap_cost_ref=?, value_label=?, wish_id=? WHERE visit_id=?",
+            (poi_id, amap_cost_ref, value_label, wish_id, visit_id),
+        )
+
+
+def rebind_wish_store(wish_id: str, poi_id: str, store_hint: str) -> None:
+    """换绑：这条「想去」搬到另一家店。"""
+    with _conn() as c:
+        c.execute("UPDATE wishes SET poi_id=?, store_hint=? WHERE wish_id=?", (poi_id, store_hint, wish_id))
+
+
 def get_store(poi_id: str) -> Optional[dict]:
     """按 poi 取单行店铺（替代「load_all 全表扫一行」的浪费写法）。"""
     with _conn() as c:

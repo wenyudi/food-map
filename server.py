@@ -1552,6 +1552,50 @@ def delete_wish_endpoint(wish_id: str, user: dict = Depends(require_writer)):
     return {"ok": True}
 
 
+# ---------- 换绑：记录选错店 → 搬到另一家（店名/位置都以新店为准） ----------
+
+@app.post("/api/visit/{visit_id}/rebind")
+def rebind_visit_endpoint(visit_id: str, req: StoreReq, user: dict = Depends(require_writer)):
+    """吃过选错店：把这条记录搬到另一家店。种草联动同步搬（旧店退回想去、新店有种草就兑现）。"""
+    v = db.get_visit(visit_id)
+    if not v or v.get("circle_id") != user["circle_id"]:
+        raise HTTPException(404, "记录不存在")
+    if not _can_modify(v, user):
+        raise HTTPException(403, "只能改自己记的，圈主才能动别人的")
+    store = amap.poi_to_store(req.poi)
+    db.upsert_store(store)
+    if store.poi_id == v["poi_id"]:
+        return {"ok": True, "name": store.name}
+    if v.get("wish_id"):
+        db.revert_wish_to_want(v["wish_id"])
+    new_wish_id = ""
+    open_wish = db.find_open_wish_by_poi(store.poi_id, user["circle_id"])
+    if open_wish:
+        new_wish_id = open_wish["wish_id"]
+        db.mark_wish_visited(new_wish_id, visit_id)
+    cost = store.cost or ""
+    per_person = v.get("per_person") or 0
+    db.rebind_visit_store(visit_id, store.poi_id, cost, db.compute_value_label(per_person, cost), new_wish_id)
+    _invalidate_visit_caches(user["circle_id"], v.get("date", ""))
+    _invalidate_wish_caches(user["circle_id"])
+    return {"ok": True, "name": store.name, "fulfilled_wish": bool(new_wish_id)}
+
+
+@app.post("/api/wish/{wish_id}/rebind")
+def rebind_wish_endpoint(wish_id: str, req: StoreReq, user: dict = Depends(require_writer)):
+    """想去选错店：搬到另一家。"""
+    w = db.get_wish(wish_id)
+    if not w or w.get("circle_id") != user["circle_id"]:
+        raise HTTPException(404, "记录不存在")
+    if not _can_modify(w, user):
+        raise HTTPException(403, "只能改自己记的，圈主才能动别人的")
+    store = amap.poi_to_store(req.poi)
+    db.upsert_store(store)
+    db.rebind_wish_store(wish_id, store.poi_id, store.name)
+    _invalidate_wish_caches(user["circle_id"])
+    return {"ok": True, "name": store.name}
+
+
 # ---------- 启动入口 ----------
 
 def _lan_ip() -> str:
