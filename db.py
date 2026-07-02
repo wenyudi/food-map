@@ -335,24 +335,6 @@ def upsert_store(s: Store) -> None:
         )
 
 
-def store_in_circle(poi_id: str, circle_id: int) -> bool:
-    """这家店是否出现在该圈子的记录/种草里——决定谁有权改它的名字（stores 表全局共享）。"""
-    with _conn() as c:
-        row = c.execute(
-            "SELECT 1 FROM visits WHERE poi_id=? AND circle_id=? "
-            "UNION SELECT 1 FROM wishes WHERE poi_id=? AND circle_id=? LIMIT 1",
-            (poi_id, circle_id, poi_id, circle_id),
-        ).fetchone()
-        return row is not None
-
-
-def rename_store(poi_id: str, name: str) -> bool:
-    """改店名（修正录错的名字）。返回是否改到了一行。"""
-    with _conn() as c:
-        cur = c.execute("UPDATE stores SET name=? WHERE poi_id=?", (name, poi_id))
-        return cur.rowcount > 0
-
-
 def get_store(poi_id: str) -> Optional[dict]:
     """按 poi 取单行店铺（替代「load_all 全表扫一行」的浪费写法）。"""
     with _conn() as c:

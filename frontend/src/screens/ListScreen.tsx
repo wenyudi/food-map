@@ -22,7 +22,7 @@ const STATUS_OPTS: { key: StatusKey; label: string; icon: string }[] = [
 ]
 /** 多维筛选：维度内多选(OR)，跨维度 AND；空 = 不筛 */
 type Filters = { moods: Mood[]; status: StatusKey[]; cuisines: string[]; authors: string[] }
-type EditTarget = { kind: 'visit' | 'wish'; data: any; storeName: string; poiId: string }
+type EditTarget = { kind: 'visit' | 'wish'; data: any; storeName: string }
 
 /** 某店是否命中某个「状态」筛选项 */
 function matchStatus(p: Point, key: StatusKey): boolean {
@@ -334,7 +334,6 @@ export default function ListScreen({ refreshKey, focusPoiId, onPickStore, onReco
           kind={editing.kind}
           data={editing.data}
           storeName={editing.storeName}
-          poiId={editing.poiId}
           onClose={() => setEditing(null)}
           onChanged={load}
           readonly={!(!editing.data.recorded_by || editing.data.recorded_by === myUsername || circleRole === 'owner')}
@@ -444,7 +443,7 @@ function StoreCard({
           <div key={i} className={i > 0 ? 'mt-3 pt-3 border-t-2 border-dashed border-on-surface/10' : ''}>
             <TimelineRow
               event={e}
-              onEdit={() => onEdit({ kind: e.type, data: e.data, storeName: point.name, poiId: point.poi_id })}
+              onEdit={() => onEdit({ kind: e.type, data: e.data, storeName: point.name })}
               showAuthor={showAuthor}
               myUsername={myUsername}
             />
