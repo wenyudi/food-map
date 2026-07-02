@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { lazy, Suspense, useEffect, useMemo, useRef, useState } from 'react'
 import type { ReactNode } from 'react'
 import Icon from '../ui/Icon'
 import StickerButton from '../ui/StickerButton'
@@ -14,6 +14,9 @@ import { cleanTag, fmtDist, inputClass } from '../lib/format'
 import MoodPicker from '../components/MoodPicker'
 import OpenHours from '../components/OpenHours'
 import type { Mood } from '../lib/moods'
+
+// 地图选点带 leaflet，懒加载（和地图页共享依赖块，不进首屏包）
+const LocationPicker = lazy(() => import('../components/LocationPicker'))
 
 const LS_CITY = 'last_city'
 const LS_COMPANIONS = 'last_companions'
@@ -66,6 +69,7 @@ export default function AddScreen({ onSubmitted, circleRole, presetPoiId, onCons
   const [companionsSheet, setCompanionsSheet] = useState(false)
   const [timeSheet, setTimeSheet] = useState(false)
   const [feelingSheet, setFeelingSheet] = useState(false)
+  const [pickingLoc, setPickingLoc] = useState(false)
 
   // 所有点（本月小结 + 附近推荐共用）——与定位解耦，没授权定位也能出小结
   useEffect(() => {
@@ -147,19 +151,20 @@ export default function AddScreen({ onSubmitted, circleRole, presetPoiId, onCons
     }
   }
 
-  function addManualStore() {
+  function addManualStore(loc?: { lng: number; lat: number }) {
     const name = (parsed?.store_hint || text || '').trim() || '未命名小店'
-    const loc = myLocation ? `${myLocation.lng},${myLocation.lat}` : ''
+    const locStr = loc ? `${loc.lng},${loc.lat}` : ''
     setSelectedPoi({
       id: 'm_' + Math.random().toString(36).slice(2, 10),
       name,
-      location: loc,
+      location: locStr,
       business: {},
       pname: '',
       cityname: city,
       adname: '',
-      address: loc ? '手动添加 · 当前位置' : '手动添加 · 未定位',
+      address: locStr ? '手动添加 · 地图选点' : '手动添加 · 未定位',
     })
+    setPickingLoc(false)
     setStoreSheet(false)
   }
 
@@ -293,6 +298,13 @@ export default function AddScreen({ onSubmitted, circleRole, presetPoiId, onCons
       n = Number(people)
     return a > 0 && n > 0 ? Math.round((a / n) * 10) / 10 : 0
   }, [amount, people])
+
+  // 地图选点的兜底中心：没定位就用已有店点，再没有就重庆
+  const pickerCenter = useMemo<[number, number]>(() => {
+    if (myLocation) return [myLocation.lat, myLocation.lng]
+    const p = allPoints.find((x) => x.lng && x.lat)
+    return p ? [p.lat, p.lng] : [29.56, 106.55]
+  }, [myLocation, allPoints])
 
   // 观光位没有记录权限：不显示任何录入框，只给提示
   if (circleRole === 'viewer') {
@@ -629,7 +641,13 @@ export default function AddScreen({ onSubmitted, circleRole, presetPoiId, onCons
               })}
             </div>
           )}
-          <button onClick={addManualStore} className="w-full mt-3 text-primary font-bold text-sm py-2">
+          <button
+            onClick={() => {
+              setStoreSheet(false)
+              setPickingLoc(true)
+            }}
+            className="w-full mt-3 text-primary font-bold text-sm py-2"
+          >
             都不是？✍️ 自己加「{parsed?.store_hint}」
           </button>
         </SheetShell>
@@ -710,6 +728,22 @@ export default function AddScreen({ onSubmitted, circleRole, presetPoiId, onCons
             好了
           </StickerButton>
         </SheetShell>
+      )}
+
+      {/* 手动加店：在地图上把针对准店的位置（高德搜不到的小店也能定位上图） */}
+      {pickingLoc && (
+        <Suspense fallback={null}>
+          <LocationPicker
+            center={pickerCenter}
+            storeName={(parsed?.store_hint || '').trim() || '这家店'}
+            onPick={(lng, lat) => addManualStore({ lng, lat })}
+            onSkip={() => addManualStore()}
+            onClose={() => {
+              setPickingLoc(false)
+              setStoreSheet(true)
+            }}
+          />
+        </Suspense>
       )}
     </div>
   )
