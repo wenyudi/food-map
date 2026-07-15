@@ -1,12 +1,17 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import SheetShell from '../ui/SheetShell'
 import StickerButton from '../ui/StickerButton'
 import DateTimeWheel from '../ui/WheelPicker'
 import PhotoPicker from '../components/PhotoPicker'
 import Stepper from '../ui/Stepper'
 import MoodPicker from '../components/MoodPicker'
-import { cleanTag, inputClass } from '../lib/format'
-import { updateVisit, deleteVisit, updateWish, deleteWish, rebindVisit, rebindWish, search } from '../api'
+import StoreSearchBox from '../components/StoreSearchBox'
+import TasteEditor from '../components/TasteEditor'
+import { inputClass } from '../lib/format'
+import { parseDishes, encodeDishes } from '../lib/taste'
+import type { Dish } from '../lib/taste'
+import { updateVisit, deleteVisit, updateWish, deleteWish, rebindVisit, rebindWish, getPoints } from '../api'
+import type { Point } from '../api'
 import type { Mood } from '../lib/moods'
 
 type Props = Readonly<{
@@ -26,10 +31,13 @@ export default function EditRecordSheet({ kind, data, storeName, onClose, onChan
 
   // 店选错了 → 重新搜一家换过去（店名和地图位置都以新店为准，不会脱钩）
   const [swapOpen, setSwapOpen] = useState(false)
-  const [swapQ, setSwapQ] = useState(storeName)
-  const [swapBusy, setSwapBusy] = useState(false)
-  const [swapResults, setSwapResults] = useState<any[]>([])
-  const [swapSearched, setSwapSearched] = useState(false)
+  const [localPoints, setLocalPoints] = useState<Point[]>([])
+
+  // 展开换店时取本圈店点（getPoints 有短 TTL 缓存，列表/地图刚加载过则秒回）——本地命中可置顶
+  useEffect(() => {
+    if (!swapOpen) return
+    getPoints().then(setLocalPoints).catch(() => {})
+  }, [swapOpen])
 
   const [date, setDate] = useState<string>(data.date || '')
   const [meal, setMeal] = useState<'早' | '中' | '晚'>(['早', '中', '晚'].includes(data.meal_period) ? data.meal_period : '中')
@@ -42,6 +50,11 @@ export default function EditRecordSheet({ kind, data, storeName, onClose, onChan
   const [photos, setPhotos] = useState<string[]>((data.my_photos || '').split('|').filter(Boolean))
   const [source, setSource] = useState(data.source || '')
   const [reason, setReason] = useState(data.reason || '')
+
+  // 口味标签事后修正（AI 抽错的在这里救）
+  const [cuisine, setCuisine] = useState<string>(data.cuisine || '')
+  const [flavors, setFlavors] = useState<string[]>((data.flavors || '').split(/[,，、]/).map((s: string) => s.trim()).filter(Boolean))
+  const [dishes, setDishes] = useState<Dish[]>(parseDishes(data.dishes))
 
   async function save() {
     setBusy(true)
@@ -58,6 +71,9 @@ export default function EditRecordSheet({ kind, data, storeName, onClose, onChan
           feeling,
           companions,
           my_photos: photos.join('|'),
+          cuisine,
+          flavors,
+          dishes: encodeDishes(dishes),
         })
       } else {
         await updateWish(data.wish_id, { source, reason })
@@ -83,19 +99,6 @@ export default function EditRecordSheet({ kind, data, storeName, onClose, onChan
       setErr(e?.response?.data?.detail || '删除失败')
     } finally {
       setBusy(false)
-    }
-  }
-
-  async function swapSearch() {
-    setSwapBusy(true)
-    setErr(null)
-    try {
-      setSwapResults(await search(swapQ.trim(), localStorage.getItem('last_city') || '重庆'))
-      setSwapSearched(true)
-    } catch (e: any) {
-      setErr(e?.response?.data?.detail || '搜索失败')
-    } finally {
-      setSwapBusy(false)
     }
   }
 
@@ -139,41 +142,13 @@ export default function EditRecordSheet({ kind, data, storeName, onClose, onChan
             </button>
           ) : (
             <div className="border-2 border-dashed border-on-surface/25 rounded-xl p-2.5">
-              <div className="flex gap-2">
-                <input
-                  value={swapQ}
-                  onChange={(e) => setSwapQ(e.target.value)}
-                  placeholder="搜正确的店名"
-                  className={input + ' flex-1 min-w-0'}
-                />
-                <button
-                  disabled={swapBusy || !swapQ.trim()}
-                  onClick={swapSearch}
-                  className="shrink-0 px-4 rounded-full border-2 border-on-surface bg-primary text-white text-sm font-bold shadow-sticker-sm press-sm disabled:opacity-50"
-                >
-                  {swapBusy ? '搜索中…' : '搜索'}
-                </button>
-              </div>
-              {swapSearched && swapResults.length === 0 && (
-                <p className="text-xs text-on-surface-variant text-center py-2">没搜到，换个关键词试试</p>
-              )}
-              {swapResults.length > 0 && (
-                <div className="flex flex-col gap-1.5 mt-2 max-h-44 overflow-y-auto">
-                  {swapResults.map((p) => (
-                    <button
-                      key={p.id}
-                      onClick={() => swapTo(p)}
-                      disabled={busy}
-                      className="text-left rounded-lg border-2 border-on-surface bg-white p-2 press-sm"
-                    >
-                      <div className="text-sm font-bold">{p.name}</div>
-                      <div className="text-[11px] text-on-surface-variant truncate">
-                        {[cleanTag(p.business?.tag), p.adname, p.address].filter(Boolean).join(' · ')}
-                      </div>
-                    </button>
-                  ))}
-                </div>
-              )}
+              <StoreSearchBox
+                city={localStorage.getItem('last_city') || '重庆'}
+                localPoints={localPoints}
+                initialQuery={storeName}
+                placeholder="搜正确的店名"
+                onPick={swapTo}
+              />
               <p className="text-[11px] text-on-surface-variant mt-2">点一家，这条记录就搬过去（店名/地图位置跟着新店走）</p>
             </div>
           )}
@@ -230,6 +205,20 @@ export default function EditRecordSheet({ kind, data, storeName, onClose, onChan
               <input value={companions} onChange={(e) => setCompanions(e.target.value)} placeholder="和谁一起" className={input} />
             </Row>
           </div>
+
+          {/* 口味标签（菜系/口味/菜品赞雷，AI 抽错的在这里改） */}
+          <Row label="🏷️ 口味标签">
+            <TasteEditor
+              cuisine={cuisine}
+              flavors={flavors}
+              dishes={dishes}
+              onChange={(patch) => {
+                if (patch.cuisine !== undefined) setCuisine(patch.cuisine)
+                if (patch.flavors !== undefined) setFlavors(patch.flavors)
+                if (patch.dishes !== undefined) setDishes(patch.dishes)
+              }}
+            />
+          </Row>
 
           {/* 照片 */}
           <Row label="📷 照片">

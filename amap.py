@@ -18,6 +18,7 @@ AMAP_KEY = os.environ.get("AMAP_KEY", "")
 
 SEARCH_URL = "https://restapi.amap.com/v5/place/text"
 AROUND_URL = "https://restapi.amap.com/v5/place/around"
+DETAIL_URL = "https://restapi.amap.com/v5/place/detail"
 REGEO_URL = "https://restapi.amap.com/v3/geocode/regeo"
 INPUTTIPS_URL = "https://restapi.amap.com/v3/assistant/inputtips"
 SHOW_FIELDS = "business,photos,children,navi"
@@ -120,6 +121,71 @@ def search_poi(keywords: str, region: Optional[str] = None, location: Optional[s
             tip_pois = []
 
     return _merge_pois(keywords, text_pois, tip_pois)[:limit]
+
+
+def search_by_name(keywords: str, region: Optional[str] = None, location: Optional[str] = None,
+                   limit: int = 10) -> list[dict]:
+    """店名直搜：inputtips 主路 + place/text 全市辅路，无周边短路。
+
+    与 search_poi 的区别：用户输入的就是店名，要的是「这家店」而不是「附近这类店」——
+    所以不做周边优先，补记（人不在店附近）也能搜到。inputtips 是高德 App 搜索框同款接口，
+    对店名的召回最强；place/text 全市搜作辅路，主要为同 id 候选补齐 business 字段。
+    """
+    errs: list[RuntimeError] = []
+
+    tip_pois: list[dict] = []
+    try:
+        tip_pois = input_tips(keywords, city=region, location=location)
+    except RuntimeError as e:
+        errs.append(e)
+
+    text_pois: list[dict] = []
+    try:
+        params = {"key": AMAP_KEY, "keywords": keywords, "show_fields": SHOW_FIELDS, "page_size": limit}
+        if region:
+            params.update(region=region, city_limit="true")
+        text_pois = _call(SEARCH_URL, params)
+    except RuntimeError as e:
+        errs.append(e)
+
+    if len(errs) == 2:  # 两路全挂才算失败；单路失败静默降级
+        raise errs[0]
+
+    # 按 poi id 去重合并：inputtips 定顺序（名称相关性最强），同 id 优先取 place/text 版本（带 business）
+    text_by_id = {p.get("id"): p for p in text_pois if p.get("id")}
+    merged: list[dict] = []
+    seen: set[str] = set()
+    for p in tip_pois + text_pois:
+        pid = p.get("id", "")
+        if not pid or pid in seen:
+            continue
+        seen.add(pid)
+        merged.append(text_by_id.get(pid, p))
+
+    # 名称匹配强度分档排序（稳定排序，同档保持来源相关性顺序）：全等 > 子串互含 > 其他
+    kw = _norm_name(keywords)
+
+    def rank(p: dict) -> int:
+        name = _norm_name(p.get("name"))
+        if not kw:
+            return 2
+        if name == kw:
+            return 0
+        if kw in name or name in kw:
+            return 1
+        return 2
+
+    merged.sort(key=rank)
+    return merged[:limit]
+
+
+def poi_detail(poi_id: str) -> dict:
+    """按 poi id 查详情（v5 place/detail），补齐 inputtips 候选缺的 business 字段。
+    查不到或高德报错抛 RuntimeError。"""
+    pois = _call(DETAIL_URL, {"key": AMAP_KEY, "id": poi_id, "show_fields": SHOW_FIELDS})
+    if not pois:
+        raise RuntimeError(f"高德查不到 poi {poi_id}")
+    return pois[0]
 
 
 def regeo(location: str) -> dict:

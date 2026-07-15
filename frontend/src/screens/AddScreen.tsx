@@ -5,12 +5,15 @@ import StickerButton from '../ui/StickerButton'
 import SheetShell from '../ui/SheetShell'
 import DateTimeWheel, { NumberWheel } from '../ui/WheelPicker'
 import PhotoPicker from '../components/PhotoPicker'
+import StoreSearchBox from '../components/StoreSearchBox'
+import TasteEditor from '../components/TasteEditor'
 import MonthlySummary from './MonthlySummary'
 import { parseText, search, upsertStore, addVisit, addWish, regeo, getPoints } from '../api'
 import type { ParsedSentence, Point } from '../api'
 import { getMyLocation, haversine } from '../lib/geo'
 import type { MyLocation } from '../lib/geo'
-import { cleanTag, fmtDist, inputClass } from '../lib/format'
+import { cleanTag, inputClass } from '../lib/format'
+import { encodeDishes } from '../lib/taste'
 import MoodPicker from '../components/MoodPicker'
 import OpenHours from '../components/OpenHours'
 import type { Mood } from '../lib/moods'
@@ -70,6 +73,11 @@ export default function AddScreen({ onSubmitted, circleRole, presetPoiId, onCons
   const [timeSheet, setTimeSheet] = useState(false)
   const [feelingSheet, setFeelingSheet] = useState(false)
   const [pickingLoc, setPickingLoc] = useState(false)
+
+  // 直搜入口：不写一句话，选类型 → 搜店名 → 直接进表单
+  const [directOpen, setDirectOpen] = useState(false)
+  const [directIntent, setDirectIntent] = useState<'visit' | 'wish'>('visit')
+  const [manualName, setManualName] = useState<string | null>(null) // 直搜空态转手动加店时的店名
 
   // 所有点（本月小结 + 附近推荐共用）——与定位解耦，没授权定位也能出小结
   useEffect(() => {
@@ -151,37 +159,12 @@ export default function AddScreen({ onSubmitted, circleRole, presetPoiId, onCons
     }
   }
 
-  function addManualStore(loc?: { lng: number; lat: number }) {
-    const name = (parsed?.store_hint || text || '').trim() || '未命名小店'
-    const locStr = loc ? `${loc.lng},${loc.lat}` : ''
-    setSelectedPoi({
-      id: 'm_' + Math.random().toString(36).slice(2, 10),
-      name,
-      location: locStr,
-      business: {},
-      pname: '',
-      cityname: city,
-      adname: '',
-      address: locStr ? '手动添加 · 地图选点' : '手动添加 · 未定位',
-    })
-    setPickingLoc(false)
-    setStoreSheet(false)
-  }
-
-  function recordNearby(p: Point) {
-    setSelectedPoi({
-      id: p.poi_id,
-      name: p.name,
-      location: `${p.lng},${p.lat}`,
-      business: { tag: p.tag, rating: p.rating, cost: p.cost, business_area: p.business_area },
-      pname: '',
-      cityname: city,
-      adname: p.business_area || '',
-      address: p.address || '',
-    })
+  /** 不经 AI 解析、拿着一个 poi 直接进详情表单（附近一键记 / 直搜选店 / 直搜手动加店共用） */
+  function startWithPoi(poi: any, which: 'visit' | 'wish') {
+    setSelectedPoi(poi)
     setParsed({
-      intent: 'visit',
-      store_hint: p.name,
+      intent: which,
+      store_hint: poi.name || '',
       date: null,
       meal_period: null,
       companions: null,
@@ -198,15 +181,56 @@ export default function AddScreen({ onSubmitted, circleRole, presetPoiId, onCons
       occasion: null,
     })
     setPois([])
-    setIntent('visit')
+    setIntent(which)
     setAmount('')
     setPeople('2')
     setEmoji('🤤')
     setWantAgain(true)
     setFeeling('')
     setCompanions(localStorage.getItem(LS_COMPANIONS) || '')
+    setSource('小红书')
+    setReason('')
     setDate(new Date().toISOString().slice(0, 10))
     setMeal(guessMealPeriod())
+  }
+
+  function addManualStore(loc?: { lng: number; lat: number }) {
+    const name = (manualName || parsed?.store_hint || text || '').trim() || '未命名小店'
+    const locStr = loc ? `${loc.lng},${loc.lat}` : ''
+    const poi = {
+      id: 'm_' + Math.random().toString(36).slice(2, 10),
+      name,
+      location: locStr,
+      business: {},
+      pname: '',
+      cityname: city,
+      adname: '',
+      address: locStr ? '手动添加 · 地图选点' : '手动添加 · 未定位',
+    }
+    if (parsed) {
+      setSelectedPoi(poi) // 解析流程：字段已填好，只换店
+    } else {
+      startWithPoi(poi, directIntent) // 直搜流程：从头构造录入态
+    }
+    setManualName(null)
+    setPickingLoc(false)
+    setStoreSheet(false)
+  }
+
+  function recordNearby(p: Point) {
+    startWithPoi(
+      {
+        id: p.poi_id,
+        name: p.name,
+        location: `${p.lng},${p.lat}`,
+        business: { tag: p.tag, rating: p.rating, cost: p.cost, business_area: p.business_area },
+        pname: '',
+        cityname: city,
+        adname: p.business_area || '',
+        address: p.address || '',
+      },
+      'visit'
+    )
   }
 
   async function handleSubmit() {
@@ -223,7 +247,7 @@ export default function AddScreen({ onSubmitted, circleRole, presetPoiId, onCons
           reason: reason || '',
           cuisine: parsed?.cuisine || '',
           flavors: parsed?.flavors || [],
-          dishes: parsed?.dishes || [],
+          dishes: encodeDishes(parsed?.dishes || []),
           occasion: parsed?.occasion || '',
         })
       } else {
@@ -240,7 +264,7 @@ export default function AddScreen({ onSubmitted, circleRole, presetPoiId, onCons
           my_photos: photos.join('|'),
           cuisine: parsed?.cuisine || '',
           flavors: parsed?.flavors || [],
-          dishes: parsed?.dishes || [],
+          dishes: encodeDishes(parsed?.dishes || []),
           occasion: parsed?.occasion || '',
         })
         if (companions.trim()) localStorage.setItem(LS_COMPANIONS, companions.trim())
@@ -289,6 +313,8 @@ export default function AddScreen({ onSubmitted, circleRole, presetPoiId, onCons
     setPhotos([])
     setStoreSheet(false)
     setAmountSheet(false)
+    setDirectOpen(false)
+    setManualName(null)
   }
 
   const isVisit = intent === 'visit'
@@ -343,8 +369,12 @@ export default function AddScreen({ onSubmitted, circleRole, presetPoiId, onCons
                 onChange={(e) => setText(e.target.value)}
                 placeholder="例如：今晚和朋友去家川菜馆，人均 80，水煮鱼挺嫩"
                 rows={4}
+                maxLength={500}
                 className="w-full p-4 bg-transparent outline-none resize-none font-body font-bold text-on-surface placeholder:font-medium placeholder:text-on-surface-variant/60"
               />
+              {text.length >= 450 && (
+                <div className="px-4 pb-1 text-right text-xs font-bold text-on-surface-variant">{text.length}/500</div>
+              )}
               <div className="flex items-center justify-between gap-2 px-3 py-3 bg-accent/15 border-t-2 border-dashed border-on-surface">
                 <label className="flex items-center gap-1 bg-white border-2 border-on-surface rounded-full pl-2.5 pr-1 py-1 shadow-sticker-sm">
                   <Icon name="location_on" className="text-primary text-base" />
@@ -368,6 +398,59 @@ export default function AddScreen({ onSubmitted, circleRole, presetPoiId, onCons
                 </button>
               </div>
             </div>
+
+            {/* 直搜入口：AI 识别不靠谱时的稳妥路——自己选类型、自己搜店名 */}
+            {!directOpen ? (
+              <button
+                onClick={() => setDirectOpen(true)}
+                className="w-full text-left sticker p-3 mb-4 flex items-center gap-3 press"
+              >
+                <span className="text-2xl shrink-0">🔍</span>
+                <div className="flex-1 min-w-0">
+                  <div className="font-bold">直接搜店名记一笔</div>
+                  <div className="text-xs text-on-surface-variant">不想打字描述？搜到店选一下就行</div>
+                </div>
+                <span className="text-primary font-bold text-sm shrink-0">→</span>
+              </button>
+            ) : (
+              <div className="sticker p-3 mb-4">
+                <div className="flex items-center justify-between gap-2 mb-2.5">
+                  <div className="flex items-center gap-2">
+                    {(['visit', 'wish'] as const).map((k) => (
+                      <button
+                        key={k}
+                        onClick={() => setDirectIntent(k)}
+                        className={`px-3 py-1.5 rounded-full border-2 border-on-surface text-sm font-bold shadow-sticker-sm press-sm ${
+                          directIntent === k ? 'bg-accent text-on-surface' : 'bg-white text-on-surface-variant'
+                        }`}
+                      >
+                        {k === 'visit' ? '🍴 吃过' : '🌱 想去'}
+                      </button>
+                    ))}
+                  </div>
+                  <button
+                    onClick={() => setDirectOpen(false)}
+                    aria-label="收起直搜"
+                    className="shrink-0 w-8 h-8 rounded-full border-2 border-on-surface bg-white flex items-center justify-center shadow-sticker-sm press-sm"
+                  >
+                    <Icon name="close" className="text-base" />
+                  </button>
+                </div>
+                <StoreSearchBox
+                  city={city}
+                  location={myLocation ? `${myLocation.lng},${myLocation.lat}` : undefined}
+                  localPoints={allPoints}
+                  autoFocus
+                  placeholder="店名，比如：珮姐老火锅"
+                  onPick={(poi) => startWithPoi(poi, directIntent)}
+                  emptyActionLabel="✍️ 手动加这家店"
+                  onEmptyAction={(q) => {
+                    setManualName(q)
+                    setPickingLoc(true)
+                  }}
+                />
+              </div>
+            )}
 
             {/* 问候卡（Stitch，暖色渐变；本月数据内嵌其中） */}
             <RecordHero points={allPoints} />
@@ -430,8 +513,12 @@ export default function AddScreen({ onSubmitted, circleRole, presetPoiId, onCons
                 onChange={(e) => setText(e.target.value)}
                 placeholder="例如：今晚和朋友去家川菜馆，人均 80，水煮鱼挺嫩"
                 rows={2}
+                maxLength={500}
                 className="w-full p-4 bg-transparent outline-none resize-none font-body font-bold text-on-surface placeholder:font-medium placeholder:text-on-surface-variant/60"
               />
+              {text.length >= 450 && (
+                <div className="px-4 pb-1 text-right text-xs font-bold text-on-surface-variant">{text.length}/500</div>
+              )}
               <div className="flex items-center justify-between gap-2 px-3 py-2.5 bg-accent/15 border-t-2 border-dashed border-on-surface">
                 <div className="flex items-center gap-2 min-w-0">
                   <button
@@ -501,56 +588,43 @@ export default function AddScreen({ onSubmitted, circleRole, presetPoiId, onCons
             )}
 
             {/* 信息 chips（点一下可改） */}
-            <div className="flex flex-wrap gap-2 mb-5">
-              {isVisit && (
-                <>
-                  <button
-                    onClick={() => setTimeSheet(true)}
-                    className="px-3 py-1.5 rounded-full border-2 border-on-surface bg-primary text-white text-sm font-bold shadow-sticker-sm press-sm"
-                  >
-                    📅 {(date || '').slice(5).replace('-', '/')} · {meal}
-                  </button>
-                  <button
-                    onClick={() => setAmountSheet(true)}
-                    className="px-3 py-1.5 rounded-full border-2 border-on-surface bg-primary text-white text-sm font-bold shadow-sticker-sm press-sm"
-                  >
-                    💰 {amount ? `¥${amount}` : '填金额'}
-                  </button>
-                  <button
-                    onClick={() => setCompanionsSheet(true)}
-                    className="px-3 py-1.5 rounded-full border-2 border-on-surface bg-white text-on-surface text-sm font-bold shadow-sticker-sm press-sm"
-                  >
-                    👥 {companions || '和谁'} · {people}人
-                  </button>
-                  <button
-                    onClick={() => setFeelingSheet(true)}
-                    className="px-3 py-1.5 rounded-full border-2 border-on-surface bg-white text-on-surface text-sm font-bold shadow-sticker-sm press-sm max-w-[220px] truncate"
-                  >
-                    💬 {feeling || '加点评'}
-                  </button>
-                </>
-              )}
-              {parsed.cuisine && (
-                <span className="px-3 py-1.5 rounded-full border-2 border-on-surface bg-white text-on-surface-variant text-sm font-bold">
-                  {parsed.cuisine}
-                </span>
-              )}
-              {(parsed.flavors || []).map((f) => (
-                <span
-                  key={f}
-                  className="px-3 py-1.5 rounded-full border-2 border-on-surface bg-white text-on-surface-variant text-sm font-bold"
+            {isVisit && (
+              <div className="flex flex-wrap gap-2 mb-3">
+                <button
+                  onClick={() => setTimeSheet(true)}
+                  className="px-3 py-1.5 rounded-full border-2 border-on-surface bg-primary text-white text-sm font-bold shadow-sticker-sm press-sm"
                 >
-                  🌶️ {f}
-                </span>
-              ))}
-              {(parsed.dishes || []).map((d) => (
-                <span
-                  key={d}
-                  className="px-3 py-1.5 rounded-full border-2 border-on-surface bg-white text-on-surface-variant text-sm font-bold"
+                  📅 {(date || '').slice(5).replace('-', '/')} · {meal}
+                </button>
+                <button
+                  onClick={() => setAmountSheet(true)}
+                  className="px-3 py-1.5 rounded-full border-2 border-on-surface bg-primary text-white text-sm font-bold shadow-sticker-sm press-sm"
                 >
-                  🍽️ {d}
-                </span>
-              ))}
+                  💰 {amount ? `¥${amount}` : '填金额'}
+                </button>
+                <button
+                  onClick={() => setCompanionsSheet(true)}
+                  className="px-3 py-1.5 rounded-full border-2 border-on-surface bg-white text-on-surface text-sm font-bold shadow-sticker-sm press-sm"
+                >
+                  👥 {companions || '和谁'} · {people}人
+                </button>
+                <button
+                  onClick={() => setFeelingSheet(true)}
+                  className="px-3 py-1.5 rounded-full border-2 border-on-surface bg-white text-on-surface text-sm font-bold shadow-sticker-sm press-sm max-w-[220px] truncate"
+                >
+                  💬 {feeling || '加点评'}
+                </button>
+              </div>
+            )}
+
+            {/* 口味标签（AI 抽的，抽错可改；菜品可标赞/雷） */}
+            <div className="mb-5">
+              <TasteEditor
+                cuisine={parsed.cuisine || ''}
+                flavors={parsed.flavors || []}
+                dishes={parsed.dishes || []}
+                onChange={(patch) => setParsed({ ...parsed, ...patch })}
+              />
             </div>
 
             {isVisit ? (
@@ -599,48 +673,21 @@ export default function AddScreen({ onSubmitted, circleRole, presetPoiId, onCons
         </div>
       )}
 
-      {/* 选店 sheet */}
+      {/* 选店 sheet：预置解析时搜到的候选，改词可就地重搜（不必重写一句话） */}
       {storeSheet && (
         <SheetShell onClose={() => setStoreSheet(false)}>
           <h3 className="font-headline text-xl mb-3">🏪 选哪一家</h3>
-          {pois.length === 0 ? (
-            <div className="text-center text-on-surface-variant text-sm py-6">
-              高德没搜到「{parsed?.store_hint}」<br />
-              路边摊 / 家里做的本来就查不到
-            </div>
-          ) : (
-            <div className="flex flex-col gap-2">
-              {pois.map((p) => {
-                const sel = selectedPoi?.id === p.id
-                const tag = cleanTag(p.business?.tag)
-                return (
-                  <button
-                    key={p.id}
-                    onClick={() => {
-                      setSelectedPoi(p)
-                      setStoreSheet(false)
-                    }}
-                    className={`text-left rounded-xl border-2 border-on-surface p-3 press-sm ${
-                      sel ? 'bg-primary/10 shadow-sticker-sm' : 'bg-white shadow-sticker-sm'
-                    }`}
-                  >
-                    <div className="font-bold flex items-center justify-between">
-                      {p.name} {sel && <Icon name="check_circle" className="text-primary" />}
-                    </div>
-                    <div className="text-xs text-on-surface-variant mt-0.5">
-                      {[tag, p.business?.rating && `⭐${p.business.rating}`, p.business?.cost && `¥${p.business.cost}/人`, p.distance && `📍${fmtDist(p.distance)}`]
-                        .filter(Boolean)
-                        .join(' · ')}
-                    </div>
-                    <OpenHours opentime={p.business?.opentime_today || p.business?.opentime_week} className="mt-0.5" />
-                    <div className="text-xs text-on-surface-variant/80 mt-0.5 truncate">
-                      {p.adname} · {p.address}
-                    </div>
-                  </button>
-                )
-              })}
-            </div>
-          )}
+          <StoreSearchBox
+            city={city}
+            location={myLocation ? `${myLocation.lng},${myLocation.lat}` : undefined}
+            localPoints={allPoints}
+            initialQuery={parsed?.store_hint || ''}
+            initialResults={pois}
+            onPick={(poi) => {
+              setSelectedPoi(poi)
+              setStoreSheet(false)
+            }}
+          />
           <button
             onClick={() => {
               setStoreSheet(false)
@@ -735,12 +782,12 @@ export default function AddScreen({ onSubmitted, circleRole, presetPoiId, onCons
         <Suspense fallback={null}>
           <LocationPicker
             center={pickerCenter}
-            storeName={(parsed?.store_hint || '').trim() || '这家店'}
+            storeName={(manualName || parsed?.store_hint || '').trim() || '这家店'}
             onPick={(lng, lat) => addManualStore({ lng, lat })}
             onSkip={() => addManualStore()}
             onClose={() => {
               setPickingLoc(false)
-              setStoreSheet(true)
+              if (parsed) setStoreSheet(true) // 解析流程从选店 sheet 来，返回去；直搜流程回直搜面板
             }}
           />
         </Suspense>

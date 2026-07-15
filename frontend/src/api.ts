@@ -179,10 +179,10 @@ export interface ParsedSentence {
   want_again: boolean | null
   source: string | null
   reason: string | null
-  // AI 隐形维度
+  // AI 隐形维度（dishes 自解析升级后带赞/雷评价）
   cuisine?: string | null
   flavors?: string[] | null
-  dishes?: string[] | null
+  dishes?: { name: string; verdict: '赞' | '雷' | null }[] | null
   occasion?: string | null
 }
 
@@ -233,8 +233,12 @@ export const resetMine = () =>
 // 导出本圈子全部数据（留底备份）
 export const exportData = () => api.get<any>('/export').then(r => r.data)
 
-export const search = (keywords: string, region = '重庆', location?: string) =>
-  api.post<any[]>('/search', { keywords, region, location }).then(r => r.data)
+export const search = (keywords: string, region = '重庆', location?: string, mode?: 'name') =>
+  api.post<any[]>('/search', { keywords, region, location, mode }).then(r => r.data)
+
+// inputtips 候选没有评分/人均/营业时间——选中时按 id 补一次详情
+export const poiDetail = (poiId: string) =>
+  api.get<any>(`/poi/${encodeURIComponent(poiId)}`).then(r => r.data)
 
 // 反向地理编码：lng,lat → 城市（录入页按定位自动填城市）
 export const regeo = (location: string) =>

@@ -588,6 +588,7 @@ class SearchReq(BaseModel):
     keywords: str
     region: Optional[str] = "重庆"
     location: Optional[str] = None  # "lng,lat" 周边搜
+    mode: Optional[str] = None      # "name"=店名直搜（inputtips 主路、无周边短路）；不传=原行为
 
 
 class ParseReq(BaseModel):
@@ -708,15 +709,40 @@ def export_data(user: dict = Depends(current_user)):
     }
 
 
+def _dishes_pretty(raw: str) -> str:
+    """dishes 存储编码「毛肚:赞,肥肠:雷,鸭肠」→ 喂给 AI 上下文的「毛肚(赞)、肥肠(雷)、鸭肠」。
+    历史数据是纯菜名逗号串（无 verdict），原样通过。"""
+    parts = []
+    for item in (raw or "").split(","):
+        item = item.strip()
+        if not item:
+            continue
+        name, _, verdict = item.partition(":")
+        parts.append(f"{name}({verdict})" if verdict in ("赞", "雷") else name)
+    return "、".join(parts)
+
+
 # ---------- 写入接口 ----------
 
 @app.post("/api/search")
 def post_search(req: SearchReq, _: dict = Depends(current_user)):
     try:
+        if req.mode == "name":
+            return amap.search_by_name(req.keywords, region=req.region, location=req.location, limit=10)
         return amap.search_poi(req.keywords, region=req.region, location=req.location, limit=5)
     except RuntimeError as e:
         logger.warning("search 失败: %s", e)  # 「高德 API 报错：额度超限」这类细节进日志，不吓用户
         raise HTTPException(502, "搜索服务开小差了，稍等再试一次")
+
+
+@app.get("/api/poi/{poi_id}")
+def get_poi_detail(poi_id: str, _: dict = Depends(current_user)):
+    """按 id 补齐 POI 详情——inputtips 候选没有 business 字段，前端在用户选中时补一次。"""
+    try:
+        return amap.poi_detail(poi_id)
+    except RuntimeError as e:
+        logger.warning("poi detail 失败: %s", e)
+        raise HTTPException(502, "店铺详情没取到，稍等再试")
 
 
 @app.get("/api/regeo")
@@ -900,7 +926,7 @@ def _build_story_brief(year_month: str, circle_id: int) -> Optional[str]:
         if v.get("occasion"):
             _ex.append(v["occasion"])
         if v.get("dishes"):
-            _ex.append("吃了:" + v["dishes"])
+            _ex.append("吃了:" + _dishes_pretty(v["dishes"]))
         if _ex:
             bits.append("   - " + " · ".join(_ex))
         if v.get("value_label"):
@@ -1365,7 +1391,7 @@ def _build_ask_context(circle_id: int) -> Optional[str]:
         if v.get("flavors"):
             bits.append(f"口味:{v['flavors']}")
         if v.get("dishes"):
-            bits.append(f"吃了:{v['dishes']}")
+            bits.append(f"吃了:{_dishes_pretty(v['dishes'])}")
         if v.get("feeling"):
             bits.append(f"「{v['feeling']}」")
         if multi and names.get(v.get("recorded_by")):
@@ -1465,11 +1491,19 @@ class VisitPatchReq(BaseModel):
     feeling: Optional[str] = None
     companions: Optional[str] = None
     my_photos: Optional[str] = None
+    # 口味标签事后修正（全部可选，不传不更新；dishes 元素为「名字[:赞|雷]」编码）
+    cuisine: Optional[str] = None
+    flavors: Optional[list[str]] = None
+    dishes: Optional[list[str]] = None
+    occasion: Optional[str] = None
 
 
 class WishPatchReq(BaseModel):
     source: Optional[str] = None
     reason: Optional[str] = None
+    cuisine: Optional[str] = None
+    flavors: Optional[list[str]] = None
+    dishes: Optional[list[str]] = None
 
 
 @app.patch("/api/visit/{visit_id}")
@@ -1481,7 +1515,7 @@ def patch_visit(visit_id: str, req: VisitPatchReq, user: dict = Depends(require_
         raise HTTPException(403, "只能改自己记的，圈主才能动别人的")
 
     fields: dict = {}
-    for k in ("date", "meal_period", "mood_emoji", "feeling", "companions", "my_photos"):
+    for k in ("date", "meal_period", "mood_emoji", "feeling", "companions", "my_photos", "cuisine", "occasion"):
         val = getattr(req, k)
         if val is not None:
             fields[k] = val
@@ -1491,6 +1525,10 @@ def patch_visit(visit_id: str, req: VisitPatchReq, user: dict = Depends(require_
         fields["people_count"] = req.people_count
     if req.want_again is not None:
         fields["want_again"] = 1 if req.want_again else 0
+    if req.flavors is not None:
+        fields["flavors"] = ",".join(req.flavors)
+    if req.dishes is not None:
+        fields["dishes"] = ",".join(req.dishes)
 
     # 金额/人数变了就重算人均 + 性价比标签
     amount = fields.get("amount", v["amount"]) or 0
@@ -1534,7 +1572,11 @@ def patch_wish(wish_id: str, req: WishPatchReq, user: dict = Depends(require_wri
         raise HTTPException(404, "记录不存在")
     if not _can_modify(w, user):
         raise HTTPException(403, "只能改自己记的，圈主才能动别人的")
-    fields = {k: getattr(req, k) for k in ("source", "reason") if getattr(req, k) is not None}
+    fields = {k: getattr(req, k) for k in ("source", "reason", "cuisine") if getattr(req, k) is not None}
+    if req.flavors is not None:
+        fields["flavors"] = ",".join(req.flavors)
+    if req.dishes is not None:
+        fields["dishes"] = ",".join(req.dishes)
     db.update_wish(wish_id, fields)
     _invalidate_wish_caches(user["circle_id"])
     return {"ok": True}

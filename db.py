@@ -439,8 +439,9 @@ def reset_my_records(username: str, circle_id: Optional[int] = None) -> dict:
 _VISIT_EDITABLE = {
     "date", "meal_period", "amount", "people_count", "per_person",
     "mood_emoji", "want_again", "feeling", "companions", "my_photos", "value_label",
+    "cuisine", "flavors", "dishes", "occasion",
 }
-_WISH_EDITABLE = {"source", "reason"}
+_WISH_EDITABLE = {"source", "reason", "cuisine", "flavors", "dishes"}
 
 
 def get_visit(visit_id: str) -> Optional[dict]:

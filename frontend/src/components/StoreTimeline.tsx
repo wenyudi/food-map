@@ -1,5 +1,6 @@
 import type { Point, Wish, Visit } from '../api'
 import { cleanTag, hideOnError } from '../lib/format'
+import { parseDishes, dishLabel } from '../lib/taste'
 
 /** 时间线事件：种草(wish) 或 吃过(visit)，按日期排序 */
 export type TimelineEvent = { type: 'wish'; date: string; data: Wish } | { type: 'visit'; date: string; data: Visit }
@@ -110,7 +111,7 @@ export function TimelineRow({
   const photos = (v.my_photos || '').split('|').filter(Boolean)
   const showPhotos = !hidePhotos && photos.length > 0
   const flavors = (v.flavors || '').split(/[,，、]/).map((s) => s.trim()).filter(Boolean)
-  const dishes = (v.dishes || '').split(/[,，、]/).map((s) => s.trim()).filter(Boolean)
+  const dishes = parseDishes(v.dishes)
   const metaText = [v.companions, `¥${v.per_person}/人`, v.value_label].filter(Boolean).join(' · ')
   const chip = 'inline-flex items-center align-middle ml-1.5 text-xs font-bold text-on-surface-variant bg-white border border-on-surface/15 rounded-full px-2 py-0.5'
   return (
@@ -156,7 +157,12 @@ export function TimelineRow({
             <span key={'f' + f} className={chip}>🌶️ {f}</span>
           ))}
           {dishes.map((d) => (
-            <span key={'d' + d} className={chip}>🍽️ {d}</span>
+            <span
+              key={'d' + d.name}
+              className={`${chip} ${d.verdict === '赞' ? '!text-green-accent' : d.verdict === '雷' ? '!text-primary/80' : ''}`}
+            >
+              🍽️ {dishLabel(d)}
+            </span>
           ))}
           {showPhotos && (
             <div className={`flex flex-wrap gap-1.5 ${v.feeling || flavors.length > 0 || dishes.length > 0 ? 'mt-2' : ''}`}>

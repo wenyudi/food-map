@@ -52,16 +52,16 @@ SYSTEM_PROMPT = """你是「吃了么」美食记录助手。用户用一句话�
    · 说"人均X/每人X/AAX"→ 这是单人价：知道人数N就 amount=X×N；**不知道人数就按 2 人算**（amount=X×2, people_count=2）——这样人均显示仍是 X。
 - people_count: "和某人/跟某人"→ 至少 2（你 + 对方）；"俩/两个人/两人"→2；"仨/三人"→3；"一个人/自己/独自"→1；没线索→null（但若给了人均，按上面规则补 2）。
 - companions: 同行人名字或称呼（如"饼饼""同事""朋友"）；没提→null（别瞎猜）。
-- feeling: 用户对味道/体验的**纯主观评价**短句，要**剔除**已归入 cuisine/flavors/dishes 的菜系名、口味词、菜品名，不跟这些标签重复（例：原话"火锅锅底够辣、毛肚很新鲜"→ cuisine=火锅、flavors=["辣"]、dishes=["毛肚"]、feeling="锅底够味、很新鲜"）；剔除后没剩有效评价→null。
+- feeling: 用户对味道/体验/服务/环境的**评价原话摘录**——可以是多句，**必须保留原词原句，禁止改写、换词、概括、缩写**。只允许删去已进其他字段的客观事实（日期、金额、人数、店名）和与评价无关的叙述。菜系/口味/菜品词照常抽进 cuisine/flavors/dishes，但**不要**因此从 feeling 里删掉它们（例：原话"毛肚很新鲜，锅底够辣"→ feeling="毛肚很新鲜，锅底够辣"，同时 flavors=["辣"]、dishes 含"毛肚"）。没有任何主观评价→null。
 - mood_emoji（5 档）："太香/绝了/yyds/巨好吃/封神"→"😋"；"好吃/不错/推荐/可以"→"🤤"；"一般/凑合/还行/偏甜偏咸偏腻"→"😂"；"不咋地/有点失望/不太行"→"😐"；"踩雷/难吃/恶心/再也不去"→"🤮"；不确定→null。
 - want_again: "想再来/还会去/下次还来"→true；"不会再来/踩雷/不去了"→false；没提→null。
 - source: 仅 wish 用——"小红书/抖音/朋友/路过/大众点评"等来源；没提填"小红书"；visit 时 null。
 - reason: 仅 wish 用——想去的理由原话；visit 时 null。
 
 【以下为"隐形维度"——用户不会专门写，你从同一句话顺手推断，用来悄悄建立口味画像】
-- cuisine: 菜系，归一化到常见类目（川菜/火锅/日料/韩餐/西餐/粤菜/云南菜/烧烤/面包/咖啡/甜品/小吃/快餐/江湖菜…）。从店名、菜品、上下文推断，手动店也尽量给；判不准填 null。**菜系只进这个字段，绝不出现在 feeling 里。**
-- flavors: 口味标签**数组**（如 ["辣","麻"]、["清淡","鲜"]、["甜"]、["汤水"]、["油"]）；把句子里的口味词**抽全**，没线索给 []。抽进来的口味词别再留在 feeling 里。
-- dishes: 提到的具体菜品/招牌**数组**（如 ["水煮鱼"]、["可颂"]、["烤腰子"]）；提到的菜品**抽全**，没提给 []。抽进来的菜品别再留在 feeling 里。
+- cuisine: 菜系，**只能从这个词表里选**：火锅/川菜/江湖菜/串串香/烧烤/小吃/面食/粤菜/湘菜/西北菜/云南菜/日料/韩餐/西餐/东南亚菜/海鲜/自助/快餐/面包烘焙/咖啡/甜品/饮品。从店名、菜品、上下文推断，手动店也尽量给；词表里没有贴切的就填最接近的一个，实在判不准填 null。
+- flavors: 口味标签**数组**，**只能从这个词表里选**：辣/麻/甜/酸/咸/鲜/清淡/油/烫/冰。把句子里的口味词**抽全**并映射到词表（"麻辣"→["麻","辣"]、"香辣/微辣"→["辣"]、"甜口"→["甜"]），没线索给 []。
+- dishes: 提到的具体菜品/招牌，**对象数组**：[{"name":"毛肚","verdict":"赞"}]。verdict 三选一：用户明确好评这道菜→"赞"；明确差评/踩雷→"雷"；只是提到没评价→null。菜品**抽全**，没提给 []。
 - occasion: 场合，取其一："约会"（和对象/二人）/"聚餐"（多人朋友同事）/"工作餐"/"独自"/"家庭"/"庆祝"/"夜宵"；判不准 null。
 
 只输出 JSON。"""
@@ -189,6 +189,62 @@ def suggest_today(brief: str, timeout: int = 30) -> dict:
 
 _MOODS = {"😋", "🤤", "😂", "😐", "🤮"}
 
+# 词表两道闸的第二道：提示词枚举挡大头，这里的映射兜住模型仍旧跑偏的输出。
+# flavors 用于聚合画像，从严——映射不中直接丢；cuisine 用于展示，从宽——映射不中保留原值。
+FLAVOR_VOCAB = ["辣", "麻", "甜", "酸", "咸", "鲜", "清淡", "油", "烫", "冰"]
+_FLAVOR_ALIAS = {
+    "麻辣": ["麻", "辣"], "香辣": ["辣"], "微辣": ["辣"], "重辣": ["辣"], "辛辣": ["辣"],
+    "甜口": ["甜"], "偏甜": ["甜"], "酸甜": ["酸", "甜"], "酸辣": ["酸", "辣"],
+    "咸鲜": ["咸", "鲜"], "偏咸": ["咸"], "重口": ["咸"], "重油": ["油"], "油腻": ["油"],
+    "烫口": ["烫"], "冰凉": ["冰"], "清爽": ["清淡"], "寡淡": ["清淡"], "鲜美": ["鲜"], "汤水": ["清淡"],
+}
+CUISINE_VOCAB = ["火锅", "川菜", "江湖菜", "串串香", "烧烤", "小吃", "面食", "粤菜", "湘菜", "西北菜",
+                 "云南菜", "日料", "韩餐", "西餐", "东南亚菜", "海鲜", "自助", "快餐", "面包烘焙",
+                 "咖啡", "甜品", "饮品"]
+_CUISINE_ALIAS = {
+    "串串": "串串香", "冒菜": "串串香", "麻辣烫": "串串香", "重庆火锅": "火锅", "牛肉火锅": "火锅",
+    "日本菜": "日料", "寿司": "日料", "日式": "日料", "韩国菜": "韩餐", "韩式": "韩餐",
+    "面馆": "面食", "小面": "面食", "面条": "面食", "米线": "面食", "米粉": "面食",
+    "面包": "面包烘焙", "烘焙": "面包烘焙", "蛋糕": "面包烘焙", "泰国菜": "东南亚菜", "越南菜": "东南亚菜",
+    "奶茶": "饮品", "茶饮": "饮品", "咖啡店": "咖啡", "咖啡馆": "咖啡", "甜点": "甜品",
+    "烤肉": "烧烤", "撸串": "烧烤", "夜宵": "小吃", "早餐": "小吃", "兰州拉面": "面食", "新疆菜": "西北菜",
+}
+_DISH_VERDICTS = {"赞", "雷"}
+
+
+def _norm_flavors(v) -> list[str]:
+    out: list[str] = []
+    for f in _list_of(v):
+        for t in _FLAVOR_ALIAS.get(f, [f]):
+            if t in FLAVOR_VOCAB and t not in out:
+                out.append(t)
+    return out
+
+
+def _norm_cuisine(v) -> Optional[str]:
+    s = _s_or_none(v)
+    if not s:
+        return None
+    return s if s in CUISINE_VOCAB else _CUISINE_ALIAS.get(s, s)
+
+
+def _dishes_of(v) -> list[dict]:
+    """容错成 [{"name","verdict"}]：对象数组按规则清洗；模型偶发退化成字符串数组时包装 verdict=None。
+    菜名里剔除逗号/冒号等分隔符——它们是落库编码（名:verdict,名…）的保留字。"""
+    items = v if isinstance(v, list) else ([] if v is None else _list_of(v))
+    out: list[dict] = []
+    for it in items:
+        if isinstance(it, dict):
+            name, verdict = it.get("name"), it.get("verdict")
+        else:
+            name, verdict = it, None
+        name = re.sub(r"[,:，：、]", "", str(name or "")).strip()
+        if not name:
+            continue
+        verdict = str(verdict).strip() if verdict is not None else None
+        out.append({"name": name, "verdict": verdict if verdict in _DISH_VERDICTS else None})
+    return out
+
 
 def _s_or_none(v):
     if v is None:
@@ -248,9 +304,9 @@ def _normalize_parsed(d) -> dict:
         "want_again": _bool_or_none(d.get("want_again")),
         "source": _s_or_none(d.get("source")),
         "reason": _s_or_none(d.get("reason")),
-        "cuisine": _s_or_none(d.get("cuisine")),
-        "flavors": _list_of(d.get("flavors")),
-        "dishes": _list_of(d.get("dishes")),
+        "cuisine": _norm_cuisine(d.get("cuisine")),
+        "flavors": _norm_flavors(d.get("flavors")),
+        "dishes": _dishes_of(d.get("dishes")),
         "occasion": _s_or_none(d.get("occasion")),
     }
 
@@ -263,23 +319,32 @@ def parse_one_liner(text: str, timeout: int = 30) -> dict:
 
     sys_content = f"{SYSTEM_PROMPT}\n\n今天是 {today}（周{weekday}）。"
 
-    # few-shot：覆盖 人均/总价、和X→人数、wish、想再来 —— 提升一致性
+    # few-shot：覆盖 人均/总价、和X→人数、wish、想再来、长评论摘录+菜品赞雷 —— 提升一致性
     shots = [
         ("昨晚和朋友去家火锅店，人均120，锅底够辣",
          {"intent": "visit", "store_hint": "火锅", "date": yesterday, "meal_period": "晚",
-          "companions": "朋友", "amount": 240, "people_count": 2, "feeling": "锅底够味",
+          "companions": "朋友", "amount": 240, "people_count": 2, "feeling": "锅底够辣",
           "mood_emoji": None, "want_again": None, "source": None, "reason": None,
           "cuisine": "火锅", "flavors": ["辣"], "dishes": [], "occasion": "聚餐"}),
         ("中午仨人吃的烧烤摊，一共180，烤腰子绝了，下次还来",
          {"intent": "visit", "store_hint": "烧烤", "date": today, "meal_period": "中",
           "companions": None, "amount": 180, "people_count": 3, "feeling": "烤腰子绝了",
           "mood_emoji": "😋", "want_again": True, "source": None, "reason": None,
-          "cuisine": "烧烤", "flavors": [], "dishes": ["烤腰子"], "occasion": "聚餐"}),
+          "cuisine": "烧烤", "flavors": [], "dishes": [{"name": "烤腰子", "verdict": "赞"}], "occasion": "聚餐"}),
         ("小红书刷到一家云南菜，米线据说一绝，想去",
          {"intent": "wish", "store_hint": "云南菜", "date": today, "meal_period": None,
           "companions": None, "amount": None, "people_count": None, "feeling": None,
           "mood_emoji": None, "want_again": None, "source": "小红书", "reason": "米线据说一绝",
-          "cuisine": "云南菜", "flavors": [], "dishes": ["米线"], "occasion": None}),
+          "cuisine": "云南菜", "flavors": [], "dishes": [{"name": "米线", "verdict": None}], "occasion": None}),
+        # 长评论：feeling 逐句保留原话（只删日期/金额等事实），菜品分别标赞/雷
+        ("今天中午和饼饼去老地方吃火锅，一共花了256。毛肚很新鲜，锅底麻辣够劲，就是排队排了四十分钟，"
+         "服务员态度也一般，肥肠没洗干净有点腥，但冲这个毛肚下次还是会来",
+         {"intent": "visit", "store_hint": "老地方火锅", "date": today, "meal_period": "中",
+          "companions": "饼饼", "amount": 256, "people_count": 2,
+          "feeling": "毛肚很新鲜，锅底麻辣够劲，就是排队排了四十分钟，服务员态度也一般，肥肠没洗干净有点腥，但冲这个毛肚下次还是会来",
+          "mood_emoji": "🤤", "want_again": True, "source": None, "reason": None,
+          "cuisine": "火锅", "flavors": ["麻", "辣"],
+          "dishes": [{"name": "毛肚", "verdict": "赞"}, {"name": "肥肠", "verdict": "雷"}], "occasion": "约会"}),
     ]
     messages = [{"role": "system", "content": sys_content}]
     for q, a in shots:
