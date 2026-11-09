@@ -1,5 +1,10 @@
+import { useContext } from 'react'
 import type { ReactNode } from 'react'
+import { createPortal } from 'react-dom'
 import Icon from './Icon'
+import { PresenceLeaving } from './presenceContext'
+import { useDragDismiss } from './useDragDismiss'
+import { useBackClose } from '../lib/useBackClose'
 
 type SheetShellProps = Readonly<{
   children: ReactNode
@@ -7,29 +12,57 @@ type SheetShellProps = Readonly<{
   className?: string
 }>
 
-/** 底部抽屉外壳：半透明遮罩 + 顶部把手 + 统一关闭按钮 + 贴纸上边框 */
+/**
+ * 底部抽屉外壳：遮罩淡入 + 面板滑上；拖把手下滑 / 手机返回键 / Esc / 点遮罩 / ✕ 都能关，叠开时只关最上面那层。
+ * 渲染到 body（portal），叠开的抽屉互不受父级 transform 影响。
+ * 包在 <Presence> 里时，关闭会播滑下 + 淡出的离场动画。
+ */
 export default function SheetShell({ children, onClose, className = '' }: SheetShellProps) {
-  return (
-    <div
-      className="fixed inset-0 z-[1200] bg-on-surface/40 flex items-end justify-center"
-      onClick={onClose}
-    >
+  const leaving = useContext(PresenceLeaving)
+  const { dragY, dragging, handlers } = useDragDismiss(onClose, leaving)
+  useBackClose(!leaving, onClose)
+
+  return createPortal(
+    <div className={`fixed inset-0 z-sheet flex items-end justify-center ${leaving ? 'pointer-events-none' : ''}`}>
       <div
-        className={`relative w-full max-w-[440px] bg-surface rounded-t-2xl border-2 border-on-surface shadow-[0_-4px_0_0_rgba(61,43,26,1)] max-h-[88vh] overflow-y-auto p-4 animate-pop ${className}`}
-        style={{ paddingBottom: 'max(2rem, env(safe-area-inset-bottom))' }}
+        className={`absolute inset-0 bg-[#2b1f16]/40 ${leaving ? 'animate-fade-out' : 'animate-fade-in'}`}
+        style={{ opacity: dragY ? Math.max(0.2, 1 - dragY / 500) : undefined }}
+        onClick={onClose}
+      />
+      <div
+        role="dialog"
+        aria-modal="true"
+        className={`relative w-full max-w-[440px] max-h-[90dvh] flex flex-col bg-surface grain rounded-t-[28px] shadow-sheet ${
+          leaving ? 'animate-sheet-down' : 'animate-sheet-up'
+        }`}
+        style={{
+          transform: dragY ? `translateY(${dragY}px)` : undefined,
+          transition: dragging ? 'none' : 'transform .45s cubic-bezier(.16,1,.3,1)',
+        }}
         onClick={(e) => e.stopPropagation()}
       >
-        {/* 统一关闭按钮：每个抽屉都有一致的退出方式（除了点遮罩 / 拖把手） */}
+        {/* 把手区：可下拉关闭 */}
+        <div
+          className="shrink-0 h-7 flex items-center justify-center cursor-grab touch-none"
+          {...handlers}
+        >
+          <span className={`h-1.5 rounded-full bg-on-surface/20 transition-all duration-300 ${dragging ? 'w-14 bg-on-surface/35' : 'w-10'}`} />
+        </div>
         <button
           onClick={onClose}
           aria-label="关闭"
-          className="absolute top-2.5 right-2.5 z-20 w-8 h-8 rounded-full border-2 border-on-surface bg-white flex items-center justify-center press-sm shadow-sticker-sm"
+          className="absolute top-3 right-3.5 z-20 w-8 h-8 rounded-full bg-surface-2 text-on-surface-variant flex items-center justify-center press-sm hover:text-on-surface"
         >
-          <Icon name="close" className="text-lg" />
+          <Icon name="close" className="text-[19px]" />
         </button>
-        <div className="w-10 h-1.5 rounded-full bg-on-surface/30 mx-auto mb-3" />
-        {children}
+        <div
+          className={`min-h-0 overflow-y-auto overscroll-contain px-5 pt-1 ${className}`}
+          style={{ paddingBottom: 'max(1.75rem, calc(env(safe-area-inset-bottom) + 1rem))' }}
+        >
+          {children}
+        </div>
       </div>
-    </div>
+    </div>,
+    document.body,
   )
 }

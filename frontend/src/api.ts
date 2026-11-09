@@ -224,8 +224,6 @@ export const invalidatePoints = () => {
   _pointsInflight = null
 }
 
-export const getStats = () => api.get<Stats>('/stats').then(r => r.data)
-
 // 只清空"我"记录的数据（圈友的保留）
 export const resetMine = () =>
   api.post<{ ok: boolean; visits: number; wishes: number }>('/reset-mine').then(r => { invalidatePoints(); return r.data })

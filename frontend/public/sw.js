@@ -1,7 +1,7 @@
 // 极简 Service Worker：让「吃了么」可安装到主屏幕 + 断网也能打开看历史
 // 策略：页面网络优先（保证更新能生效，断网回退缓存）；带 hash 的静态资源缓存优先；
 //       /api 和 /photos 不碰（数据和图片始终走网络）。
-const CACHE = 'chiledme-v1'
+const CACHE = 'chiledme-v2' // 改版：换代清掉旧版缓存的静态资源
 
 self.addEventListener('install', () => self.skipWaiting())
 

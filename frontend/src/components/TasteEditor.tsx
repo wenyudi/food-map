@@ -1,6 +1,8 @@
 import { useState } from 'react'
 import SheetShell from '../ui/SheetShell'
-import StickerButton from '../ui/StickerButton'
+import Presence from '../ui/Presence'
+import Icon from '../ui/Icon'
+import Button from '../ui/Button'
 import { inputClass } from '../lib/format'
 import { CUISINES, FLAVORS, dishLabel } from '../lib/taste'
 import type { Dish } from '../lib/taste'
@@ -14,7 +16,8 @@ type TasteEditorProps = Readonly<{
   onChange: (patch: { cuisine?: string; flavors?: string[]; dishes?: Dish[] }) => void
 }>
 
-const CHIP = 'px-3 py-1.5 rounded-full border-2 border-on-surface text-sm font-bold press-sm'
+const CHIP = 'chip press-sm'
+const ADD = 'bg-transparent text-on-surface-variant border border-dashed border-on-surface-variant/40 !py-[5px]'
 
 export default function TasteEditor({ cuisine, flavors, dishes, onChange }: TasteEditorProps) {
   const [sheet, setSheet] = useState<null | 'cuisine' | 'flavors' | 'dish'>(null)
@@ -44,35 +47,40 @@ export default function TasteEditor({ cuisine, flavors, dishes, onChange }: Tast
   return (
     <>
       <div className="flex flex-wrap gap-2">
-        <button onClick={() => setSheet('cuisine')} className={`${CHIP} bg-white ${cuisine ? 'text-on-surface' : 'text-on-surface-variant/70'}`}>
-          {cuisine || '＋菜系'}
+        <button onClick={() => setSheet('cuisine')} className={`${CHIP} ${cuisine ? 'bg-on-surface text-white' : ADD}`}>
+          {cuisine || '＋ 菜系'}
         </button>
         {flavors.map((f) => (
-          <button key={f} onClick={() => onChange({ flavors: flavors.filter((x) => x !== f) })} className={`${CHIP} bg-white text-on-surface-variant`}>
-            🌶️ {f} ✕
+          <button key={f} onClick={() => onChange({ flavors: flavors.filter((x) => x !== f) })} className={`${CHIP} bg-white ring-1 ring-line animate-pop-in`}>
+            {f} <Icon name="close" className="text-[14px] text-on-surface-variant" />
           </button>
         ))}
-        <button onClick={() => setSheet('flavors')} className={`${CHIP} bg-white text-on-surface-variant/70`}>
-          ＋口味
+        <button onClick={() => setSheet('flavors')} className={`${CHIP} ${ADD}`}>
+          ＋ 口味
         </button>
         {dishes.map((d, i) => (
           <button
             key={d.name}
             onClick={() => cycleDish(i)}
-            className={`${CHIP} ${d.verdict === '赞' ? 'bg-accent text-on-surface' : d.verdict === '雷' ? 'bg-on-surface/10 text-on-surface-variant' : 'bg-white text-on-surface-variant'}`}
+            className={`${CHIP} animate-pop-in ${
+              d.verdict === '赞' ? 'bg-sage-soft text-sage-ink' : d.verdict === '雷' ? 'bg-primary-soft text-primary-dark' : 'bg-white ring-1 ring-line'
+            }`}
           >
-            🍽️ {dishLabel(d)}
+            <span key={d.verdict || 'none'} className="inline-block animate-pop-in">
+              {dishLabel(d)}
+            </span>
           </button>
         ))}
-        <button onClick={() => setSheet('dish')} className={`${CHIP} bg-white text-on-surface-variant/70`}>
-          ＋菜品
+        <button onClick={() => setSheet('dish')} className={`${CHIP} ${ADD}`}>
+          ＋ 菜品
         </button>
       </div>
-      <p className="text-[11px] text-on-surface-variant/70 mt-1.5">点菜品可标 👍赞 / 👎雷（再点一下删除）；点口味标签删除</p>
+      <p className="text-[11px] text-on-surface-variant/70 mt-2 px-0.5">点菜品标 👍 赞 / 👎 雷，再点一下删除；点口味删除</p>
 
+      <Presence show={sheet === 'cuisine'}>
       {sheet === 'cuisine' && (
         <SheetShell onClose={() => setSheet(null)}>
-          <h3 className="font-headline text-xl mb-3">这是什么菜系</h3>
+          <h3 className="text-xl font-bold tracking-tight mb-4">这是什么菜系</h3>
           <div className="flex flex-wrap gap-2">
             {CUISINES.map((c) => (
               <button
@@ -81,7 +89,7 @@ export default function TasteEditor({ cuisine, flavors, dishes, onChange }: Tast
                   onChange({ cuisine: c === cuisine ? '' : c })
                   setSheet(null)
                 }}
-                className={`${CHIP} ${c === cuisine ? 'bg-primary text-white' : 'bg-white text-on-surface'}`}
+                className={`${CHIP} ${c === cuisine ? 'chip-on' : 'bg-white ring-1 ring-line'}`}
               >
                 {c}
               </button>
@@ -89,10 +97,12 @@ export default function TasteEditor({ cuisine, flavors, dishes, onChange }: Tast
           </div>
         </SheetShell>
       )}
+      </Presence>
 
+      <Presence show={sheet === 'flavors'}>
       {sheet === 'flavors' && (
         <SheetShell onClose={() => setSheet(null)}>
-          <h3 className="font-headline text-xl mb-3">口味是啥样的</h3>
+          <h3 className="text-xl font-bold tracking-tight mb-4">口味是啥样的</h3>
           <div className="flex flex-wrap gap-2">
             {FLAVORS.map((f) => {
               const on = flavors.includes(f)
@@ -100,22 +110,24 @@ export default function TasteEditor({ cuisine, flavors, dishes, onChange }: Tast
                 <button
                   key={f}
                   onClick={() => onChange({ flavors: on ? flavors.filter((x) => x !== f) : [...flavors, f] })}
-                  className={`${CHIP} ${on ? 'bg-primary text-white' : 'bg-white text-on-surface'}`}
+                  className={`${CHIP} ${on ? 'chip-on' : 'bg-white ring-1 ring-line'}`}
                 >
                   {f}
                 </button>
               )
             })}
           </div>
-          <StickerButton full className="mt-4" onClick={() => setSheet(null)}>
+          <Button full className="mt-5" onClick={() => setSheet(null)}>
             好了
-          </StickerButton>
+          </Button>
         </SheetShell>
       )}
+      </Presence>
 
+      <Presence show={sheet === 'dish'}>
       {sheet === 'dish' && (
         <SheetShell onClose={() => setSheet(null)}>
-          <h3 className="font-headline text-xl mb-3">加一道菜</h3>
+          <h3 className="text-xl font-bold tracking-tight mb-4">加一道菜</h3>
           <input
             value={dishName}
             onChange={(e) => setDishName(e.target.value)}
@@ -124,11 +136,12 @@ export default function TasteEditor({ cuisine, flavors, dishes, onChange }: Tast
             autoFocus
             className={inputClass}
           />
-          <StickerButton full className="mt-4" onClick={addDish}>
+          <Button full className="mt-5" onClick={addDish}>
             加上
-          </StickerButton>
+          </Button>
         </SheetShell>
       )}
+      </Presence>
     </>
   )
 }

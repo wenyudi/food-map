@@ -2,7 +2,7 @@
 @tailwind components;
 @tailwind utilities;
 
-/* ===== 吃了么 · 鲜活波普暖橙 —— 基础层 ===== */
+/* ===== 吃了么 · 暖纸质感 —— 基础层 ===== */
 @layer base {
   html,
   body,
@@ -10,41 +10,145 @@
     height: 100%;
   }
   body {
-    background-color: #fcf6ed;
-    color: #3d2b1a;
-    font-family: 'Plus Jakarta Sans', 'PingFang SC', 'Microsoft YaHei', sans-serif;
+    @apply bg-surface text-on-surface font-sans antialiased;
     overflow-x: hidden;
     -webkit-tap-highlight-color: transparent;
+    text-rendering: optimizeLegibility;
+  }
+  button {
+    -webkit-tap-highlight-color: transparent;
+  }
+  /* 键盘可达：只在键盘聚焦时出现焦点环，手指点按不闪框 */
+  :focus-visible {
+    outline: 2px solid rgba(230, 92, 60, 0.6);
+    outline-offset: 2px;
+  }
+  input:focus-visible,
+  textarea:focus-visible {
+    outline: none;
+  }
+  input[type='number']::-webkit-inner-spin-button,
+  input[type='number']::-webkit-outer-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
   }
 }
 
-/* ===== 贴纸组件层 ===== */
+/* ===== 组件层 ===== */
 @layer components {
-  /* 白底贴纸卡：粗描边 + 硬阴影 */
-  .sticker {
-    @apply bg-white border-2 border-on-surface rounded-xl shadow-sticker;
+  /* 白卡：无描边，暖色柔影 + 极淡发丝环勾边 */
+  .card {
+    @apply bg-white rounded-3xl shadow-card ring-1 ring-[#53341a]/[0.04];
+  }
+  /* 毛玻璃浮层（地图上的统计条 / 按钮 / 底部导航） */
+  .glass {
+    @apply bg-white/80 shadow-float ring-1 ring-white/70;
+    -webkit-backdrop-filter: blur(18px) saturate(1.6);
+    backdrop-filter: blur(18px) saturate(1.6);
+  }
+  /* 标签 / 筛选药丸 */
+  .chip {
+    @apply inline-flex items-center gap-1 rounded-full px-3 py-1.5 text-sm font-medium bg-surface-2 text-on-surface transition-colors duration-200;
+  }
+  .chip-on {
+    @apply bg-primary text-white shadow-glow;
+  }
+  /* 输入框：下沉底色，聚焦变白 + 橙色光晕 */
+  .field {
+    @apply w-full rounded-2xl bg-surface-2 px-4 py-3 text-[15px] text-on-surface outline-none ring-1 ring-transparent transition-all duration-200 placeholder:text-on-surface-variant/60;
+  }
+  .field:focus {
+    @apply bg-white ring-primary/40 shadow-ring;
+  }
+  /* 小节标题 */
+  .section-label {
+    @apply text-[13px] font-semibold text-on-surface-variant tracking-wide;
+  }
+  /* 圆形图标按钮（地图右侧那列） */
+  .icon-btn {
+    @apply w-12 h-12 rounded-full flex items-center justify-center text-on-surface;
+  }
+  /* 骨架屏：暖色流光 */
+  .skeleton {
+    @apply rounded-xl animate-shimmer;
+    background-image: linear-gradient(100deg, #f1e9df 30%, #f9f4ee 50%, #f1e9df 70%);
+    background-size: 200% 100%;
+  }
+  /* 油墨印章 */
+  .stamp {
+    --ink: #c2452a;
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: var(--stamp-size, 56px);
+    height: var(--stamp-size, 56px);
+    border-radius: 9999px;
+    border: calc(var(--stamp-size, 56px) / 24) solid var(--ink);
+    color: var(--ink);
+    font-family: 'ZCOOL KuaiLe', 'PingFang SC', sans-serif;
+    font-size: calc(var(--stamp-size, 56px) * 0.35);
+    -webkit-text-stroke: 0.015em var(--ink);
+    line-height: 1;
+    letter-spacing: 0.02em;
+    white-space: nowrap;
+    transform: rotate(-14deg);
+    opacity: 0.9;
+    mix-blend-mode: multiply;
+    pointer-events: none;
+    /* 油墨不匀：用噪点蒙版吃掉一点笔画，像真的盖上去 */
+    -webkit-mask-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='120' height='120'><filter id='i'><feTurbulence type='fractalNoise' baseFrequency='.8' numOctaves='2'/><feColorMatrix values='0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 -5 3.9'/></filter><rect width='100%' height='100%' filter='url(%23i)'/></svg>");
+    mask-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='120' height='120'><filter id='i'><feTurbulence type='fractalNoise' baseFrequency='.8' numOctaves='2'/><feColorMatrix values='0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 -5 3.9'/></filter><rect width='100%' height='100%' filter='url(%23i)'/></svg>");
+  }
+  .stamp::before {
+    content: '';
+    position: absolute;
+    inset: calc(var(--stamp-size, 56px) / 18);
+    border-radius: 9999px;
+    border: 1px solid var(--ink);
+    opacity: 0.7;
+  }
+  /* 依次入场：配合 style={{ '--i': index }} */
+  .stagger {
+    animation: stagger-in 0.55s cubic-bezier(0.16, 1, 0.3, 1) backwards;
+    animation-delay: calc(min(var(--i, 0), 10) * 50ms);
+  }
+}
+
+@keyframes stagger-in {
+  from {
+    opacity: 0;
+    transform: translateY(14px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
   }
 }
 
 /* ===== 工具类层 ===== */
 @layer utilities {
-  /* 按压贴纸：阴影归零 + 位移 3px，手感“按下去” */
+  /* 可按压：按下微缩，松手弹性回弹 */
   .press {
-    transition: transform 0.1s ease, box-shadow 0.1s ease;
+    transition: transform 0.35s cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 0.2s ease, background-color 0.2s ease, opacity 0.2s ease;
   }
   .press:active {
-    transform: translate(3px, 3px);
-    box-shadow: 0 0 0 0 rgba(61, 43, 26, 1);
+    transform: scale(0.96);
+    transition-duration: 0.08s;
   }
   .press-sm {
-    transition: transform 0.1s ease, box-shadow 0.1s ease;
+    transition: transform 0.35s cubic-bezier(0.34, 1.56, 0.64, 1), background-color 0.2s ease, color 0.2s ease, opacity 0.2s ease;
   }
   .press-sm:active {
-    transform: translate(2px, 2px);
-    box-shadow: 0 0 0 0 rgba(61, 43, 26, 1);
+    transform: scale(0.92);
+    transition-duration: 0.08s;
+  }
+  @media (hover: hover) {
+    .press:hover {
+      filter: brightness(1.03);
+    }
   }
 
-  /* 隐藏滚动条（横向统计卡 / 筛选条） */
   .hide-scrollbar {
     -ms-overflow-style: none;
     scrollbar-width: none;
@@ -53,13 +157,9 @@
     display: none;
   }
 
-  /* 插画地图底纹（无真实地图时的占位/回退） */
-  .map-bg {
-    background-color: #e0ece4;
-    background-image: radial-gradient(circle at 50% 50%, rgba(255, 255, 255, 0.8) 2px, transparent 2px),
-      linear-gradient(45deg, transparent 48%, rgba(255, 255, 255, 0.6) 48%, rgba(255, 255, 255, 0.6) 52%, transparent 52%),
-      linear-gradient(-45deg, transparent 48%, rgba(255, 255, 255, 0.6) 48%, rgba(255, 255, 255, 0.6) 52%, transparent 52%);
-    background-size: 20px 20px, 60px 60px, 60px 60px;
+  /* 纸张颗粒：极淡噪点，打破纯色平面感 */
+  .grain {
+    background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='180' height='180'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 .35 0 0 0 0 .22 0 0 0 0 .1 0 0 0 .05 0'/></filter><rect width='100%' height='100%' filter='url(%23n)'/></svg>");
   }
 
   .pb-safe {
@@ -68,49 +168,129 @@
   .pt-safe {
     padding-top: env(safe-area-inset-top);
   }
+  /* 悬浮底部导航占位：滚动内容底部留白 / 浮层避让 */
+  .pb-tabbar {
+    padding-bottom: calc(env(safe-area-inset-bottom) + 6.75rem);
+  }
+  .bottom-tabbar {
+    bottom: calc(env(safe-area-inset-bottom) + 5.75rem);
+  }
 }
 
-/* Material Symbols：填充实心 + 粗重，贴合贴纸风 */
+/* Material Symbols：默认线性，需要强调时 .icon-filled 变实心（可过渡） */
 .material-symbols-outlined {
-  font-variation-settings: 'FILL' 1, 'wght' 700, 'GRAD' 0, 'opsz' 24;
+  font-variation-settings: 'FILL' 0, 'wght' 500, 'GRAD' 0, 'opsz' 24;
+  transition: font-variation-settings 0.3s ease;
   user-select: none;
   line-height: 1;
 }
+.material-symbols-outlined.icon-filled {
+  font-variation-settings: 'FILL' 1, 'wght' 600, 'GRAD' 0, 'opsz' 24;
+}
 
-/* ===== Leaflet 地图：贴纸风 marker / 片区 chip / 定位脉冲 / popup ===== */
+/* ===== Leaflet 地图：柔化底图 / 落点 marker / 聚合簇 / 片区 chip / 定位脉冲 ===== */
+/* 高德底图很艳：压饱和、加暖调、降对比，底图退后当纸，让点位跳出来 */
+.leaflet-tile-pane {
+  filter: saturate(0.55) sepia(0.18) brightness(1.04) contrast(0.92);
+}
+.leaflet-container {
+  font: inherit;
+  background: #efe9df;
+}
+/* 署名挪到左下、抬到悬浮导航上方，别被「记一笔」圆钮挡住 */
+.leaflet-bottom.leaflet-left {
+  bottom: calc(env(safe-area-inset-bottom) + 78px);
+}
+.leaflet-control-attribution {
+  background: rgba(255, 255, 255, 0.55) !important;
+  border-radius: 6px;
+  margin-left: 16px !important;
+  padding: 0 5px !important;
+  font-size: 10px;
+  color: #766657 !important;
+}
+
+
+.marker-wrap {
+  animation: mk-drop 0.6s cubic-bezier(0.34, 1.56, 0.64, 1) backwards;
+  animation-delay: calc(var(--d, 0ms) * var(--mk-intro, 0));
+}
+@keyframes mk-drop {
+  0% {
+    opacity: 0;
+    transform: translateY(-18px) scale(0.5);
+  }
+}
 .marker-dot {
-  width: 38px;
-  height: 38px;
+  width: 40px;
+  height: 40px;
   border-radius: 9999px;
   background: #fff;
-  border: 3px solid #3d2b1a;
-  box-shadow: 3px 3px 0 0 rgba(61, 43, 26, 1);
+  box-shadow: 0 0 0 3px var(--ring, #e65c3c), 0 6px 14px -4px rgba(83, 52, 26, 0.45);
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 20px;
+  font-size: 21px;
   position: relative;
+  transition: transform 0.35s cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 0.25s ease;
 }
-.marker-dot::after {
-  content: '';
-  position: absolute;
-  inset: 0;
-  border-radius: 9999px;
-  border: 3px solid var(--ring, #ef6c4f);
-  opacity: 0.7;
-  pointer-events: none;
+@media (hover: hover) {
+  .leaflet-marker-icon:hover .marker-dot {
+    transform: scale(1.1) translateY(-2px);
+  }
 }
+/* 还没吃过：虚线圈、半透明，等着被「点亮」 */
 .marker-dot.want {
-  animation: mk-bounce 2s ease-in-out infinite;
+  background: rgba(255, 255, 255, 0.82);
+  box-shadow: 0 4px 10px -4px rgba(83, 52, 26, 0.35);
+  outline: 2px dashed var(--ring);
+  outline-offset: 1px;
 }
-@keyframes mk-bounce {
-  0%,
-  100% {
-    transform: translateY(0);
-  }
-  50% {
-    transform: translateY(-4px);
-  }
+.marker-wrap.is-active .marker-dot {
+  transform: scale(1.24) translateY(-3px);
+  box-shadow: 0 0 0 3px var(--ring, #e65c3c), 0 0 0 9px rgba(230, 92, 60, 0.18), 0 12px 22px -6px rgba(83, 52, 26, 0.5);
+}
+/* 去过几次 */
+.marker-badge {
+  position: absolute;
+  top: -6px;
+  right: -7px;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 4px;
+  border-radius: 9999px;
+  background: #e65c3c;
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font: 600 11px/1 Fredoka, -apple-system, sans-serif;
+  box-shadow: 0 0 0 2px #fff;
+}
+
+/* 聚合簇：一颗药丸，两个 emoji + 家数 */
+.cluster-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 1px;
+  height: 40px;
+  padding: 0 11px 0 8px;
+  background: #fff;
+  border-radius: 9999px;
+  box-shadow: 0 0 0 3px #e65c3c, 0 8px 18px -6px rgba(83, 52, 26, 0.5);
+  font-size: 18px;
+  white-space: nowrap;
+  transform: translate(-50%, -50%);
+  animation: chip-in 0.45s cubic-bezier(0.34, 1.56, 0.64, 1) backwards;
+  cursor: pointer;
+}
+.cluster-pill span + span {
+  margin-left: -7px;
+}
+.cluster-pill b {
+  margin-left: 5px;
+  font: 600 16px/1 Fredoka, -apple-system, sans-serif;
+  color: #c2452a;
 }
 
 .area-chip-wrap {
@@ -120,69 +300,114 @@
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  background: #fff;
-  border: 2px solid #3d2b1a;
+  background: rgba(255, 255, 255, 0.92);
   border-radius: 9999px;
-  box-shadow: 2px 2px 0 0 rgba(61, 43, 26, 1);
-  padding: 3px 4px 3px 10px;
+  box-shadow: 0 6px 18px -6px rgba(83, 52, 26, 0.4), 0 0 0 1px rgba(83, 52, 26, 0.05);
+  padding: 4px 4px 4px 12px;
   white-space: nowrap;
-  font-weight: 700;
+  font-weight: 600;
   font-size: 13px;
+  color: #2b1f16;
   transform: translate(-50%, -50%);
+  animation: chip-in 0.5s cubic-bezier(0.34, 1.56, 0.64, 1) backwards;
+  animation-delay: var(--d, 0ms);
+  cursor: pointer;
+}
+@keyframes chip-in {
+  from {
+    opacity: 0;
+    transform: translate(-50%, -50%) scale(0.6);
+  }
+  to {
+    opacity: 1;
+    transform: translate(-50%, -50%) scale(1);
+  }
 }
 .area-chip .ac-count {
-  background: #ef6c4f;
+  background: #e65c3c;
   color: #fff;
   border-radius: 9999px;
-  padding: 1px 7px;
+  padding: 2px 8px;
   font-size: 12px;
+  font-family: Fredoka, -apple-system, sans-serif;
+  font-weight: 600;
+}
+.area-chip.more {
+  background: #2b1f16;
+  color: #fff;
 }
 .area-chip.locked {
-  opacity: 0.65;
+  color: #766657;
 }
 .area-chip.locked .ac-count {
-  background: #8a7560;
+  background: #c9bcae;
 }
 
 .here-pulse {
-  width: 22px;
-  height: 22px;
+  width: 20px;
+  height: 20px;
   border-radius: 9999px;
   background: #4f8aef;
-  border: 2px solid #fff;
-  box-shadow: 0 0 0 0 rgba(79, 138, 239, 0.6);
+  border: 3px solid #fff;
+  box-shadow: 0 0 0 0 rgba(79, 138, 239, 0.6), 0 2px 6px rgba(0, 0, 0, 0.2);
   animation: here-pulse 1.6s infinite;
 }
 @keyframes here-pulse {
   0% {
-    box-shadow: 0 0 0 0 rgba(79, 138, 239, 0.5);
+    box-shadow: 0 0 0 0 rgba(79, 138, 239, 0.5), 0 2px 6px rgba(0, 0, 0, 0.2);
   }
   100% {
-    box-shadow: 0 0 0 16px rgba(79, 138, 239, 0);
+    box-shadow: 0 0 0 18px rgba(79, 138, 239, 0), 0 2px 6px rgba(0, 0, 0, 0.2);
   }
 }
 
-/* leaflet popup → 贴纸卡 */
-.leaflet-popup-content-wrapper {
-  border: 2px solid #3d2b1a;
-  border-radius: 16px;
-  box-shadow: 3px 3px 0 0 rgba(61, 43, 26, 1);
-  background: #fff;
+/* ===== 印章：全站唯一的「记忆点」——吃了么？盖章答一句「吃了」，二刷 / 种草 / 兑现也用章 ===== */
+.stamp-rose {
+  --ink: #b9476a;
 }
-.leaflet-popup-tip {
-  border: 2px solid #3d2b1a;
+.stamp-sage {
+  --ink: #3c7f55;
 }
-.leaflet-popup-content {
-  margin: 12px 14px;
-  font-family: 'Plus Jakarta Sans', 'PingFang SC', sans-serif;
-  color: #3d2b1a;
+.stamp-in {
+  animation: stamp-in 0.5s cubic-bezier(0.34, 1.56, 0.64, 1) backwards;
+  animation-delay: calc(min(var(--i, 0), 10) * 50ms + 180ms);
 }
-.leaflet-container {
-  font: inherit;
-  background: #e0ece4;
+@keyframes stamp-in {
+  from {
+    opacity: 0;
+    transform: rotate(-22deg) scale(1.5);
+  }
 }
-.leaflet-container a.leaflet-popup-close-button {
-  color: #8a7560;
+/* 高光时刻：从空中砸下来 */
+.stamp-slam {
+  animation: stamp-slam 0.46s cubic-bezier(0.2, 0.9, 0.3, 1) backwards;
+  animation-delay: var(--slam-delay, 60ms);
+}
+@keyframes stamp-slam {
+  0% {
+    opacity: 0;
+    transform: rotate(-32deg) scale(3.4);
+  }
+  55% {
+    opacity: 1;
+    transform: rotate(-11deg) scale(0.9);
+  }
+  75% {
+    transform: rotate(-15deg) scale(1.05);
+  }
+}
+/* 盖章落下时纸面一震 */
+.stamp-impact {
+  animation: stamp-impact 0.3s ease-out backwards;
+  animation-delay: var(--impact-delay, 300ms);
+}
+@keyframes stamp-impact {
+  0% {
+    transform: none;
+  }
+  35% {
+    transform: translateY(4px) scale(0.985);
+  }
 }
 
 /* ===== 撒花（记一笔高光时刻） ===== */
@@ -299,8 +524,30 @@
     transform: translateY(3px) rotate(7deg) scale(1.06);
   }
 }
+
+/* 系统「减少动态」：动效一律收住 */
 @media (prefers-reduced-motion: reduce) {
-  .mood-glyph {
-    animation: none !important;
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    animation-delay: 0ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* AI 解析中：输入卡外圈流动的暖色彩边 */
+.ai-border {
+  background: linear-gradient(110deg, #e65c3c, #f4b740, #e5788f, #e65c3c, #f4b740);
+  background-size: 300% 100%;
+  animation: ai-flow 1.8s linear infinite;
+}
+@keyframes ai-flow {
+  from {
+    background-position: 0% 50%;
+  }
+  to {
+    background-position: 150% 50%;
   }
 }

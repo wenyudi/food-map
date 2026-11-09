@@ -44,31 +44,29 @@ export default function PhotoPicker({ photos, onChange, max = 4 }: Props) {
   return (
     <div className="grid grid-cols-4 gap-2">
       {photos.map((u) => (
-        <div className="relative aspect-square" key={u}>
-          <img src={u} className="w-full h-full object-cover rounded-lg border-2 border-on-surface" />
+        <div className="relative aspect-square animate-pop-in" key={u}>
+          <img src={u} alt="已选照片" className="w-full h-full object-cover rounded-2xl shadow-soft" />
           <button
             onClick={() => remove(u)}
-            className="absolute -top-1.5 -right-1.5 w-5 h-5 rounded-full bg-on-surface text-white text-xs flex items-center justify-center border-2 border-white"
+            aria-label="移除这张"
+            className="absolute -top-1.5 -right-1.5 w-6 h-6 rounded-full bg-on-surface/85 text-white flex items-center justify-center ring-2 ring-surface press-sm"
           >
-            ✕
+            <Icon name="close" className="text-[14px]" />
           </button>
         </div>
       ))}
       {Array.from({ length: uploading }).map((_, i) => (
-        <div
-          key={`u${i}`}
-          className="aspect-square w-full rounded-lg border-2 border-dashed border-on-surface/40 flex items-center justify-center text-on-surface-variant animate-pulse"
-        >
-          ↑
+        <div key={`u${i}`} className="skeleton aspect-square w-full !rounded-2xl flex items-center justify-center text-on-surface-variant">
+          <Icon name="upload" className="text-xl animate-bob" />
         </div>
       ))}
       {photos.length + uploading < max && (
         <button
           onClick={() => inputRef.current?.click()}
-          className="aspect-square w-full rounded-lg border-2 border-dashed border-on-surface/50 bg-white/50 flex flex-col items-center justify-center text-on-surface-variant press-sm"
+          className="aspect-square w-full rounded-2xl border-[1.5px] border-dashed border-on-surface-variant/35 bg-white/60 flex flex-col items-center justify-center text-on-surface-variant press-sm hover:border-primary/50 hover:text-primary transition-colors"
         >
-          <Icon name="add_a_photo" className="text-xl" />
-          <span className="text-[10px] font-bold mt-0.5">{photos.length === 0 ? '拍照 / 选图' : '加一张'}</span>
+          <Icon name="add_a_photo" className="text-[22px]" />
+          <span className="text-[10px] font-medium mt-1">{photos.length === 0 ? '拍照 / 选图' : '加一张'}</span>
         </button>
       )}
       <input ref={inputRef} type="file" accept="image/*" multiple onChange={handlePick} className="hidden" />

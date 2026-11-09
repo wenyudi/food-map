@@ -8,6 +8,18 @@ export const CUISINES = [
 
 export const FLAVORS = ['辣', '麻', '甜', '酸', '咸', '鲜', '清淡', '油', '烫', '冰'] as const
 
+// 店铺头像：接口的 emoji 是最近一顿的心情（地图上看好不好吃用），放头像会和时间线的心情重复，头像改按菜系出
+const CUISINE_EMOJI: Record<string, string> = {
+  火锅: '🍲', 川菜: '🌶️', 江湖菜: '🐟', 串串: '🍢', 烧烤: '🍖', 小吃: '🥟', 面: '🍜', 粉: '🍜', 粤菜: '🍤', 湘菜: '🌶️',
+  西北: '🍖', 云南: '🍄', 日料: '🍣', 日本: '🍣', 韩: '🍚', 西餐: '🍝', 东南亚: '🍛', 海鲜: '🦞', 自助: '🍽️', 快餐: '🍔',
+  面包: '🥐', 烘焙: '🥐', 咖啡: '☕️', 甜品: '🍰', 饮品: '🧋', 奶茶: '🧋',
+}
+
+export function cuisineEmoji(cuisine: string): string {
+  const hit = Object.keys(CUISINE_EMOJI).find((k) => cuisine.includes(k))
+  return hit ? CUISINE_EMOJI[hit] : '🍽️'
+}
+
 export type DishVerdict = '赞' | '雷' | null
 
 export interface Dish {

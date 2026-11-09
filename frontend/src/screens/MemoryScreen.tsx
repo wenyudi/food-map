@@ -1,9 +1,11 @@
-import { useMemo, useState } from 'react'
+import { useContext, useMemo, useRef, useState } from 'react'
 import type { ReactNode } from 'react'
 import Icon from '../ui/Icon'
+import { PresenceLeaving } from '../ui/presenceContext'
 import type { Point } from '../api'
 import { cleanTag } from '../lib/format'
 import { useCountUp } from '../lib/useCountUp'
+import { useBackClose } from '../lib/useBackClose'
 
 type MemoryScreenProps = Readonly<{
   points: Point[]
@@ -13,6 +15,12 @@ type MemoryScreenProps = Readonly<{
 function Num({ value }: { value: number }) {
   const v = useCountUp(value)
   return <span className="font-num">{Math.round(v)}</span>
+}
+
+// 店名长短不一：字越多字号越小，长店名最多三行，不撑破卡片
+function StoreName({ name }: { name: string }) {
+  const size = name.length > 16 ? 'text-[1.5rem] leading-snug line-clamp-3' : name.length > 9 ? 'text-[2rem] leading-tight' : ''
+  return <span className={`block ${size}`}>「{name}」</span>
 }
 
 // 每张卡：白圆徽章 emoji + 小标签(白) + 大数值(深) + 详情(白贴纸) + 可选彩色 pill
@@ -129,7 +137,7 @@ function buildCards(points: Point[]): Card[] {
     cards.push({
       emoji: '🌅',
       label: '翻开这一年',
-      value: <>「{firstMeal.p.name}」</>,
+      value: <StoreName name={firstMeal.p.name} />,
       detail: (
         <>
           <Num value={firstMonth} /> 月的第一顿 · 故事就此开场
@@ -177,7 +185,7 @@ function buildCards(points: Point[]): Card[] {
     cards.push({
       emoji: '❤️',
       label: '百去不厌',
-      value: <>「{mostVisited.name}」</>,
+      value: <StoreName name={mostVisited.name} />,
       detail: (
         <>
           一去再去 <Num value={mostVisited.visit_count} /> 次 · 像回了家
@@ -209,7 +217,7 @@ function buildCards(points: Point[]): Card[] {
     cards.push({
       emoji: '🥂',
       label: '最郑重的一顿',
-      value: <>「{priciest.p.name}」</>,
+      value: <StoreName name={priciest.p.name} />,
       detail: (
         <>
           人均 ¥<Num value={Number(priciest.v.per_person)} /> · 那一天，我们值得
@@ -306,68 +314,118 @@ function buildCards(points: Point[]): Card[] {
   return cards
 }
 
-/** 美食回忆报告：全屏可滑动卡片（暖橙渐变 · 白圆徽章 · 大数字 · 白贴纸）—— 与 App 同一套波普暖橙语言 */
+/** 美食回忆报告：全屏故事卡（暖橙渐变 · 白圆徽章 · 大数字）。轻点左右 / 左右滑动翻页，切卡方向感知 */
 export default function MemoryScreen({ points, onClose }: MemoryScreenProps) {
   const cards = useMemo(() => buildCards(points), [points])
   const [i, setI] = useState(0)
+  const [dir, setDir] = useState<1 | -1>(1)
+  const start = useRef<{ x: number; y: number } | null>(null)
+  const leaving = useContext(PresenceLeaving)
+  useBackClose(!leaving, onClose)
 
-  const shell =
-    'fixed inset-0 z-[1300] bg-gradient-to-b from-primary via-[#f37a5a] to-[#ffb38a] flex flex-col items-center justify-center text-center px-8 overflow-hidden'
+  const shell = `fixed inset-0 z-overlay flex flex-col items-center justify-center text-center px-8 overflow-hidden select-none ${
+    leaving ? 'animate-fade-out pointer-events-none' : 'animate-fade-in'
+  }`
+
+  const closeBtn = (
+    <button
+      onClick={(e) => {
+        e.stopPropagation()
+        onClose()
+      }}
+      aria-label="关闭"
+      className="absolute top-[calc(env(safe-area-inset-top)_+_2rem)] right-5 z-10 w-10 h-10 rounded-full bg-white/20 text-white flex items-center justify-center press-sm"
+      style={{ WebkitBackdropFilter: 'blur(8px)', backdropFilter: 'blur(8px)' }}
+    >
+      <Icon name="close" />
+    </button>
+  )
 
   if (cards.length === 0) {
     return (
       <div className={shell}>
-        <Stars />
-        <button onClick={onClose} className="absolute top-5 right-5 w-10 h-10 rounded-full border-2 border-white/70 text-white flex items-center justify-center">
-          <Icon name="close" />
-        </button>
-        <div className="w-28 h-28 rounded-full bg-white border-[3px] border-on-surface shadow-sticker flex items-center justify-center text-5xl mb-5">🍜</div>
-        <div className="font-headline text-on-surface text-3xl mb-2">回忆还在路上</div>
-        <div className="text-white/95">先记几顿，再来翻翻你们的故事</div>
+        <Backdrop />
+        {closeBtn}
+        <div className="relative w-28 h-28 rounded-full bg-white shadow-float flex items-center justify-center text-5xl mb-5 animate-pop-in">🍜</div>
+        <div className="relative font-display text-on-surface text-3xl mb-2">回忆还在路上</div>
+        <div className="relative text-white/95">先记几顿，再来翻翻你们的故事</div>
       </div>
     )
   }
 
   const card = cards[i]
   const last = i >= cards.length - 1
-  return (
-    <div className={shell}>
-      <Stars />
+  const go = (d: 1 | -1) => {
+    if (d === 1 && last) return onClose()
+    if (d === -1 && i === 0) return
+    setDir(d)
+    setI((v) => v + d)
+  }
 
-      {/* 进度 */}
-      <div className="absolute top-4 left-0 w-full px-5 flex gap-1.5 z-10">
+  return (
+    <div
+      className={shell}
+      onPointerDown={(e) => (start.current = { x: e.clientX, y: e.clientY })}
+      onPointerUp={(e) => {
+        const st = start.current
+        start.current = null
+        if (!st) return
+        const dx = e.clientX - st.x
+        if (Math.abs(dx) > 45 && Math.abs(dx) > Math.abs(e.clientY - st.y)) go(dx < 0 ? 1 : -1)
+        else go(e.clientX < window.innerWidth / 3 ? -1 : 1)
+      }}
+    >
+      <Backdrop />
+
+      {/* 进度：已读满格，当前格从左长满 */}
+      <div className="absolute top-[calc(env(safe-area-inset-top)_+_1rem)] left-0 w-full px-5 flex gap-1 z-10">
         {cards.map((_, idx) => (
-          <span key={idx} className={`flex-1 h-1 rounded-full ${idx <= i ? 'bg-white' : 'bg-white/30'}`} />
+          <span key={idx} className="flex-1 h-[3px] rounded-full bg-white/30 overflow-hidden">
+            {idx < i && <span className="block h-full w-full bg-white" />}
+            {idx === i && <span key={i} className="block h-full w-full bg-white origin-left animate-[grow_.6s_cubic-bezier(.16,1,.3,1)_backwards]" />}
+          </span>
         ))}
       </div>
-      <button onClick={onClose} className="absolute top-8 right-5 z-10 w-10 h-10 rounded-full border-2 border-white/70 text-white flex items-center justify-center">
-        <Icon name="close" />
-      </button>
+      {closeBtn}
 
-      <div key={i} className="animate-pop flex flex-col items-center relative z-[1]">
+      <div key={i} className={`relative z-[1] flex flex-col items-center ${dir === 1 ? 'animate-[story-next_.5s_cubic-bezier(.16,1,.3,1)_backwards]' : 'animate-[story-prev_.5s_cubic-bezier(.16,1,.3,1)_backwards]'}`}>
         {/* 白圆徽章 */}
-        <div className="w-28 h-28 rounded-full bg-white border-[3px] border-on-surface shadow-sticker flex items-center justify-center text-5xl mb-6">
-          {card.emoji}
+        <div className="relative mb-7 animate-pop-in" style={{ animationDelay: '60ms' }}>
+          <span className="absolute inset-0 rounded-full bg-white/50 blur-2xl scale-125" aria-hidden />
+          <div className="relative w-28 h-28 rounded-full bg-white shadow-float flex items-center justify-center text-[56px]">
+            <span className="animate-bob">{card.emoji}</span>
+          </div>
         </div>
         {/* 小标签（白） */}
-        {card.label && <div className="text-white font-headline text-xl mb-1">{card.label}</div>}
-        {/* 大数值（深色） */}
-        <div className="font-headline text-on-surface text-[2.75rem] leading-tight mb-5 [&_.font-num]:text-[3.75rem]">{card.value}</div>
-        {/* 详情：白贴纸（可换行容纳文艺长句） */}
+        {card.label && (
+          <div className="text-white/95 text-lg font-semibold tracking-wide mb-1.5 animate-fade-up" style={{ animationDelay: '120ms' }}>
+            {card.label}
+          </div>
+        )}
+        {/* 大数值（深色，品牌字体） */}
+        <div
+          className="font-display text-on-surface text-[2.75rem] leading-tight mb-6 max-w-full text-balance animate-fade-up [&_.font-num]:text-[3.75rem] [&_.font-num]:font-semibold"
+          style={{ animationDelay: '180ms' }}
+        >
+          {card.value}
+        </div>
+        {/* 详情：白色半透明卡（可换行容纳文艺长句） */}
         {card.detail && (
-          <div className="bg-white text-on-surface rounded-xl border-2 border-on-surface shadow-sticker px-5 py-2.5 font-bold leading-snug max-w-[18rem]">
+          <div
+            className="bg-white/90 text-on-surface rounded-2xl shadow-float px-5 py-3 font-medium leading-relaxed max-w-[18rem] animate-fade-up"
+            style={{ animationDelay: '260ms', WebkitBackdropFilter: 'blur(10px)', backdropFilter: 'blur(10px)' }}
+          >
             {card.detail}
           </div>
         )}
         {/* 彩色 pill */}
         {card.pills && (
           <div className="flex gap-2 mt-4 flex-wrap justify-center">
-            {card.pills.map((p) => (
+            {card.pills.map((p, k) => (
               <span
                 key={p.text}
-                className={`rounded-full border-2 border-on-surface px-3 py-1 text-sm font-bold ${
-                  p.tone === 'gold' ? 'bg-accent text-on-surface' : 'bg-white text-primary'
-                }`}
+                className={`rounded-full px-3 py-1 text-sm font-semibold shadow-soft animate-pop-in ${p.tone === 'gold' ? 'bg-accent text-on-surface' : 'bg-white text-primary'}`}
+                style={{ animationDelay: `${340 + k * 80}ms` }}
               >
                 {p.text}
               </span>
@@ -376,31 +434,37 @@ export default function MemoryScreen({ points, onClose }: MemoryScreenProps) {
         )}
       </div>
 
-      {/* 点击区 */}
-      <div className="absolute inset-y-0 left-0 w-1/3" onClick={() => setI((v) => Math.max(0, v - 1))} />
-      <div className="absolute inset-y-0 right-0 w-2/3" onClick={() => (last ? onClose() : setI((v) => v + 1))} />
-      <div className="absolute bottom-8 left-0 w-full text-white/80 text-sm z-[1]">{last ? '截图分享给 TA 📸 · 轻点退出' : '轻点继续 ›'}</div>
+      <div className="absolute bottom-[calc(env(safe-area-inset-bottom)_+_2rem)] left-0 w-full text-white/80 text-sm z-[1] animate-fade-in">
+        {last ? '截图分享给 TA 📸 · 轻点退出' : (
+          <span className="inline-flex items-center gap-1">
+            轻点或左滑继续 <Icon name="chevron_right" className="text-base animate-[bob-x_1.4s_ease-in-out_infinite]" />
+          </span>
+        )}
+      </div>
     </div>
   )
 }
 
-/** 散落的小星星装饰 */
-function Stars() {
+/** 背景：暖橙渐变 + 缓慢漂移的光斑 + 纸张颗粒 + 散落的小星星 */
+function Backdrop() {
   const stars = [
-    { t: '12%', l: '14%', s: 'text-2xl' },
-    { t: '20%', l: '82%', s: 'text-lg' },
-    { t: '46%', l: '8%', s: 'text-base' },
-    { t: '52%', l: '88%', s: 'text-2xl' },
-    { t: '74%', l: '16%', s: 'text-lg' },
-    { t: '80%', l: '80%', s: 'text-base' },
+    { t: '12%', l: '14%', s: 'text-2xl', d: '0s' },
+    { t: '20%', l: '82%', s: 'text-lg', d: '-.8s' },
+    { t: '46%', l: '8%', s: 'text-base', d: '-1.6s' },
+    { t: '52%', l: '88%', s: 'text-2xl', d: '-.4s' },
+    { t: '74%', l: '16%', s: 'text-lg', d: '-1.2s' },
+    { t: '80%', l: '80%', s: 'text-base', d: '-2s' },
   ]
   return (
-    <>
+    <div className="absolute inset-0 bg-gradient-to-b from-primary via-[#f37a5a] to-[#ffb38a]" aria-hidden>
+      <span className="absolute -top-20 -left-16 w-80 h-80 rounded-full bg-[#ffd27a]/40 blur-3xl animate-[drift_14s_ease-in-out_infinite]" />
+      <span className="absolute bottom-0 -right-20 w-80 h-80 rounded-full bg-[#e5788f]/35 blur-3xl animate-[drift_18s_ease-in-out_infinite_reverse]" />
+      <span className="absolute inset-0 grain opacity-70" />
       {stars.map((st, k) => (
-        <span key={k} className={`absolute text-white/60 ${st.s} select-none`} style={{ top: st.t, left: st.l }} aria-hidden>
+        <span key={k} className={`absolute text-white/60 ${st.s} animate-twinkle`} style={{ top: st.t, left: st.l, animationDelay: st.d }}>
           ✦
         </span>
       ))}
-    </>
+    </div>
   )
 }

@@ -11,7 +11,7 @@ const EXAMPLES = [
   { icon: '🌶️', q: '老吃这几样，想换个菜系' },
   { icon: '🥂', q: '请朋友吃饭哪家拿得出手' },
   { icon: '⚠️', q: '最近有没有踩雷的几家' },
-  { icon: '📅', q: '这个月吃了多少，比上月多吗' },
+  { icon: '📊', q: '这个月吃了多少，比上月多吗' },
 ]
 
 type AskSheetProps = Readonly<{ onClose: () => void }>
@@ -42,14 +42,15 @@ export default function AskSheet({ onClose }: AskSheetProps) {
 
   return (
     <SheetShell onClose={onClose}>
-      <h3 className="font-headline text-2xl flex items-center gap-2">
-        <span className="w-9 h-9 rounded-full bg-primary text-white border-2 border-on-surface flex items-center justify-center">
-          <Icon name="forum" className="text-lg" />
+      <h3 className="text-2xl font-bold tracking-tight flex items-center gap-2.5 pr-10">
+        <span className="w-9 h-9 rounded-2xl bg-primary text-white shadow-glow flex items-center justify-center">
+          <Icon name="forum" filled className="text-[19px]" />
         </span>
         问地图
       </h3>
+      <p className="text-sm text-on-surface-variant mt-1">用大白话问你们自己的记录</p>
 
-      <div className="flex gap-2 my-3">
+      <div className="flex gap-2 my-4">
         <input
           value={q}
           onChange={(e) => setQ(e.target.value)}
@@ -57,29 +58,34 @@ export default function AskSheet({ onClose }: AskSheetProps) {
             if (e.key === 'Enter') ask()
           }}
           placeholder="比如：还有几家种草没去？"
-          className="flex-1 min-w-0 rounded-full border-2 border-on-surface bg-white px-4 py-2.5 outline-none shadow-sticker-sm font-body text-sm placeholder:text-on-surface-variant/60"
+          enterKeyHint="send"
+          className="field flex-1 min-w-0 !rounded-full !py-2.5 text-sm"
         />
         <button
           onClick={() => ask()}
           disabled={loading || !q.trim()}
-          className="shrink-0 w-11 bg-primary text-white rounded-full border-2 border-on-surface shadow-sticker flex items-center justify-center press disabled:opacity-60"
+          aria-label="发送"
+          className={`shrink-0 w-11 rounded-full flex items-center justify-center press ${
+            q.trim() ? 'bg-primary text-white shadow-glow' : 'bg-surface-2 text-on-surface-variant/60'
+          }`}
         >
-          <Icon name="send" />
+          <Icon name="arrow_upward" className="text-[22px]" />
         </button>
       </div>
 
       {!answer && !loading && !err && (
         <div className="mt-1">
-          <p className="text-xs font-bold text-on-surface-variant/60 mb-2 px-0.5">试试这样问 👇</p>
+          <p className="section-label mb-2.5 px-0.5">试试这样问</p>
           <div className="grid grid-cols-2 gap-2.5">
-            {EXAMPLES.map((e) => (
+            {EXAMPLES.map((e, i) => (
               <button
                 key={e.q}
                 onClick={() => ask(e.q)}
-                className="flex flex-col gap-1.5 text-left bg-white rounded-2xl border-2 border-on-surface shadow-sticker-sm p-3 press-sm"
+                className="stagger flex flex-col gap-2 text-left card !rounded-2xl p-3.5 press"
+                style={{ '--i': i } as React.CSSProperties}
               >
                 <span className="text-2xl leading-none">{e.icon}</span>
-                <span className="text-sm font-bold leading-snug text-on-surface">{e.q}</span>
+                <span className="text-[13px] font-medium leading-snug text-on-surface">{e.q}</span>
               </button>
             ))}
           </div>
@@ -87,18 +93,22 @@ export default function AskSheet({ onClose }: AskSheetProps) {
       )}
 
       {loading && (
-        <div className="space-y-1.5 py-2">
-          <div className="h-3 bg-on-surface/10 rounded animate-pulse" />
-          <div className="h-3 w-4/5 bg-on-surface/10 rounded animate-pulse" />
+        <div className="flex items-center gap-2 text-sm text-on-surface-variant py-3 animate-fade-in">
+          <span className="flex gap-1" aria-hidden>
+            {[0, 1, 2].map((i) => (
+              <span key={i} className="w-1.5 h-1.5 rounded-full bg-primary animate-bounce" style={{ animationDelay: `${i * 0.15}s` }} />
+            ))}
+          </span>
+          AI 正在翻你们的记录…
         </div>
       )}
-      {err && <div className="text-primary font-bold text-sm bg-primary/10 border-2 border-primary/25 rounded-lg px-3 py-2">{err}</div>}
+      {err && <div className="text-primary-dark text-sm bg-primary-soft rounded-2xl px-3.5 py-2.5 animate-shake">{err}</div>}
       {answer && (
-        <div className="sticker p-4 mt-1">
-          <div className="flex items-center gap-1 text-primary font-bold text-sm mb-2">
-            <Icon name="auto_awesome" className="text-accent" /> AI 食探
+        <div className="card p-4 mt-1 animate-fade-up">
+          <div className="flex items-center gap-1 text-primary font-semibold text-sm mb-2">
+            <Icon name="auto_awesome" filled className="text-accent text-[18px]" /> AI 食探
           </div>
-          <p className="text-on-surface leading-relaxed whitespace-pre-wrap">{answer}</p>
+          <p className="text-on-surface leading-relaxed whitespace-pre-wrap text-[15px]">{answer}</p>
         </div>
       )}
     </SheetShell>

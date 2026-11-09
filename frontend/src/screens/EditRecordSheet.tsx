@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import SheetShell from '../ui/SheetShell'
-import StickerButton from '../ui/StickerButton'
+import Button from '../ui/Button'
+import Icon from '../ui/Icon'
 import DateTimeWheel from '../ui/WheelPicker'
 import PhotoPicker from '../components/PhotoPicker'
 import Stepper from '../ui/Stepper'
@@ -126,88 +127,88 @@ export default function EditRecordSheet({ kind, data, storeName, onClose, onChan
 
   return (
     <SheetShell onClose={onClose}>
-      <div className="flex items-start justify-between gap-2 mb-3">
-        <div className="min-w-0">
-          <h3 className="font-headline text-xl leading-tight">{readonly ? (kind === 'visit' ? '查看记录' : '查看想去') : kind === 'visit' ? '编辑这次记录' : '编辑想去'}</h3>
-          <p className="text-xs text-on-surface-variant">{storeName}</p>
-        </div>
+      <div className="mb-4 pr-10">
+        <h3 className="text-xl font-bold tracking-tight leading-tight">{readonly ? (kind === 'visit' ? '查看记录' : '查看想去') : kind === 'visit' ? '编辑这次记录' : '编辑想去'}</h3>
+        <p className="text-sm text-on-surface-variant mt-0.5 truncate">{storeName}</p>
+      </div>
+
+      {/* 一行小操作：左 店选错了（只读时不显示），右 还想来 */}
+      <div className="flex items-center justify-between gap-2 mb-4 min-h-[32px]">
+        {!readonly && !swapOpen ? (
+          <button onClick={() => setSwapOpen(true)} className="inline-flex items-center gap-1 text-xs font-semibold text-on-surface-variant bg-surface-2 rounded-full px-3 py-1.5 press-sm">
+            <Icon name="storefront" className="text-[15px]" /> 店选错了？
+          </button>
+        ) : (
+          <span />
+        )}
+        {kind === 'visit' && (
+          <button
+            onClick={() => setWantAgain((a) => !a)}
+            disabled={readonly}
+            aria-pressed={wantAgain}
+            className={`inline-flex items-center gap-1 px-3 py-1.5 rounded-full text-xs font-semibold press-sm transition-colors ${
+              wantAgain ? 'bg-rose-soft text-rose-ink' : 'bg-surface-2 text-on-surface-variant'
+            }`}
+          >
+            <Icon key={String(wantAgain)} name="favorite" filled={wantAgain} className="text-[14px] animate-pop-in" /> 还想来
+          </button>
+        )}
       </div>
 
       {/* 店选错了：重新搜一家，把这条记录搬过去（店名/地图位置都跟着新店走） */}
-      {!readonly && (
-        <div className="mb-3">
-          {!swapOpen ? (
-            <button onClick={() => setSwapOpen(true)} className="text-xs font-bold text-primary underline underline-offset-2 press-sm">
-              🏪 店选错了？换一家
-            </button>
-          ) : (
-            <div className="border-2 border-dashed border-on-surface/25 rounded-xl p-2.5">
-              <StoreSearchBox
-                city={localStorage.getItem('last_city') || '重庆'}
-                localPoints={localPoints}
-                initialQuery={storeName}
-                placeholder="搜正确的店名"
-                onPick={swapTo}
-              />
-              <p className="text-[11px] text-on-surface-variant mt-2">点一家，这条记录就搬过去（店名/地图位置跟着新店走）</p>
-            </div>
-          )}
+      {!readonly && swapOpen && (
+        <div className="rounded-3xl bg-surface-2/70 p-3 mb-4 animate-pop-in origin-top">
+          <StoreSearchBox
+            city={localStorage.getItem('last_city') || '重庆'}
+            localPoints={localPoints}
+            initialQuery={storeName}
+            placeholder="搜正确的店名"
+            onPick={swapTo}
+          />
+          <p className="text-[11px] text-on-surface-variant mt-2">点一家，这条记录就搬过去（店名和地图位置跟着新店走）</p>
         </div>
       )}
 
       {readonly && (
-        <div className="text-xs text-on-surface-variant text-center mb-2 bg-surface border-2 border-dashed border-on-surface/20 rounded-lg py-1.5">
+        <div className="text-xs text-on-surface-variant text-center mb-4 bg-surface-2 rounded-full py-2">
           👀 {recordedByName || '圈友'} 记的，你只能看
         </div>
       )}
       <div className={readonly ? 'pointer-events-none select-none' : ''}>
       {kind === 'visit' ? (
-        <div className="space-y-1.5">
+        <div className="space-y-4">
           {/* 心情：5 个表情圈 */}
           <MoodPicker value={emoji} onChange={setEmoji} readonly={readonly} />
 
-          {/* 还想来：从顶栏移下来，避免和抽屉关闭 ✕ 打架 */}
-          <div className="flex justify-end">
-            <button
-              onClick={() => setWantAgain((a) => !a)}
-              className={`px-3 py-1 rounded-full border-2 border-on-surface text-xs font-bold shadow-sticker-sm press-sm ${
-                wantAgain ? 'bg-primary text-white' : 'bg-white text-on-surface-variant'
-              }`}
-            >
-              {wantAgain ? '❤️ 还想来' : '🤍 还想来'}
-            </button>
-          </div>
-
           {/* 时间滚轮 */}
-          <Row label="📅 哪天 · 哪顿">
+          <Row label="哪天 · 哪顿">
             <DateTimeWheel value={date} onChange={setDate} meal={meal} onMealChange={setMeal} />
           </Row>
 
-          {/* 花费/人数 · 点评/和谁：两行两列网格 → 左列(花费=点评)同宽、右列(人数=和谁)同宽 */}
-          <div className="grid grid-cols-[1fr_116px] gap-x-2 gap-y-1.5 items-end">
-            <Row label="💰 花费">
-              <div className="relative">
-                <input type="number" inputMode="numeric" value={amount} onChange={(e) => setAmount(e.target.value)} placeholder="总价 ¥" className={`${input} pr-[86px]`} />
-                {!!amount && Number(people) > 0 && (
-                  <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-bold text-on-surface-variant pointer-events-none">
-                    人均 <b className="text-primary">¥{perPerson || '—'}</b>
-                  </span>
-                )}
-              </div>
+          {/* 花费 + 人数 同一行；和谁单独；点评是整段原话，给多行 */}
+          <div className="grid grid-cols-[1fr_124px] gap-x-2.5 items-end">
+            <Row label={!!amount && Number(people) > 0 ? `花费 · 人均 ¥${perPerson || '—'}` : '花费'}>
+              <input type="number" inputMode="numeric" value={amount} onChange={(e) => setAmount(e.target.value)} placeholder="总价 ¥" className={input} />
             </Row>
-            <Row label="👥 人数">
+            <Row label="人数">
               <Stepper value={Number(people) || 1} onChange={(v) => setPeople(String(v))} max={30} full />
             </Row>
-            <Row label="💬 点评">
-              <input value={feeling} onChange={(e) => setFeeling(e.target.value)} placeholder="好吃在哪" className={input} />
-            </Row>
-            <Row label="和谁">
-              <input value={companions} onChange={(e) => setCompanions(e.target.value)} placeholder="和谁一起" className={input} />
-            </Row>
           </div>
+          <Row label="和谁">
+            <input value={companions} onChange={(e) => setCompanions(e.target.value)} placeholder="和谁一起" className={input} />
+          </Row>
+          <Row label="点评">
+            <textarea
+              value={feeling}
+              onChange={(e) => setFeeling(e.target.value)}
+              placeholder="好吃在哪？想说点啥…"
+              rows={Math.min(8, Math.max(2, Math.ceil(feeling.length / 20)))}
+              className={`${input} resize-none leading-relaxed`}
+            />
+          </Row>
 
           {/* 口味标签（菜系/口味/菜品赞雷，AI 抽错的在这里改） */}
-          <Row label="🏷️ 口味标签">
+          <Row label="口味标签">
             <TasteEditor
               cuisine={cuisine}
               flavors={flavors}
@@ -221,7 +222,7 @@ export default function EditRecordSheet({ kind, data, storeName, onClose, onChan
           </Row>
 
           {/* 照片 */}
-          <Row label="📷 照片">
+          <Row label="照片">
             <PhotoPicker photos={photos} onChange={setPhotos} max={4} />
           </Row>
         </div>
@@ -237,38 +238,37 @@ export default function EditRecordSheet({ kind, data, storeName, onClose, onChan
       )}
       </div>
 
-      {err && <div className="text-primary font-bold text-sm bg-primary/10 border-2 border-primary/25 rounded-lg px-3 py-2 mt-3">{err}</div>}
+      {err && <div className="text-primary-dark text-sm bg-primary-soft rounded-2xl px-3.5 py-2.5 mt-4 animate-shake">{err}</div>}
 
       {readonly ? (
-        <div className="mt-3">
-          <button onClick={onClose} className="w-full py-2.5 rounded-full border-2 border-on-surface bg-white font-bold press-sm">关闭</button>
+        <div className="mt-5">
+          <Button variant="soft" full onClick={onClose}>
+            关闭
+          </Button>
         </div>
       ) : !confirmDel ? (
-        <div className="flex gap-2 mt-3">
+        <div className="flex gap-2.5 mt-5">
           <button
             onClick={() => setConfirmDel(true)}
-            className="shrink-0 px-5 py-2 rounded-full border-2 border-on-surface bg-white text-primary font-bold press-sm"
+            aria-label="删除"
+            className="shrink-0 w-[50px] rounded-full bg-primary-soft text-primary-dark flex items-center justify-center press"
           >
-            删除
+            <Icon name="delete" className="text-[22px]" />
           </button>
-          <StickerButton disabled={busy} onClick={save} className="flex-1 !py-2">
+          <Button loading={busy} onClick={save} className="flex-1">
             {busy ? '保存中…' : '保存'}
-          </StickerButton>
+          </Button>
         </div>
       ) : (
-        <div className="mt-3 text-center">
-          <p className="text-sm font-bold text-on-surface-variant mb-2">确认删除？删了找不回来</p>
-          <div className="flex gap-2">
-            <button onClick={() => setConfirmDel(false)} className="flex-1 px-4 py-3 rounded-full border-2 border-on-surface bg-white font-bold press-sm">
+        <div className="mt-5 text-center rounded-3xl bg-primary-soft/60 p-4 animate-pop-in">
+          <p className="text-sm font-semibold text-primary-dark mb-3">确认删除？删了找不回来</p>
+          <div className="flex gap-2.5">
+            <Button variant="white" className="flex-1" onClick={() => setConfirmDel(false)}>
               取消
-            </button>
-            <button
-              onClick={remove}
-              disabled={busy}
-              className="flex-1 px-4 py-3 rounded-full border-2 border-on-surface bg-primary text-white font-bold press-sm"
-            >
+            </Button>
+            <Button className="flex-1" loading={busy} onClick={remove}>
               {busy ? '删除中…' : '确认删除'}
-            </button>
+            </Button>
           </div>
         </div>
       )}
@@ -279,7 +279,7 @@ export default function EditRecordSheet({ kind, data, storeName, onClose, onChan
 function Row({ label, children, className = '' }: { label: string; children: React.ReactNode; className?: string }) {
   return (
     <div className={className}>
-      <label className="block text-sm font-bold text-on-surface-variant mb-1">{label}</label>
+      <label className="block section-label mb-1.5 px-0.5">{label}</label>
       {children}
     </div>
   )

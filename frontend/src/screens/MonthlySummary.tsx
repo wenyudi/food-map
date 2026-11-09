@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import Icon from '../ui/Icon'
 import { getMonthlyStory } from '../api'
 import type { Point, Visit } from '../api'
-import { cleanTag } from '../lib/format'
+import { cleanTag, localDate } from '../lib/format'
 import { useCountUp } from '../lib/useCountUp'
 
 type Props = Readonly<{ points: Point[]; refreshKey: number }>
@@ -11,8 +11,8 @@ type Props = Readonly<{ points: Point[]; refreshKey: number }>
 export default function MonthlySummary({ points, refreshKey }: Props) {
   const data = useMemo(() => {
     const now = new Date()
-    const thisMonth = now.toISOString().slice(0, 7)
-    const lastMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1).toISOString().slice(0, 7)
+    const thisMonth = localDate(now).slice(0, 7)
+    const lastMonth = localDate(new Date(now.getFullYear(), now.getMonth() - 1, 1)).slice(0, 7)
     const thisVisits: Array<Visit & { tag?: string }> = []
     let lastCount = 0
     for (const p of points) {
@@ -92,83 +92,92 @@ export default function MonthlySummary({ points, refreshKey }: Props) {
 
   if (data.visitCount === 0 && data.wishCount === 0) return null
 
-  // 折叠态：紧凑一行
-  if (collapsed) {
-    return (
-      <button
-        onClick={toggle}
-        className="w-full flex items-center justify-between rounded-xl border-2 border-on-surface bg-white shadow-sticker-sm px-3 py-2.5 mb-3 press-sm"
-      >
-        <span className="flex items-center gap-2 font-bold text-sm">
-          <Icon name="bar_chart" className="text-primary text-xl" />
-          本月 · <b>{cVisit}</b> 次 · <b>¥{cSpent}</b>
-          {data.topTag && (
-            <>
-              · 最爱 <b className="text-primary">{data.topTag}</b>
-            </>
-          )}
-        </span>
-        <Icon name="expand_more" className="text-on-surface-variant" />
-      </button>
-    )
-  }
-
-  // 展开态
   const delta = data.visitCount - data.lastCount
   const deltaTxt = data.lastCount === 0 ? '' : delta > 0 ? `↑ 上月 ${data.lastCount}` : delta < 0 ? `↓ 上月 ${data.lastCount}` : '= 上月'
 
+  // 折叠 / 展开共用一张卡：头部一行常驻，详情用 grid 0fr→1fr 平滑展开
   return (
-    <div className="rounded-xl border-2 border-on-surface bg-white shadow-sticker-sm p-3 mb-3">
-      <div className="flex items-center justify-between mb-2">
-        <span className="flex items-center gap-1 font-headline text-lg">
-          <Icon name="bar_chart" className="text-primary" /> 本月小结
-        </span>
-        <button onClick={toggle} className="text-on-surface-variant text-sm font-bold flex items-center gap-1">
-          {data.label} <Icon name="expand_less" />
-        </button>
-      </div>
-
-      <div className="flex gap-2">
-        <Cell value={String(cVisit)} label="次出门" sub={deltaTxt} />
-        <Cell value={`¥${cSpent}`} label="总花费" />
-        {data.topTag && <Cell value={data.topTag} label="最常吃" />}
-        {data.fulfilled > 0 && <Cell value={String(cFulfilled)} label="兑现 ✨" />}
-      </div>
-
-      {data.visitCount > 0 && (
-        <div className="mt-3 pt-3 border-t-2 border-dashed border-on-surface/15">
-          <div className="flex items-center justify-between mb-1">
-            <span className="text-sm font-bold text-primary flex items-center gap-1">
-              <Icon name="auto_awesome" className="text-accent text-base" /> AI 写的本月回忆
+    <div className="card overflow-hidden">
+      <button onClick={toggle} aria-expanded={!collapsed} className="w-full flex items-center justify-between gap-2 px-4 py-3.5 text-left press-sm">
+        <span className="flex items-center gap-2.5 min-w-0">
+          <span className="w-8 h-8 rounded-xl bg-primary-soft flex items-center justify-center shrink-0">
+            <Icon name="bar_chart" className="text-primary text-[19px]" />
+          </span>
+          {collapsed ? (
+            <span className="text-sm truncate">
+              {data.visitCount === 0 ? (
+                `这个月还没开张${data.lastCount ? ` · 上月吃了 ${data.lastCount} 顿` : ''}`
+              ) : (
+                <>
+              本月 <b className="font-num font-semibold">{cVisit}</b> 次 · <b className="font-num font-semibold">¥{cSpent}</b>
+              {data.topTag && (
+                <>
+                  {' '}
+                  · 最爱 <b className="text-primary-dark font-semibold">{data.topTag}</b>
+                </>
+              )}
+                </>
+              )}
             </span>
-            <button onClick={() => loadStory(true)} disabled={storyLoading} className="text-on-surface-variant press-sm">
-              <Icon name="autorenew" className={'text-base' + (storyLoading ? ' animate-spin' : '')} />
-            </button>
-          </div>
-          {storyLoading && !story ? (
-            <div className="space-y-1.5">
-              <div className="h-3 bg-on-surface/10 rounded animate-pulse" />
-              <div className="h-3 w-4/5 bg-on-surface/10 rounded animate-pulse" />
+          ) : (
+            <span className="text-[15px] font-bold">本月小结</span>
+          )}
+        </span>
+        <span className="flex items-center gap-1 text-xs text-on-surface-variant shrink-0">
+          {!collapsed && <span className="font-num">{data.label}</span>}
+          <Icon name="expand_more" className={`transition-transform duration-500 ease-spring ${collapsed ? '' : 'rotate-180'}`} />
+        </span>
+      </button>
+
+      <div className={`grid transition-[grid-template-rows] duration-500 ease-out-expo ${collapsed ? 'grid-rows-[0fr]' : 'grid-rows-[1fr]'}`}>
+        <div className="min-h-0 overflow-hidden">
+          <div className={`px-4 pb-4 transition-opacity duration-300 ${collapsed ? 'opacity-0' : 'opacity-100 delay-100'}`}>
+            <div className="flex rounded-2xl bg-surface-2/70 py-3">
+              <Cell value={String(cVisit)} label="次出门" sub={deltaTxt} />
+              <Cell value={`¥${cSpent}`} label="总花费" />
+              {data.topTag && <Cell value={data.topTag} label="最常吃" />}
+              {data.fulfilled > 0 && <Cell value={String(cFulfilled)} label="兑现 ✨" />}
             </div>
-          ) : story ? (
-            <p className={`text-sm leading-relaxed text-on-surface ${storyLoading ? 'opacity-50' : ''}`}>{story}</p>
-          ) : storyError ? (
-            <button onClick={() => loadStory(false)} className="text-sm text-on-surface-variant underline underline-offset-2 press-sm">
-              回忆没加载出来，点一下重试
-            </button>
-          ) : null}
+
+            {data.visitCount > 0 && (
+              <div className="mt-3.5">
+                <div className="flex items-center justify-between mb-1.5">
+                  <span className="text-[13px] font-semibold text-primary-dark flex items-center gap-1">
+                    <Icon name="auto_awesome" filled className="text-accent text-base" /> AI 写的本月回忆
+                  </span>
+                  <button onClick={() => loadStory(true)} disabled={storyLoading} aria-label="重写回忆" className="w-7 h-7 rounded-full flex items-center justify-center text-on-surface-variant hover:bg-surface-2 press-sm">
+                    <Icon name="autorenew" className={'text-base' + (storyLoading ? ' animate-spin' : '')} />
+                  </button>
+                </div>
+                {storyLoading && !story ? (
+                  <div className="space-y-2">
+                    <div className="skeleton h-3" />
+                    <div className="skeleton h-3 w-4/5" />
+                  </div>
+                ) : story ? (
+                  <p key={story} className={`text-sm leading-relaxed text-on-surface/90 text-pretty animate-fade-in ${storyLoading ? 'opacity-50' : ''}`}>
+                    {story}
+                  </p>
+                ) : storyError ? (
+                  <button onClick={() => loadStory(false)} className="text-sm text-on-surface-variant underline underline-offset-4 press-sm">
+                    回忆没加载出来，点一下重试
+                  </button>
+                ) : null}
+              </div>
+            )}
+          </div>
         </div>
-      )}
+      </div>
     </div>
   )
 }
 
 function Cell({ value, label, sub }: { value: string; label: string; sub?: string }) {
   return (
-    <div className="flex-1 min-w-0 text-center">
-      <div className="font-num font-bold text-xl text-primary leading-none truncate">{value}</div>
-      <div className="text-[11px] font-bold text-on-surface-variant mt-1">{label}</div>
-      {sub && <div className="text-[10px] text-on-surface-variant/70">{sub}</div>}
+    <div className="flex-1 min-w-0 text-center px-1 [&+&]:border-l [&+&]:border-line">
+      <div className="font-num font-semibold text-xl text-on-surface leading-none truncate tabular-nums">{value}</div>
+      <div className="text-[11px] text-on-surface-variant mt-1.5">{label}</div>
+      {sub && <div className="text-[10px] text-on-surface-variant/70 mt-0.5">{sub}</div>}
     </div>
   )
 }

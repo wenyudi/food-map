@@ -1,628 +1,363 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import type { ReactNode } from 'react'
+import { useMemo, useState } from 'react'
 import Icon from '../ui/Icon'
 import SheetShell from '../ui/SheetShell'
-import StickerButton from '../ui/StickerButton'
+import Button from '../ui/Button'
+import EmptyState from '../ui/EmptyState'
+import Presence from '../ui/Presence'
+import ScopeBar from '../ui/ScopeBar'
+import Stamp from '../ui/Stamp'
+import Toast from '../ui/Toast'
 import AskSheet from './AskSheet'
-import EditRecordSheet from './EditRecordSheet'
-import { getPoints } from '../api'
+import FilterSheet from '../components/FilterSheet'
+import StoreDetail from '../components/StoreDetail'
+import { buildTimeline, getStatus, prettyDate, STATUS_STAMP, storeCuisine } from '../components/StoreTimeline'
 import type { Point } from '../api'
-import { cleanTag } from '../lib/format'
-import { TimelineRow, buildTimeline, getStatus, STATUS_TONE, storeCuisine } from '../components/StoreTimeline'
-import type { StoreStatus } from '../components/StoreTimeline'
-import OpenHours from '../components/OpenHours'
-import { MOODS, MOOD_LABEL } from '../lib/moods'
+import { latestTs, recordLabel } from '../lib/browse'
+import type { Scope } from '../lib/browse'
+import { fmtDist } from '../lib/format'
+import { MOOD_LABEL } from '../lib/moods'
 import type { Mood } from '../lib/moods'
-type StatusKey = 'fav' | 'want' | 'fulfilled' | 'repeat'
-const STATUS_OPTS: { key: StatusKey; label: string; icon: string }[] = [
-  { key: 'fav', label: '想再来', icon: 'star' },
-  { key: 'want', label: '想去', icon: 'favorite' },
-  { key: 'fulfilled', label: '已兑现', icon: 'auto_awesome' },
-  { key: 'repeat', label: '二刷', icon: 'replay' },
-]
-/** 多维筛选：维度内多选(OR)，跨维度 AND；空 = 不筛 */
-type Filters = { moods: Mood[]; status: StatusKey[]; cuisines: string[]; authors: string[] }
-type EditTarget = { kind: 'visit' | 'wish'; data: any; storeName: string }
-
-/** 某店是否命中某个「状态」筛选项 */
-function matchStatus(p: Point, key: StatusKey): boolean {
-  if (key === 'fav') return p.visits.some((v) => v.want_again)
-  return getStatus(p).key === key
-}
-function latestTs(p: Point): number {
-  const visits = p.visits.map((v) => Date.parse(v.date) || 0)
-  const wishTs = p.wish ? Date.parse(p.wish.created_at) || 0 : 0
-  return Math.max(0, wishTs, ...visits)
-}
-function buildShareText(p: Point): string {
-  const lines: string[] = [`📍「${p.name}」`]
-  const meta = [p.business_area, cleanTag(p.tag), p.cost && `人均¥${p.cost}`].filter(Boolean).join(' · ')
-  if (meta) lines.push(meta)
-  const lastVisit = [...p.visits].sort((a, b) => a.date.localeCompare(b.date)).slice(-1)[0]
-  if (lastVisit) lines.push([lastVisit.mood_emoji, lastVisit.feeling].filter(Boolean).join(' ') || '记过一笔')
-  else if (p.wish?.reason) lines.push(`想去：${p.wish.reason}`)
-  lines.push('—— 来自我的美食地图')
-  return lines.join('\n')
-}
-
-// 卡片底色按状态微微上色（让列表更有颜色，与状态标签同色系）
-const STATUS_CARD: Record<StoreStatus['key'], string> = {
-  want: 'bg-gradient-to-br from-tertiary/50 to-white',
-  repeat: 'bg-gradient-to-br from-accent/40 to-white',
-  fulfilled: 'bg-gradient-to-br from-green-accent/30 to-white',
-  direct: 'bg-gradient-to-br from-surface to-white',
-}
+import { cuisineEmoji } from '../lib/taste'
+import type { Browse } from '../lib/useBrowse'
 
 type ListScreenProps = Readonly<{
-  refreshKey: number
-  focusPoiId?: string | null
-  onPickStore?: (poiId: string) => void
-  onRecordStore?: (poiId: string) => void
-  onJumpToAdd?: () => void
-  onInvite?: () => void
+  browse: Browse
+  /** 圈友新记了的店 */
+  newPoiIds: Set<string>
+  onShowOnMap: (poiId: string) => void
+  onRecordStore: (poiId: string) => void
+  onCompose: () => void
+  onInvite: () => void
   myUsername?: string
   circleRole?: string
 }>
 
-export default function ListScreen({ refreshKey, focusPoiId, onPickStore, onRecordStore, onJumpToAdd, onInvite, myUsername, circleRole }: ListScreenProps) {
-  const [points, setPoints] = useState<Point[]>([])
-  const [loading, setLoading] = useState(true)
-  const [loadError, setLoadError] = useState(false)
-  const [filters, setFilters] = useState<Filters>({ moods: [], status: [], cuisines: [], authors: [] })
+/** 按月分组的标题：本月 / 10 月 / 2025 年 8 月 */
+function monthLabel(ts: number): string {
+  if (!ts) return '更早'
+  const d = new Date(ts)
+  const now = new Date()
+  if (d.getFullYear() !== now.getFullYear()) return `${d.getFullYear()} 年 ${d.getMonth() + 1} 月`
+  return d.getMonth() === now.getMonth() ? '本月' : `${d.getMonth() + 1} 月`
+}
+
+/** 清单：一家店一行，够认出来、够回想起来就好；要细看点开详情 */
+export default function ListScreen({ browse, newPoiIds, onShowOnMap, onRecordStore, onCompose, onInvite, myUsername, circleRole }: ListScreenProps) {
+  const { points, loading, loadError, reload, scope, setScope, filters, toggleFilter, clearFilters, query, setQuery, counts, visible, sort, setSort, sortNear, distanceOf, facets, multiAuthor, activeCount } = browse
   const [filterOpen, setFilterOpen] = useState(false)
-  const [query, setQuery] = useState('')
   const [askOpen, setAskOpen] = useState(false)
-  const [editing, setEditing] = useState<EditTarget | null>(null)
-  const [flashId, setFlashId] = useState<string | null>(null)
+  const [openId, setOpenId] = useState<string | null>(null)
+  const [scrolled, setScrolled] = useState(false)
+  const [locating, setLocating] = useState(false)
   const [toast, setToast] = useState<string | null>(null)
-  const cardRefs = useRef<Record<string, HTMLDivElement | null>>({})
+  const canWrite = circleRole !== 'viewer'
 
-  const activeCount = filters.moods.length + filters.status.length + filters.cuisines.length + filters.authors.length
-  const toggleMood = (m: Mood) =>
-    setFilters((f) => ({ ...f, moods: f.moods.includes(m) ? f.moods.filter((x) => x !== m) : [...f.moods, m] }))
-  const toggleStatus = (s: StatusKey) =>
-    setFilters((f) => ({ ...f, status: f.status.includes(s) ? f.status.filter((x) => x !== s) : [...f.status, s] }))
-  const toggleCuisine = (c: string) =>
-    setFilters((f) => ({ ...f, cuisines: f.cuisines.includes(c) ? f.cuisines.filter((x) => x !== c) : [...f.cuisines, c] }))
-  const toggleAuthor = (a: string) =>
-    setFilters((f) => ({ ...f, authors: f.authors.includes(a) ? f.authors.filter((x) => x !== a) : [...f.authors, a] }))
-  const clearFilters = () => setFilters({ moods: [], status: [], cuisines: [], authors: [] })
+  // 按 id 从全量取：改完 / 删完记录立刻是新数据；店没了详情自己关
+  const opened = openId ? points.find((p) => p.poi_id === openId) || null : null
 
-  // seq 防竞态：切圈/快速刷新时旧请求晚到，不能覆盖新圈数据
-  const loadSeq = useRef(0)
-  const load = useCallback(() => {
-    const seq = ++loadSeq.current
-    setLoading(true)
-    setLoadError(false)
-    getPoints()
-      .then((p) => { if (seq === loadSeq.current) setPoints(p) })
-      .catch(() => { if (seq === loadSeq.current) { setPoints([]); setLoadError(true) } })
-      .finally(() => { if (seq === loadSeq.current) setLoading(false) })
-  }, [])
-  useEffect(() => {
-    load()
-  }, [load, refreshKey])
+  const summary = useMemo(() => {
+    const meals = points.reduce((n, p) => n + p.visit_count, 0)
+    const spent = points.reduce((n, p) => n + p.visits.reduce((m, v) => m + (Number(v.amount) || 0), 0), 0)
+    return meals ? `一起吃了 ${meals} 顿 · 花了 ¥${Math.round(spent)}` : '吃过的、想去的，都收在这里'
+  }, [points])
 
-  // 有任何「不是我记的」记录就显示作者标注（自己一个人记的不啰嗦）
-  const multiAuthor = useMemo(
-    () =>
-      points.some(
-        (p) =>
-          (p.wish?.recorded_by && p.wish.recorded_by !== myUsername) ||
-          p.visits.some((v) => v.recorded_by && v.recorded_by !== myUsername),
-      ),
-    [points, myUsername],
-  )
-
-  const { filtered, moodCount, statusCount, cuisineList, authorList } = useMemo(() => {
-    // 各维度选项的全局计数（独立于当前选择）
-    const moodCount: Record<string, number> = {}
-    const statusCount: Record<string, number> = {}
-    const cuisineCount: Record<string, number> = {}
-    const authorMap = new Map<string, string>()
-    MOODS.forEach((m) => (moodCount[m] = 0))
-    STATUS_OPTS.forEach((s) => (statusCount[s.key] = 0))
-    points.forEach((p) => {
-      MOODS.forEach((m) => {
-        if (p.visits.some((v) => v.mood_emoji === m)) moodCount[m]++
-      })
-      STATUS_OPTS.forEach((s) => {
-        if (matchStatus(p, s.key)) statusCount[s.key]++
-      })
-      const t = storeCuisine(p)
-      if (t) cuisineCount[t] = (cuisineCount[t] || 0) + 1
-      p.visits.forEach((v) => v.recorded_by && authorMap.set(v.recorded_by, v.recorded_by_name || v.recorded_by))
-      if (p.wish?.recorded_by) authorMap.set(p.wish.recorded_by, p.wish.recorded_by_name || p.wish.recorded_by)
-    })
-    const cuisineList = Object.entries(cuisineCount)
-      .sort((a, b) => b[1] - a[1])
-      .map(([name, n]) => ({ name, n }))
-    const authorList = [...authorMap.entries()].map(([u, nick]) => ({ u, nick }))
-
-    // 应用筛选：维度内 OR、跨维度 AND
-    let result = points.filter((p) => {
-      if (filters.moods.length && !filters.moods.some((m) => p.visits.some((v) => v.mood_emoji === m))) return false
-      if (filters.status.length && !filters.status.some((s) => matchStatus(p, s))) return false
-      if (filters.cuisines.length && !filters.cuisines.includes(storeCuisine(p))) return false
-      if (filters.authors.length && !filters.authors.some((a) => p.visits.some((v) => v.recorded_by === a) || p.wish?.recorded_by === a)) return false
-      return true
-    })
-    const q = query.trim().toLowerCase()
-    if (q) result = result.filter((p) => p.name.toLowerCase().includes(q))
-    const enriched = result
-      .sort((a, b) => latestTs(b) - latestTs(a))
-      .map((p) => ({ p, status: getStatus(p) }))
-    return { filtered: enriched, moodCount, statusCount, cuisineList, authorList }
-  }, [points, filters, query])
-
-  useEffect(() => {
-    if (!focusPoiId || loading) return
-    const inFiltered = filtered.find((e) => e.p.poi_id === focusPoiId)
-    if (!inFiltered && activeCount > 0) {
-      clearFilters()
-      return
-    }
-    const t = setTimeout(() => {
-      const el = cardRefs.current[focusPoiId]
-      if (el) {
-        el.scrollIntoView({ behavior: 'smooth', block: 'center' })
-        setFlashId(focusPoiId)
-        setTimeout(() => setFlashId(null), 2000)
-      }
-    }, 60)
-    return () => clearTimeout(t)
-  }, [focusPoiId, filtered, activeCount, loading])
-
-  async function shareStore(p: Point) {
-    const text = buildShareText(p)
-    try {
-      if (navigator.share) await navigator.share({ title: p.name, text })
-      else {
-        await navigator.clipboard.writeText(text)
-        setToast('已复制，粘贴给朋友吧 📋')
-        setTimeout(() => setToast(null), 1800)
-      }
-    } catch {
-      /* 用户取消 */
+  async function toggleSort() {
+    if (sort === 'near') return setSort('recent')
+    setLocating(true)
+    const ok = await sortNear()
+    setLocating(false)
+    if (!ok) {
+      setToast('定位没成功，检查下定位权限')
+      setTimeout(() => setToast(null), 2200)
     }
   }
 
+  const removable = [
+    ...filters.status.map((s) => ({ key: 's' + s, label: facetsStatusLabel(s), onRemove: () => toggleFilter('status', s) })),
+    ...filters.moods.map((m) => ({ key: 'm' + m, label: `${m} ${MOOD_LABEL[m as Mood]}`, onRemove: () => toggleFilter('moods', m) })),
+    ...filters.cuisines.map((c) => ({ key: 'c' + c, label: c, onRemove: () => toggleFilter('cuisines', c) })),
+    ...filters.authors.map((a) => ({
+      key: 'a' + a,
+      label: `${facets.authorList.find((x) => x.u === a)?.nick || a} 记的`,
+      onRemove: () => toggleFilter('authors', a),
+    })),
+  ]
+
   return (
     <div className="h-full flex flex-col">
-      <div className="flex-1 min-h-0 overflow-y-auto px-4 pt-[calc(env(safe-area-inset-top)_+_1rem)] pb-12">
-        {/* 搜索（右侧内嵌筛选）+ 问地图 */}
-        <div className="flex gap-2 mb-3">
-          <div className="flex-1 min-w-0 flex items-center gap-2 rounded-full border-2 border-on-surface bg-white pl-4 pr-1.5 py-1.5 shadow-sticker-sm">
-            <Icon name="search" className="text-on-surface-variant text-xl shrink-0" />
-            <input
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-              placeholder="搜店名…"
-              className="flex-1 min-w-0 bg-transparent outline-none font-body text-on-surface placeholder:text-on-surface-variant/60"
-            />
-            {query && (
-              <button onClick={() => setQuery('')} aria-label="清空搜索" className="shrink-0 text-on-surface-variant press-sm">
-                <Icon name="close" className="text-lg" />
-              </button>
-            )}
-            <span className="w-px h-5 bg-on-surface/15 shrink-0" />
-            {/* 筛选：内嵌搜索框右侧，点开多维筛选弹窗 */}
-            <button
-              onClick={() => setFilterOpen(true)}
-              aria-label="筛选"
-              className={`relative shrink-0 w-8 h-8 rounded-full flex items-center justify-center press-sm ${
-                activeCount ? 'bg-primary text-white' : 'text-on-surface-variant'
-              }`}
-            >
-              <Icon name="tune" className="text-xl" />
-              {activeCount > 0 && (
-                <span className="absolute -top-1 -right-1 min-w-[16px] h-[16px] px-0.5 rounded-full bg-accent border-2 border-on-surface text-on-surface text-[9px] font-bold flex items-center justify-center">
-                  {activeCount}
-                </span>
+      <div className="flex-1 min-h-0 overflow-y-auto px-4 pb-tabbar" onScroll={(e) => setScrolled(e.currentTarget.scrollTop > 56)}>
+        {/* 大标题 */}
+        <header className="pt-[calc(env(safe-area-inset-top)_+_1.25rem)] pb-1 animate-fade-up">
+          <h1 className="text-[28px] font-bold tracking-tight leading-tight">清单</h1>
+          <p className="text-sm text-on-surface-variant mt-0.5">{loading && points.length === 0 ? '翻一翻…' : summary}</p>
+        </header>
+
+        {/* 吸顶：搜索 + 筛选 + 问地图，范围切换 + 排序 */}
+        <div
+          className={`sticky top-0 z-20 -mx-4 px-4 pt-[calc(env(safe-area-inset-top)_+_0.5rem)] pb-2.5 -mt-[env(safe-area-inset-top)] transition-[background-color,box-shadow] duration-300 ${
+            scrolled ? 'bg-surface/85 backdrop-blur-xl shadow-[0_1px_0_#ece3d8]' : ''
+          }`}
+        >
+          <div className="flex gap-2">
+            <div className="flex-1 min-w-0 flex items-center gap-2 rounded-full bg-white shadow-soft ring-1 ring-line pl-4 pr-1.5 py-1.5 transition-shadow has-[input:focus]:ring-primary/40 has-[input:focus]:shadow-ring">
+              <Icon name="search" className="text-on-surface-variant text-xl shrink-0" />
+              <input
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                placeholder="搜店名…"
+                enterKeyHint="search"
+                className="flex-1 min-w-0 bg-transparent outline-none text-[15px] text-on-surface placeholder:text-on-surface-variant/60"
+              />
+              {query && (
+                <button onClick={() => setQuery('')} aria-label="清空搜索" className="shrink-0 w-6 h-6 rounded-full bg-surface-2 text-on-surface-variant flex items-center justify-center press-sm animate-pop-in">
+                  <Icon name="close" className="text-[15px]" />
+                </button>
               )}
+              <button
+                onClick={() => setFilterOpen(true)}
+                aria-label="筛选"
+                className={`relative shrink-0 w-9 h-9 rounded-full flex items-center justify-center press-sm transition-colors ${removable.length ? 'bg-primary text-white' : 'bg-surface-2 text-on-surface-variant'}`}
+              >
+                <Icon name="tune" className="text-xl" />
+                {removable.length > 0 && (
+                  <span key={removable.length} className="absolute -top-1 -right-1 min-w-[18px] h-[18px] px-1 rounded-full bg-accent ring-2 ring-white text-on-surface text-[10px] font-bold flex items-center justify-center animate-pop-in">
+                    {removable.length}
+                  </span>
+                )}
+              </button>
+            </div>
+            <button onClick={() => setAskOpen(true)} className="shrink-0 bg-primary-soft text-primary-dark rounded-full px-4 flex items-center gap-1 press font-semibold text-[15px]">
+              <Icon name="forum" filled className="text-lg" />
+              问地图
             </button>
           </div>
-          <button
-            onClick={() => setAskOpen(true)}
-            className="shrink-0 bg-primary text-white rounded-full border-2 border-on-surface shadow-sticker px-4 flex items-center gap-1 press font-headline font-bold"
-          >
-            <Icon name="forum" className="text-lg" />
-            问地图
-          </button>
+
+          <div className="flex items-center gap-2 mt-2.5">
+            <ScopeBar
+              inline
+              className="flex-1 bg-surface-2"
+              active={scope}
+              onPick={(k) => setScope(k as Scope)}
+              cells={[
+                { key: 'all', label: '全部', value: counts.all },
+                { key: 'visited', label: '吃过', value: counts.visited },
+                { key: 'want', label: '想去', value: counts.want },
+              ]}
+            />
+            <button
+              onClick={toggleSort}
+              aria-pressed={sort === 'near'}
+              className={`shrink-0 h-[38px] rounded-full px-3 flex items-center gap-1 text-[13px] font-semibold press-sm transition-colors ${sort === 'near' ? 'bg-primary-soft text-primary-dark' : 'bg-surface-2 text-on-surface-variant'}`}
+            >
+              <Icon name={sort === 'near' ? 'near_me' : 'schedule'} filled={sort === 'near'} className={`text-[16px] ${locating ? 'animate-pulse' : ''}`} />
+              {sort === 'near' ? '离我近' : '最近'}
+            </button>
+          </div>
+
+          {/* 已选筛选条件：点 ✕ 可单独移除 */}
+          {removable.length > 0 && (
+            <div className="flex flex-wrap items-center gap-1.5 mt-2.5">
+              {removable.map((r) => (
+                <ActiveChip key={r.key} label={r.label} onRemove={r.onRemove} />
+              ))}
+              <button onClick={clearFilters} className="text-xs font-medium text-on-surface-variant px-2 py-1 press-sm">
+                清空
+              </button>
+            </div>
+          )}
         </div>
 
-        {/* 已选筛选条件：点 ✕ 可单独移除 */}
-        {activeCount > 0 && (
-          <div className="flex flex-wrap items-center gap-1.5 mb-3">
-            {filters.status.map((s) => (
-              <ActiveChip key={s} label={STATUS_OPTS.find((o) => o.key === s)?.label || s} onRemove={() => toggleStatus(s)} />
-            ))}
-            {filters.moods.map((m) => (
-              <ActiveChip key={m} label={`${m} ${MOOD_LABEL[m]}`} onRemove={() => toggleMood(m)} />
-            ))}
-            {filters.cuisines.map((c) => (
-              <ActiveChip key={c} label={c} variant="white" onRemove={() => toggleCuisine(c)} />
-            ))}
-            {filters.authors.map((a) => (
-              <ActiveChip key={a} label={`${authorList.find((x) => x.u === a)?.nick || a} 记`} onRemove={() => toggleAuthor(a)} />
-            ))}
-            <button onClick={clearFilters} className="text-xs font-bold text-on-surface-variant px-2 py-1 underline">
-              清空
-            </button>
-          </div>
-        )}
-
-        {loading && <ListSkeleton />}
+        {loading && points.length === 0 && <ListSkeleton />}
 
         {/* 加载失败 ≠ 没有记录：明确告知 + 一键重试，别让人误以为记录丢了 */}
         {!loading && loadError && (
-          <div className="flex flex-col items-center text-center py-16">
-            <div className="text-5xl mb-2">📡</div>
-            <div className="font-headline text-xl mb-1">没连上网</div>
-            <div className="text-sm text-on-surface-variant mb-4">记录都好好的，连上网刷新就回来</div>
-            <button
-              onClick={load}
-              className="bg-primary text-white rounded-full border-2 border-on-surface shadow-sticker px-5 py-2.5 font-headline font-bold press"
-            >
-              🔄 再试一次
-            </button>
-          </div>
+          <EmptyState
+            emoji="📡"
+            title="没连上网"
+            desc="记录都好好的，连上网刷新就回来"
+            action={
+              <Button onClick={reload}>
+                <Icon name="refresh" /> 再试一次
+              </Button>
+            }
+          />
         )}
 
         {!loading && !loadError && points.length === 0 && (
-          <div className="flex flex-col items-center text-center py-16">
-            <div className="text-5xl mb-2">🍜</div>
-            {circleRole === 'viewer' ? (
+          <EmptyState
+            emoji="🍜"
+            title={canWrite ? '还没有记录' : '这个圈还空着'}
+            desc={canWrite ? '记下第一家店，这里就会热闹起来' : '等记录员添上第一家，这里就热闹了'}
+            action={
+              canWrite && (
+                <Button onClick={onCompose}>
+                  <Icon name="edit" filled /> 去记第一笔
+                </Button>
+              )
+            }
+            extra={
+              canWrite && (
+                <button onClick={onInvite} className="text-sm font-medium text-on-surface-variant underline underline-offset-4 press-sm">
+                  或拉饭搭子进圈一起记
+                </button>
+              )
+            }
+          />
+        )}
+
+        {!loading && points.length > 0 && visible.length === 0 && (
+          <EmptyState
+            emoji="🍃"
+            title={query.trim() ? `没搜到「${query.trim()}」` : '这里还没有店'}
+            desc={activeCount > 0 ? '换个词，或者清掉几个筛选条件试试' : scope === 'want' ? '刷到想吃的店，记一笔「想去」就会收在这里' : '换个范围看看'}
+            action={
+              activeCount > 0 && (
+                <Button variant="white" onClick={clearFilters}>
+                  清掉筛选
+                </Button>
+              )
+            }
+          />
+        )}
+
+        <div className="flex flex-col gap-2.5 mt-1">
+          {visible.map((p, i) => {
+            const month = sort === 'recent' ? monthLabel(latestTs(p)) : ''
+            const showMonth = !!month && (i === 0 || month !== monthLabel(latestTs(visible[i - 1])))
+            return (
+              <div key={p.poi_id} className="contents">
+                {showMonth && <h2 className={`section-label px-1 ${i > 0 ? 'mt-3' : ''}`}>{month}</h2>}
+                <StoreRow
+                  index={i}
+                  point={p}
+                  isNew={newPoiIds.has(p.poi_id)}
+                  distance={sort === 'near' ? distanceOf(p) : null}
+                  showAuthor={multiAuthor}
+                  myUsername={myUsername}
+                  onOpen={() => setOpenId(p.poi_id)}
+                />
+              </div>
+            )
+          })}
+        </div>
+      </div>
+
+      <Presence show={!!opened}>
+        {opened && (
+          <SheetShell onClose={() => setOpenId(null)}>
+            <StoreDetail
+              point={opened}
+              showAuthor={multiAuthor}
+              myUsername={myUsername}
+              circleRole={circleRole}
+              onShowOnMap={() => {
+                setOpenId(null)
+                onShowOnMap(opened.poi_id)
+              }}
+              onChanged={reload}
+            />
+            {canWrite && (
+              <Button
+                full
+                className="mt-5"
+                onClick={() => {
+                  setOpenId(null) // 抽屉层级比全屏录入高，先收起来
+                  onRecordStore(opened.poi_id)
+                }}
+              >
+                <Icon name="edit_note" className="text-lg" /> {recordLabel(opened)}
+              </Button>
+            )}
+          </SheetShell>
+        )}
+      </Presence>
+      <Presence show={askOpen}>{askOpen && <AskSheet onClose={() => setAskOpen(false)} />}</Presence>
+      <Presence show={filterOpen}>{filterOpen && <FilterSheet browse={browse} myUsername={myUsername} onClose={() => setFilterOpen(false)} />}</Presence>
+      <Toast message={toast} />
+    </div>
+  )
+}
+
+const facetsStatusLabel = (s: string) => ({ fav: '想再来', fulfilled: '已兑现', repeat: '二刷以上' })[s] || s
+
+function StoreRow({
+  index,
+  point,
+  isNew,
+  distance,
+  showAuthor,
+  myUsername,
+  onOpen,
+}: {
+  index: number
+  point: Point
+  isNew: boolean
+  distance: number | null
+  showAuthor: boolean
+  myUsername?: string
+  onOpen: () => void
+}) {
+  const status = getStatus(point)
+  const latest = buildTimeline(point).slice(-1)[0]
+  // 头像优先用自己拍的，比高德的店面照更像回忆
+  const myPhoto = latest?.type === 'visit' ? (latest.data.my_photos || '').split('|').filter(Boolean)[0] : ''
+  const photo = myPhoto || (point.amap_photos || '').split('|').filter(Boolean)[0]
+  const [photoOk, setPhotoOk] = useState(true)
+  const by = latest?.data.recorded_by
+  const byOther = showAuthor && by && by !== myUsername ? latest?.data.recorded_by_name || by : ''
+
+  return (
+    <button onClick={onOpen} className="card !rounded-[22px] relative w-full text-left p-3 flex gap-3 stagger press" style={{ '--i': index } as React.CSSProperties}>
+      {status.label && <Stamp text={status.label} tone={STATUS_STAMP[status.key]} size={44} index={index} className="absolute top-2 right-2" />}
+      <div className="shrink-0 w-[60px] h-[60px] rounded-2xl overflow-hidden bg-surface-2 flex items-center justify-center text-[28px]">
+        {photo && photoOk ? (
+          <img src={photo} alt="" loading="lazy" onError={() => setPhotoOk(false)} className="w-full h-full object-cover" />
+        ) : (
+          cuisineEmoji(storeCuisine(point))
+        )}
+      </div>
+      <div className="flex-1 min-w-0">
+        <div className={`text-[16px] font-bold leading-snug tracking-tight line-clamp-1 ${status.label ? 'pr-11' : ''}`}>
+          {isNew && <span aria-label="有新记录" className="inline-block w-2 h-2 rounded-full bg-primary align-[2px] mr-1.5" />}
+          {point.name}
+        </div>
+        <div className={`text-xs text-on-surface-variant mt-0.5 truncate ${status.label ? 'pr-11' : ''}`}>
+          {[distance != null && fmtDist(distance), point.business_area, storeCuisine(point), point.cost && `¥${point.cost}/人`].filter(Boolean).join(' · ') || (point.lng ? '' : '未定位')}
+        </div>
+        {latest && (
+          <p className="text-[13px] text-on-surface/85 leading-snug mt-1 line-clamp-2">
+            {latest.type === 'visit' ? (
               <>
-                <div className="font-headline text-xl mb-1">这个圈还空着</div>
-                <div className="text-sm text-on-surface-variant">等记录员添上第一家，这里就热闹了 🍜</div>
+                <span className="text-on-surface-variant">
+                  {latest.data.mood_emoji} {prettyDate(latest.data.date)}
+                  {byOther && ` · ${byOther}`}
+                  {latest.data.feeling && ' · '}
+                </span>
+                {latest.data.feeling}
               </>
             ) : (
               <>
-                <div className="font-headline text-xl mb-1">还没有记录</div>
-                <div className="text-sm text-on-surface-variant mb-4">记下第一家店，这里就会热闹起来</div>
-                <div className="flex flex-col items-center gap-2.5">
-                  {onJumpToAdd && (
-                    <button
-                      onClick={onJumpToAdd}
-                      className="bg-primary text-white rounded-full border-2 border-on-surface shadow-sticker px-5 py-2.5 font-headline font-bold press"
-                    >
-                      ✏️ 去记第一笔
-                    </button>
-                  )}
-                  {onInvite && (
-                    <button onClick={onInvite} className="text-sm font-bold text-on-surface-variant underline underline-offset-2 press-sm">
-                      或 👯 拉饭搭子进圈一起记
-                    </button>
-                  )}
-                </div>
+                <span className="text-on-surface-variant">
+                  🌱 {latest.data.source}种草
+                  {byOther && ` · ${byOther}`}
+                  {latest.data.reason && ' · '}
+                </span>
+                {latest.data.reason}
               </>
             )}
-          </div>
-        )}
-
-        {!loading && points.length > 0 && filtered.length === 0 && (
-          <div className="text-center text-on-surface-variant py-10 text-sm">
-            {query.trim() ? `没搜到「${query.trim()}」` : '没有符合筛选的店 🍃'}
-          </div>
-        )}
-
-        <div className="flex flex-col gap-4">
-          {!loading &&
-            filtered.map(({ p, status }) => (
-              <StoreCard
-                key={p.poi_id}
-                point={p}
-                status={status}
-                flashing={flashId === p.poi_id}
-                cardRef={(el) => {
-                  cardRefs.current[p.poi_id] = el
-                }}
-                onClick={() => onPickStore?.(p.poi_id)}
-                onEdit={setEditing}
-                onShare={() => shareStore(p)}
-                onRecord={circleRole !== 'viewer' && onRecordStore ? () => onRecordStore(p.poi_id) : undefined}
-                showAuthor={multiAuthor}
-                myUsername={myUsername}
-              />
-            ))}
-        </div>
-      </div>
-
-      {editing && (
-        <EditRecordSheet
-          kind={editing.kind}
-          data={editing.data}
-          storeName={editing.storeName}
-          onClose={() => setEditing(null)}
-          onChanged={load}
-          readonly={!(!editing.data.recorded_by || editing.data.recorded_by === myUsername || circleRole === 'owner')}
-          recordedByName={editing.data.recorded_by_name}
-        />
-      )}
-      {askOpen && <AskSheet onClose={() => setAskOpen(false)} />}
-      {filterOpen && (
-        <FilterSheet
-          filters={filters}
-          moodCount={moodCount}
-          statusCount={statusCount}
-          cuisineList={cuisineList}
-          authorList={authorList}
-          myUsername={myUsername}
-          resultCount={filtered.length}
-          onToggleMood={toggleMood}
-          onToggleStatus={toggleStatus}
-          onToggleCuisine={toggleCuisine}
-          onToggleAuthor={toggleAuthor}
-          onClear={clearFilters}
-          onClose={() => setFilterOpen(false)}
-        />
-      )}
-      {toast && (
-        <div className="fixed bottom-24 left-1/2 -translate-x-1/2 z-[150] bg-on-surface text-white rounded-full px-4 py-2 text-sm font-bold shadow-sticker">
-          {toast}
-        </div>
-      )}
-    </div>
-  )
-}
-
-function StoreCard({
-  point,
-  status,
-  flashing,
-  cardRef,
-  onClick,
-  onEdit,
-  onShare,
-  onRecord,
-  showAuthor,
-  myUsername,
-}: {
-  point: Point
-  status: StoreStatus
-  flashing: boolean
-  cardRef: (el: HTMLDivElement | null) => void
-  onClick?: () => void
-  onEdit: (t: EditTarget) => void
-  onShare: () => void
-  onRecord?: () => void
-  showAuthor: boolean
-  myUsername?: string
-}) {
-  const timeline = buildTimeline(point)
-  const headEmoji = point.visit_count > 0 ? point.emoji : '❤️'
-  const headPhoto = (point.amap_photos || '').split('|').filter(Boolean)[0]
-  const isManual = String(point.poi_id).startsWith('m_')
-  const hasCoords = !!(point.lng && point.lat)
-
-  return (
-    <div
-      ref={cardRef}
-      className={`sticker p-4 transition-shadow ${STATUS_CARD[status.key]} ${flashing ? 'ring-4 ring-accent' : ''}`}
-    >
-      {/* 头部 */}
-      <div className="flex items-start gap-3">
-        <div className="relative shrink-0">
-          {headPhoto ? (
-            <img
-              src={headPhoto}
-              alt=""
-              loading="lazy"
-              className="w-14 h-14 rounded-full border-2 border-on-surface object-cover bg-white"
-            />
-          ) : (
-            <span className="w-14 h-14 rounded-full border-2 border-on-surface bg-white flex items-center justify-center text-2xl">
-              {headEmoji}
-            </span>
-          )}
-          {/* 状态标签：压在圆形头像底部 */}
-          <span
-            className={`absolute -bottom-2 left-1/2 -translate-x-1/2 whitespace-nowrap inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full border-2 border-on-surface text-[10px] leading-none font-bold shadow-sticker-sm ${STATUS_TONE[status.key]}`}
-          >
-            {status.icon} {status.label}
-          </span>
-        </div>
-        <button className="flex-1 min-w-0 text-left" onClick={hasCoords ? onClick : undefined}>
-          <div className="font-headline text-xl leading-tight">
-            {point.name}
-            {isManual && <span className="ml-1 text-[10px] font-bold text-on-surface-variant align-middle">手动</span>}
-          </div>
-          <div className="text-xs font-bold text-on-surface-variant">
-            {[point.business_area, storeCuisine(point), point.rating && `⭐${point.rating}`, point.cost && `¥${point.cost}/人`]
-              .filter(Boolean)
-              .join(' · ')}
-          </div>
-          <OpenHours opentime={point.opentime} className="mt-0.5" />
-        </button>
-      </div>
-
-      {/* 时间线（吃过行 + 种草虚线框；每天记录用虚线隔开） */}
-      <div className="mt-3 flex flex-col">
-        {timeline.map((e, i) => (
-          <div key={i} className={i > 0 ? 'mt-3 pt-3 border-t-2 border-dashed border-on-surface/10' : ''}>
-            <TimelineRow
-              event={e}
-              onEdit={() => onEdit({ kind: e.type, data: e.data, storeName: point.name })}
-              showAuthor={showAuthor}
-              myUsername={myUsername}
-            />
-          </div>
-        ))}
-      </div>
-
-      {/* 底部：看地图(左) · 记这家(中) · 分享(右) */}
-      <div className="grid grid-cols-3 items-center mt-3 pt-3 border-t-2 border-dashed border-on-surface/15">
-        <button onClick={hasCoords ? onClick : undefined} className="justify-self-start text-xs font-bold text-on-surface-variant py-2 -my-1.5 px-1.5 -ml-1.5 press-sm">
-          {hasCoords ? '看在地图上 →' : '📍 未定位'}
-        </button>
-        <div className="justify-self-center">
-          {/* 一键记这家：跳录入页并预填这家店，省去再搜 */}
-          {onRecord && (
-            <button
-              onClick={(e) => {
-                e.stopPropagation()
-                onRecord()
-              }}
-              className="flex items-center gap-1 text-sm font-bold border-2 border-on-surface rounded-full px-3 py-1 bg-primary text-white shadow-sticker-sm press-sm"
-            >
-              <Icon name="edit_note" className="text-base" /> {point.visit_count > 0 ? '再记' : '记这家'}
-            </button>
-          )}
-        </div>
-        <button
-          onClick={(e) => {
-            e.stopPropagation()
-            onShare()
-          }}
-          className="justify-self-end text-xs font-bold text-primary flex items-center gap-0.5 py-2 -my-1.5 px-1.5 -mr-1.5 press-sm"
-        >
-          <Icon name="ios_share" className="text-sm" /> 分享
-        </button>
-      </div>
-    </div>
-  )
-}
-
-function FilterSheet({
-  filters,
-  moodCount,
-  statusCount,
-  cuisineList,
-  authorList,
-  myUsername,
-  resultCount,
-  onToggleMood,
-  onToggleStatus,
-  onToggleCuisine,
-  onToggleAuthor,
-  onClear,
-  onClose,
-}: {
-  filters: Filters
-  moodCount: Record<string, number>
-  statusCount: Record<string, number>
-  cuisineList: { name: string; n: number }[]
-  authorList: { u: string; nick: string }[]
-  myUsername?: string
-  resultCount: number
-  onToggleMood: (m: Mood) => void
-  onToggleStatus: (s: StatusKey) => void
-  onToggleCuisine: (c: string) => void
-  onToggleAuthor: (a: string) => void
-  onClear: () => void
-  onClose: () => void
-}) {
-  const activeCount = filters.moods.length + filters.status.length + filters.cuisines.length + filters.authors.length
-  return (
-    <SheetShell onClose={onClose}>
-      <div className="flex items-center gap-3 mb-4">
-        <h3 className="font-headline text-xl">筛选</h3>
-        {activeCount > 0 && (
-          <button onClick={onClear} className="text-sm font-bold text-on-surface-variant flex items-center gap-1 press-sm">
-            <Icon name="restart_alt" className="text-base" /> 清空
-          </button>
+          </p>
         )}
       </div>
-
-      {MOODS.some((m) => moodCount[m] > 0) && (
-        <FilterGroup title="评分">
-          {MOODS.filter((m) => moodCount[m] > 0).map((m) => (
-            <FilterChip key={m} active={filters.moods.includes(m)} onClick={() => onToggleMood(m)} label={m} count={moodCount[m]} big />
-          ))}
-        </FilterGroup>
-      )}
-
-      {STATUS_OPTS.some((s) => statusCount[s.key] > 0) && (
-        <FilterGroup title="状态">
-          {STATUS_OPTS.filter((s) => statusCount[s.key] > 0).map((s) => (
-            <FilterChip
-              key={s.key}
-              active={filters.status.includes(s.key)}
-              onClick={() => onToggleStatus(s.key)}
-              icon={s.icon}
-              label={s.label}
-              count={statusCount[s.key]}
-            />
-          ))}
-        </FilterGroup>
-      )}
-
-      {cuisineList.length > 0 && (
-        <FilterGroup title="菜系">
-          {cuisineList.map((c) => (
-            <FilterChip key={c.name} active={filters.cuisines.includes(c.name)} onClick={() => onToggleCuisine(c.name)} label={c.name} count={c.n} />
-          ))}
-        </FilterGroup>
-      )}
-
-      {authorList.length > 1 && (
-        <FilterGroup title="谁记的">
-          {authorList.map((a) => (
-            <FilterChip
-              key={a.u}
-              active={filters.authors.includes(a.u)}
-              onClick={() => onToggleAuthor(a.u)}
-              label={a.u === myUsername ? `${a.nick}（我）` : a.nick}
-            />
-          ))}
-        </FilterGroup>
-      )}
-
-      <StickerButton full className="mt-2" onClick={onClose}>
-        查看 {resultCount} 家结果
-      </StickerButton>
-    </SheetShell>
-  )
-}
-
-function FilterGroup({ title, children }: { title: string; children: ReactNode }) {
-  return (
-    <div className="mb-4">
-      <div className="text-sm font-bold text-on-surface-variant mb-2">{title}</div>
-      <div className="flex flex-wrap gap-2">{children}</div>
-    </div>
-  )
-}
-
-function FilterChip({
-  active,
-  onClick,
-  icon,
-  label,
-  count,
-  big,
-}: {
-  active: boolean
-  onClick: () => void
-  icon?: string
-  label: string
-  count?: number
-  big?: boolean
-}) {
-  return (
-    <button
-      onClick={onClick}
-      className={`inline-flex items-center gap-1 rounded-full border-2 border-on-surface px-3 py-1.5 font-bold shadow-sticker-sm press-sm ${
-        big ? 'text-lg' : 'text-sm'
-      } ${active ? 'bg-primary text-white' : 'bg-white text-on-surface-variant'}`}
-    >
-      {icon && <Icon name={icon} className="text-base" />}
-      {label} {count != null && <em className="not-italic opacity-70 text-xs">{count}</em>}
     </button>
   )
 }
 
-function ActiveChip({ label, onRemove, variant = 'filled' }: { label: string; onRemove: () => void; variant?: 'filled' | 'white' }) {
+function ActiveChip({ label, onRemove }: { label: string; onRemove: () => void }) {
   return (
-    <span
-      className={`inline-flex items-center gap-0.5 rounded-full border-2 border-on-surface text-xs font-bold pl-2.5 pr-1 py-1 shadow-sticker-sm ${
-        variant === 'white' ? 'bg-white text-on-surface' : 'bg-primary text-white'
-      }`}
-    >
+    <span className="inline-flex items-center gap-0.5 rounded-full bg-primary-soft text-primary-dark text-xs font-semibold pl-2.5 pr-1 py-1 animate-pop-in">
       {label}
-      <button onClick={onRemove} aria-label="移除" className="press-sm">
-        <Icon name="close" className="text-sm" />
+      <button onClick={onRemove} aria-label="移除" className="w-4 h-4 rounded-full flex items-center justify-center hover:bg-primary/15 press-sm">
+        <Icon name="close" className="text-[13px]" />
       </button>
     </span>
   )
@@ -630,15 +365,14 @@ function ActiveChip({ label, onRemove, variant = 'filled' }: { label: string; on
 
 function ListSkeleton() {
   return (
-    <div className="flex flex-col gap-4">
-      {[0, 1, 2].map((i) => (
-        <div key={i} className="sticker p-3 animate-pulse">
-          <div className="flex gap-3">
-            <div className="w-11 h-11 rounded-full bg-on-surface/10" />
-            <div className="flex-1 space-y-2 pt-1">
-              <div className="h-3 w-2/3 bg-on-surface/10 rounded" />
-              <div className="h-2 w-1/3 bg-on-surface/10 rounded" />
-            </div>
+    <div className="flex flex-col gap-2.5 mt-1">
+      {[0, 1, 2, 3].map((i) => (
+        <div key={i} className="card !rounded-[22px] p-3 flex gap-3" style={{ opacity: 1 - i * 0.2 }}>
+          <div className="skeleton w-[60px] h-[60px] !rounded-2xl shrink-0" />
+          <div className="flex-1 space-y-2 pt-1">
+            <div className="skeleton h-4 w-2/3" />
+            <div className="skeleton h-3 w-1/2" />
+            <div className="skeleton h-3 w-4/5" />
           </div>
         </div>
       ))}

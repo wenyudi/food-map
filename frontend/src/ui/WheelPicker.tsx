@@ -50,8 +50,8 @@ function Column({ items, value, onChange }: { items: Item[]; value: string | num
           <div
             key={it.v}
             style={{ height: ITEM }}
-            className={`flex items-center justify-center snap-center font-bold whitespace-nowrap transition-all ${
-              it.v === value ? 'text-on-surface text-base' : 'text-on-surface-variant/45 text-xs'
+            className={`flex items-center justify-center snap-center whitespace-nowrap transition-all duration-300 ${
+              it.v === value ? 'text-on-surface text-base font-semibold' : 'text-on-surface-variant/50 text-[13px] font-medium'
             }`}
           >
             {it.label}
@@ -78,8 +78,8 @@ export function NumberWheel({
 }) {
   const items: Item[] = range(min, max).map((v) => ({ v, label: `${v}${unit}` }))
   return (
-    <div className="relative flex bg-white rounded-xl border-2 border-on-surface overflow-hidden">
-      <div className="absolute left-1.5 right-1.5 top-1/2 -translate-y-1/2 h-[32px] rounded-lg bg-primary/10 border-2 border-primary/25 pointer-events-none" />
+    <div className="relative flex bg-surface-2 rounded-2xl overflow-hidden [mask-image:linear-gradient(to_bottom,transparent,#000_30%,#000_70%,transparent)]">
+      <div className="absolute left-1.5 right-1.5 top-1/2 -translate-y-1/2 h-[32px] rounded-xl bg-white shadow-soft pointer-events-none" />
       <Column items={items} value={value} onChange={(v) => onChange(Number(v))} />
     </div>
   )
@@ -123,9 +123,9 @@ export default function DateTimeWheel({ value, onChange, meal, onMealChange }: P
   ]
 
   return (
-    <div className="relative flex bg-white rounded-xl border-2 border-on-surface overflow-hidden">
+    <div className="relative flex bg-surface-2 rounded-2xl overflow-hidden [mask-image:linear-gradient(to_bottom,transparent,#000_30%,#000_70%,transparent)]">
       {/* 正中高亮带 */}
-      <div className="absolute left-1.5 right-1.5 top-1/2 -translate-y-1/2 h-[32px] rounded-lg bg-primary/10 border-2 border-primary/25 pointer-events-none" />
+      <div className="absolute left-1.5 right-1.5 top-1/2 -translate-y-1/2 h-[32px] rounded-xl bg-white shadow-soft pointer-events-none" />
       <Column items={yItems} value={y} onChange={(v) => setDate(Number(v), m, d)} />
       <Column items={mItems} value={m} onChange={(v) => setDate(y, Number(v), d)} />
       <Column items={dItems} value={d} onChange={(v) => setDate(y, m, Number(v))} />

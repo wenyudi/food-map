@@ -1,58 +1,70 @@
 import Icon from './Icon'
 
-export type TabKey = 'map' | 'list' | 'add' | 'me'
+export type TabKey = 'map' | 'list' | 'me'
 
 type TabDef = Readonly<{ key: TabKey; icon: string; label: string }>
 
 const TABS: readonly TabDef[] = [
   { key: 'map', icon: 'map', label: '地图' },
-  { key: 'list', icon: 'format_list_bulleted', label: '列表' },
-  { key: 'add', icon: 'edit', label: '记一笔' },
+  { key: 'list', icon: 'format_list_bulleted', label: '清单' },
   { key: 'me', icon: 'person', label: '我的' },
 ]
 
 type TabBarProps = Readonly<{
   active: TabKey
   onChange: (t: TabKey) => void
+  /** 「记一笔」是一个动作，不是一个页面：打开全屏录入，关掉回到原处 */
+  onCompose: () => void
+  /** 圈友新记了几家（清单 Tab 上的小红点） */
+  listBadge?: number
 }>
 
 /**
- * 共享底部导航 —— 全站唯一一份，标签固定 地图/列表/记一笔/我的。
- * 「记一笔」做成凸起的橙色圆钮；当前页用实心橙药丸高亮。
- * 这一份复用到所有页 → 从结构上根除 Stitch 逐屏出图的导航飘移。
+ * 全站唯一的底部导航：悬浮毛玻璃胶囊（地图 / 清单 / 我的）+ 右侧橙色「记一笔」圆钮。
+ * 选中项背后有一块会滑动的高亮，图标从线性切实心。
  */
-export default function TabBar({ active, onChange }: TabBarProps) {
+export default function TabBar({ active, onChange, onCompose, listBadge = 0 }: TabBarProps) {
+  const idx = TABS.findIndex((t) => t.key === active)
   return (
-    <nav className="relative w-full z-[1100] flex justify-around items-center px-2 py-3 bg-surface rounded-t-xl border-t-2 border-on-surface shadow-sticker-top pb-safe shrink-0">
-      {TABS.map((t) =>
-        t.key === 'add' ? (
-          <div key={t.key} className="relative -top-6 w-16 flex justify-center">
-            <button
-              onClick={() => onChange('add')}
-              className="w-14 h-14 bg-primary rounded-full border-[3px] border-on-surface shadow-sticker flex items-center justify-center text-white press z-10"
-              aria-label="记一笔"
-            >
-              <Icon name="edit" className="text-3xl" />
-            </button>
-            <span className="absolute -bottom-4 left-1/2 -translate-x-1/2 font-label font-bold text-xs text-on-surface-variant whitespace-nowrap">
-              {t.label}
-            </span>
-          </div>
-        ) : (
-          <button
-            key={t.key}
-            onClick={() => onChange(t.key)}
-            className={`flex flex-col items-center justify-center px-4 py-1.5 rounded-lg border-2 transition-all ${
-              active === t.key
-                ? 'bg-primary text-white border-on-surface shadow-sticker-sm'
-                : 'text-on-surface-variant border-transparent'
-            }`}
-          >
-            <Icon name={t.icon} />
-            <span className="font-label font-bold text-xs mt-0.5">{t.label}</span>
-          </button>
-        )
-      )}
+    <nav className="absolute inset-x-0 bottom-0 z-tabbar px-4 pb-safe pointer-events-none">
+      {/* 清单类页面：内容滚到导航前先渐隐，文字不透过毛玻璃；地图页不要这层 */}
+      {active !== 'map' && <span aria-hidden className="absolute inset-x-0 bottom-0 h-[5.25rem] bg-gradient-to-t from-surface via-surface/80 to-transparent" />}
+      <div className="relative flex items-center gap-3 pointer-events-auto">
+        <div className="glass !bg-white/90 relative flex-1 flex rounded-full p-1.5">
+          {/* 滑动高亮：宽度 = 一格 */}
+          <span
+            aria-hidden
+            className="absolute top-1.5 bottom-1.5 left-1.5 rounded-full bg-primary-soft transition-transform duration-500 ease-spring"
+            style={{ width: `calc((100% - 0.75rem) / ${TABS.length})`, transform: `translateX(${idx * 100}%)` }}
+          />
+          {TABS.map((t) => {
+            const on = active === t.key
+            return (
+              <button
+                key={t.key}
+                onClick={() => onChange(t.key)}
+                aria-current={on ? 'page' : undefined}
+                className={`relative flex-1 flex flex-col items-center justify-center gap-0.5 py-1.5 rounded-full press-sm transition-colors duration-300 ${
+                  on ? 'text-primary' : 'text-on-surface-variant'
+                }`}
+              >
+                <span className="relative flex">
+                  <Icon name={t.icon} filled={on} className={`text-[23px] transition-transform duration-500 ease-spring ${on ? '-translate-y-px scale-110' : ''}`} />
+                  {t.key === 'list' && listBadge > 0 && !on && (
+                    <span aria-label={`${listBadge} 家有新记录`} className="absolute -top-1 -right-2 min-w-[16px] h-4 px-1 rounded-full bg-primary text-white text-[10px] font-semibold font-num flex items-center justify-center ring-2 ring-white animate-pop-in">
+                      {listBadge}
+                    </span>
+                  )}
+                </span>
+                <span className={`text-[11px] leading-none ${on ? 'font-semibold' : 'font-medium'}`}>{t.label}</span>
+              </button>
+            )
+          })}
+        </div>
+        <button onClick={onCompose} aria-label="记一笔" className="shrink-0 w-[60px] h-[60px] rounded-full bg-primary text-white flex items-center justify-center shadow-glow press">
+          <Icon name="edit" filled className="text-[27px]" />
+        </button>
+      </div>
     </nav>
   )
 }

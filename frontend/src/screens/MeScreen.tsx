@@ -1,15 +1,23 @@
 import { useEffect, useState } from 'react'
 import Icon from '../ui/Icon'
 import SheetShell from '../ui/SheetShell'
-import StickerButton from '../ui/StickerButton'
+import Button from '../ui/Button'
 import MemoryScreen from './MemoryScreen'
 import CircleSheet from './CircleSheet'
-import { getStats, getPoints, exportData, resetMine, changePassword, getCircles } from '../api'
+import Wordmark from '../ui/Wordmark'
+import Presence from '../ui/Presence'
+import MonthlySummary from './MonthlySummary'
+import { exportData, resetMine, changePassword } from '../api'
 import type { MeInfo, Point } from '../api'
+import { deriveStats } from '../lib/stats'
+import { useCountUp } from '../lib/useCountUp'
 import { inputClass } from '../lib/format'
 
 type MeScreenProps = Readonly<{
   me: MeInfo
+  points: Point[]
+  circleName: string
+  circleCount: number
   onLogout: () => void
   onCircleChanged: () => void
   autoOpenCircle?: boolean
@@ -18,31 +26,16 @@ type MeScreenProps = Readonly<{
 
 type Sheet = 'circle' | 'pw' | null
 
-export default function MeScreen({ me, onLogout, onCircleChanged, autoOpenCircle, onCircleOpened }: MeScreenProps) {
-  const [meals, setMeals] = useState<number | null>(null)
-  const [circleName, setCircleName] = useState<string>('')
-  const [circleCount, setCircleCount] = useState<number>(0)
+export default function MeScreen({ me, points, circleName, circleCount, onLogout, onCircleChanged, autoOpenCircle, onCircleOpened }: MeScreenProps) {
+  const stats = deriveStats(points)
   const [sheet, setSheet] = useState<Sheet>(null)
-  const [memory, setMemory] = useState<Point[] | null>(null)
-  const [loadingMem, setLoadingMem] = useState(false)
+  const [memoryOpen, setMemoryOpen] = useState(false)
   const [confirmReset, setConfirmReset] = useState(false)
   const [resetMsg, setResetMsg] = useState<string | null>(null)
   const [resetting, setResetting] = useState(false)
   const [exporting, setExporting] = useState(false)
   const [exportMsg, setExportMsg] = useState<string | null>(null)
   const [confirmLogout, setConfirmLogout] = useState(false)
-
-  // 随当前活跃圈子刷新：顿数 + 圈名
-  useEffect(() => {
-    getStats().then((s) => setMeals(s.total_visits)).catch(() => {})
-    getCircles()
-      .then((r) => {
-        const active = r.circles.find((c) => c.id === r.active_circle_id)
-        setCircleName(active?.name || '')
-        setCircleCount(r.circles.length)
-      })
-      .catch(() => {})
-  }, [me.circle_id])
 
   // 从空状态「拉饭搭子进圈」跳进来时，自动展开圈子管理（直达邀请）
   useEffect(() => {
@@ -51,18 +44,6 @@ export default function MeScreen({ me, onLogout, onCircleChanged, autoOpenCircle
       onCircleOpened?.()
     }
   }, [autoOpenCircle, onCircleOpened])
-
-  async function openMemory() {
-    if (loadingMem) return
-    setLoadingMem(true)
-    try {
-      setMemory(await getPoints())
-    } catch {
-      setMemory([])
-    } finally {
-      setLoadingMem(false)
-    }
-  }
 
   async function doExport() {
     setExporting(true)
@@ -105,113 +86,155 @@ export default function MeScreen({ me, onLogout, onCircleChanged, autoOpenCircle
 
   return (
     <div className="h-full flex flex-col">
-      <div className="flex-1 min-h-0 overflow-y-auto px-5 pt-[calc(env(safe-area-inset-top)_+_1.5rem)] pb-10 space-y-5">
-        {/* 资料卡 */}
-        <div className="sticker rounded-2xl p-5 flex items-center gap-4">
-          <div className="w-20 h-20 rounded-full border-2 border-on-surface bg-accent flex items-center justify-center font-headline text-3xl shrink-0">
+      <div className="flex-1 min-h-0 overflow-y-auto px-4 pt-[calc(env(safe-area-inset-top)_+_1.5rem)] pb-tabbar space-y-4">
+        {/* 资料头 */}
+        <section className="flex items-center gap-4 px-1 stagger" style={{ '--i': 0 } as React.CSSProperties}>
+          <div className="relative w-[72px] h-[72px] rounded-[26px] bg-gradient-to-br from-accent to-primary shadow-glow flex items-center justify-center font-display text-[34px] text-white shrink-0">
             {initial}
           </div>
-          <div className="flex flex-col gap-2 min-w-0">
-            <h3 className="font-headline text-2xl truncate">{me.nickname || me.username}</h3>
+          <div className="flex flex-col gap-1.5 min-w-0">
+            <h2 className="text-[24px] font-bold tracking-tight leading-tight truncate">{me.nickname || me.username}</h2>
             <button
               onClick={() => setSheet('circle')}
-              className="flex items-center gap-1 bg-primary/10 border border-primary/25 rounded-full pl-2.5 pr-2 py-1 text-primary font-bold text-sm w-fit press-sm"
+              className="flex items-center gap-1 bg-white shadow-soft ring-1 ring-line rounded-full pl-2.5 pr-1.5 py-1 text-[13px] font-medium w-fit max-w-full press-sm"
             >
-              <Icon name="group" className="text-base" />
-              <span className="truncate max-w-[140px]">{circleName || '我的圈子'}</span>
-              {meals != null && <span className="text-primary/70">· {meals}顿</span>}
-              <Icon name="expand_more" className="text-base" />
+              <Icon name="group" filled className="text-[16px] text-primary shrink-0" />
+              <span className="truncate">{circleName || '我的圈子'}</span>
+              <Icon name="unfold_more" className="text-[16px] text-on-surface-variant shrink-0" />
             </button>
           </div>
+        </section>
+
+        {/* 三格数据 */}
+        <section className="card grid grid-cols-3 py-4 stagger" style={{ '--i': 1 } as React.CSSProperties}>
+          <MiniStat value={stats.total_visits} label="顿饭" />
+          <MiniStat value={stats.total_stores_visited} label="家店" />
+          <MiniStat value={stats.total_wishes_open} label="想去" />
+        </section>
+
+        {/* 本月小结 + AI 回忆 */}
+        <div className="stagger" style={{ '--i': 2 } as React.CSSProperties}>
+          <MonthlySummary points={points} refreshKey={0} />
         </div>
 
         {/* 美食回忆报告 */}
         <button
-          onClick={openMemory}
-          disabled={loadingMem}
-          className="w-full text-left bg-gradient-to-br from-primary to-[#ff8c75] rounded-2xl border-2 border-on-surface shadow-sticker p-5 flex items-center justify-between press"
+          onClick={() => setMemoryOpen(true)}
+          className="stagger relative w-full overflow-hidden text-left rounded-3xl bg-gradient-to-br from-primary via-[#f27c5c] to-[#f6a467] shadow-glow p-5 press"
+          style={{ '--i': 3 } as React.CSSProperties}
         >
-          <div className="flex items-center gap-4">
-            <span className="w-14 h-14 bg-white rounded-xl border-2 border-on-surface flex items-center justify-center shrink-0">
-              <Icon name="menu_book" className="text-primary text-3xl" />
+          <span className="absolute inset-0 grain opacity-60" aria-hidden />
+          <span className="absolute -right-6 -top-8 w-36 h-36 rounded-full bg-white/15 blur-2xl" aria-hidden />
+          {/* 漂浮的美食 */}
+          <span className="absolute right-5 top-3 text-[34px] animate-bob" aria-hidden>🍜</span>
+          <span className="absolute right-20 top-11 text-[22px] animate-bob [animation-delay:-1.2s]" aria-hidden>🍡</span>
+          <span className="absolute right-9 bottom-4 text-[26px] animate-bob [animation-delay:-.6s]" aria-hidden>🥟</span>
+          <div className="relative">
+            <span className="inline-flex items-center gap-1 rounded-full bg-white/20 px-2.5 py-1 text-[11px] font-semibold text-white">
+              <Icon name="auto_stories" className="text-[14px]" /> 年度回忆
             </span>
-            <div>
-              <h4 className="font-headline text-xl text-white">美食回忆报告</h4>
-              <p className="text-white/90 text-sm">{loadingMem ? '正在翻看你们的足迹…' : '翻翻这个圈子的食光故事'}</p>
-            </div>
+            <h4 className="font-display text-[26px] text-white mt-2.5 leading-tight">美食回忆报告</h4>
+            <p className="text-white/85 text-sm mt-1 flex items-center gap-1">
+              翻翻这个圈子的食光故事
+              <Icon name="arrow_forward" className="text-[16px]" />
+            </p>
           </div>
-          <span className="w-10 h-10 bg-white/20 rounded-full flex items-center justify-center shrink-0">
-            <Icon name="chevron_right" className="text-white" />
-          </span>
         </button>
 
         {/* 设置列表 */}
-        <div className="sticker rounded-2xl overflow-hidden divide-y-2 divide-on-surface/10">
-          <Row icon="group" box="bg-[#fef2f2]" label={`我的圈子${circleCount > 1 ? ` · ${circleCount} 个` : ''}`} onClick={() => setSheet('circle')} />
-          <Row icon="cloud_download" box="bg-[#f0f9ff]" label={exporting ? '导出中…' : '数据备份与导出'} onClick={doExport} />
-          <Row icon="lock_reset" box="bg-[#fdf2f8]" label="修改密码" onClick={() => setSheet('pw')} />
-          <Row icon="logout" box="bg-[#fff7ed]" label="退出登录" onClick={() => setConfirmLogout(true)} />
-        </div>
-        {exportMsg && <p className="text-center text-sm text-on-surface-variant">{exportMsg}</p>}
+        <section className="card overflow-hidden stagger" style={{ '--i': 4 } as React.CSSProperties}>
+          <Row icon="diversity_3" label="我的圈子" hint={circleCount > 1 ? `${circleCount} 个` : undefined} onClick={() => setSheet('circle')} />
+          <Row icon="cloud_download" label={exporting ? '导出中…' : '数据备份与导出'} onClick={doExport} />
+          <Row icon="lock_reset" label="修改密码" onClick={() => setSheet('pw')} />
+        </section>
+        {exportMsg && <p className="text-center text-sm text-on-surface-variant animate-fade-up">{exportMsg}</p>}
+
+        <button
+          onClick={() => setConfirmLogout(true)}
+          className="stagger card w-full py-3.5 text-[15px] font-medium text-center text-on-surface press"
+          style={{ '--i': 5 } as React.CSSProperties}
+        >
+          退出登录
+        </button>
 
         {/* 清空 + 版本 */}
-        <div className="pt-2 pb-2 flex flex-col items-center gap-3">
+        <div className="pt-1 pb-2 flex flex-col items-center gap-3">
           {!confirmReset ? (
-            <button onClick={() => setConfirmReset(true)} className="text-xs font-bold text-on-surface-variant flex items-center gap-1">
+            <button onClick={() => setConfirmReset(true)} className="text-xs text-on-surface-variant flex items-center gap-1 press-sm">
               <Icon name="mop" className="text-sm" /> 只清空我在本圈记录的数据
             </button>
           ) : (
-            <div className="text-center">
-              <p className="text-xs text-on-surface-variant mb-1.5">只清你在当前圈记的吃过/想去，圈友的保留 · 删了找不回</p>
+            <div className="text-center card px-4 py-3.5 w-full animate-pop-in">
+              <p className="text-xs text-on-surface-variant mb-2.5">只清你在当前圈记的吃过/想去，圈友的保留 · 删了找不回</p>
               <div className="flex gap-2 justify-center">
-                <button onClick={() => setConfirmReset(false)} className="px-4 py-1.5 rounded-full border-2 border-on-surface bg-white text-sm font-bold press-sm">
+                <button onClick={() => setConfirmReset(false)} className="px-5 py-2 rounded-full bg-surface-2 text-sm font-semibold press-sm">
                   取消
                 </button>
-                <button onClick={doReset} disabled={resetting} className="px-4 py-1.5 rounded-full border-2 border-on-surface bg-primary text-white text-sm font-bold press-sm">
-                  {resetting ? '清空中…' : '清空'}
+                <button onClick={doReset} disabled={resetting} className="px-5 py-2 rounded-full bg-primary text-white text-sm font-semibold shadow-glow press-sm">
+                  {resetting ? '清空中…' : '确认清空'}
                 </button>
               </div>
             </div>
           )}
           {resetMsg && <p className="text-xs text-on-surface-variant">{resetMsg}</p>}
-          <p className="text-[10px] font-black text-on-surface-variant/60 tracking-widest text-center">
-            吃了么 · 和饭搭子一起点亮的美食地图 · v3.0
-          </p>
+          <div className="flex flex-col items-center gap-1 mt-2 opacity-70">
+            <Wordmark className="text-lg" />
+            <p className="text-[10px] text-on-surface-variant tracking-widest">和饭搭子一起点亮的美食地图 · v3.0</p>
+          </div>
         </div>
       </div>
 
-      {memory && <MemoryScreen points={memory} onClose={() => setMemory(null)} />}
-      {sheet === 'circle' && <CircleSheet me={me} onClose={() => setSheet(null)} onChanged={onCircleChanged} />}
-      {sheet === 'pw' && <ChangePwSheet onClose={() => setSheet(null)} />}
+      <Presence show={memoryOpen} duration={240}>
+        {memoryOpen && <MemoryScreen points={points} onClose={() => setMemoryOpen(false)} />}
+      </Presence>
+      <Presence show={sheet === 'circle'}>
+        {sheet === 'circle' && <CircleSheet me={me} onClose={() => setSheet(null)} onChanged={onCircleChanged} />}
+      </Presence>
+      <Presence show={sheet === 'pw'}>{sheet === 'pw' && <ChangePwSheet onClose={() => setSheet(null)} />}</Presence>
 
-      {confirmLogout && (
-        <SheetShell onClose={() => setConfirmLogout(false)}>
-          <p className="font-headline text-xl text-center mb-4">确认退出登录？</p>
-          <div className="flex gap-2">
-            <button onClick={() => setConfirmLogout(false)} className="flex-1 py-3 rounded-full border-2 border-on-surface bg-white font-bold press-sm">
-              取消
-            </button>
-            <button onClick={onLogout} className="flex-1 py-3 rounded-full border-2 border-on-surface bg-primary text-white font-bold press-sm">
-              退出
-            </button>
-          </div>
-        </SheetShell>
-      )}
+      <Presence show={confirmLogout}>
+        {confirmLogout && (
+          <SheetShell onClose={() => setConfirmLogout(false)}>
+            <div className="text-center pt-2">
+              <div className="text-5xl mb-3">👋</div>
+              <p className="text-xl font-bold tracking-tight">确认退出登录？</p>
+              <p className="text-sm text-on-surface-variant mt-1 mb-6">记录都在云端，随时登录回来</p>
+            </div>
+            <div className="flex gap-2.5">
+              <Button variant="soft" className="flex-1" onClick={() => setConfirmLogout(false)}>
+                取消
+              </Button>
+              <Button className="flex-1" onClick={onLogout}>
+                退出
+              </Button>
+            </div>
+          </SheetShell>
+        )}
+      </Presence>
     </div>
   )
 }
 
-type RowProps = Readonly<{ icon: string; box: string; label: string; onClick?: () => void }>
-function Row({ icon, box, label, onClick }: RowProps) {
+function MiniStat({ value, label }: { value: number; label: string }) {
+  const v = Math.round(useCountUp(value))
   return (
-    <button onClick={onClick} className="w-full flex items-center justify-between p-4 active:bg-surface">
-      <span className="flex items-center gap-3">
-        <span className={`w-10 h-10 rounded-lg border-2 border-on-surface flex items-center justify-center ${box}`}>
-          <Icon name={icon} className="text-on-surface" />
-        </span>
-        <span className="font-bold">{label}</span>
+    <div className="flex flex-col items-center [&+&]:border-l [&+&]:border-line">
+      <span className="font-num font-semibold text-2xl leading-none tabular-nums">{v}</span>
+      <span className="text-xs text-on-surface-variant mt-1.5">{label}</span>
+    </div>
+  )
+}
+
+type RowProps = Readonly<{ icon: string; label: string; hint?: string; onClick?: () => void }>
+function Row({ icon, label, hint, onClick }: RowProps) {
+  return (
+    <button onClick={onClick} className="w-full flex items-center gap-3 px-4 py-3.5 text-left transition-colors active:bg-surface-2 [&+&]:border-t [&+&]:border-line">
+      <span className="w-9 h-9 rounded-xl bg-surface-2 flex items-center justify-center shrink-0">
+        <Icon name={icon} className="text-[20px] text-on-surface" />
       </span>
-      <Icon name="chevron_right" className="text-on-surface-variant" />
+      <span className="flex-1 font-medium text-[15px]">{label}</span>
+      {hint && <span className="text-sm text-on-surface-variant">{hint}</span>}
+      <Icon name="chevron_right" className="text-on-surface-variant/60" />
     </button>
   )
 }
@@ -243,13 +266,13 @@ function ChangePwSheet({ onClose }: { onClose: () => void }) {
 
   return (
     <SheetShell onClose={onClose}>
-      <h3 className="font-headline text-xl mb-3">🔑 修改密码</h3>
+      <h3 className="text-xl font-bold tracking-tight mb-4">修改密码</h3>
       <input type="password" placeholder="旧密码" value={oldPw} onChange={(e) => setOldPw(e.target.value)} className={input} />
       <input type="password" placeholder="新密码（至少 4 位）" value={newPw} onChange={(e) => setNewPw(e.target.value)} className={input} />
-      {msg && <div className="text-sm font-bold text-on-surface-variant mb-2">{msg}</div>}
-      <StickerButton full disabled={busy || !oldPw || !newPw} onClick={submit}>
+      {msg && <div className="text-sm text-on-surface-variant mb-3 animate-fade-up">{msg}</div>}
+      <Button full loading={busy} disabled={!oldPw || !newPw} onClick={submit} className="mt-1">
         {busy ? '提交中…' : '确认修改'}
-      </StickerButton>
+      </Button>
     </SheetShell>
   )
 }

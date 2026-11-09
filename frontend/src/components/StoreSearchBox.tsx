@@ -3,6 +3,7 @@ import { search, poiDetail } from '../api'
 import type { Point } from '../api'
 import { cleanTag, inputClass } from '../lib/format'
 import OpenHours from './OpenHours'
+import Icon from '../ui/Icon'
 
 /** 店名归一化（与后端 amap._norm_name 同规则：去空格/分隔符 + 小写），本地模糊匹配用 */
 const norm = (s: string) => (s || '').replace(/[\s·・.\-—()（）]/g, '').toLowerCase()
@@ -134,40 +135,46 @@ export default function StoreSearchBox({
         <button
           disabled={busy || q.trim().length < 2}
           onClick={() => runSearch(q.trim())}
-          className="shrink-0 px-4 rounded-full border-2 border-on-surface bg-primary text-white text-sm font-bold shadow-sticker-sm press-sm disabled:opacity-50"
+          aria-label="搜索"
+          className={`shrink-0 w-12 rounded-2xl flex items-center justify-center press-sm ${
+            busy || q.trim().length >= 2 ? 'bg-primary text-white shadow-glow' : 'bg-surface-2 text-on-surface-variant/60'
+          }`}
         >
-          {busy ? '搜索中…' : '搜索'}
+          {busy ? <span className="w-4 h-4 rounded-full border-2 border-current border-r-transparent animate-spin" /> : <Icon name="search" />}
         </button>
       </div>
 
       {(localHits.length > 0 || displayRemote.length > 0) && (
-        <div className="flex flex-col gap-2 mt-3 max-h-[45vh] overflow-y-auto">
-          {localHits.map((p) => (
+        <div className="flex flex-col gap-2 mt-3 max-h-[45vh] overflow-y-auto -mx-1 px-1 pb-1">
+          {localHits.map((p, i) => (
             <button
               key={p.poi_id}
               onClick={() => pick(pointToPoi(p), true)}
-              className="text-left rounded-xl border-2 border-on-surface bg-primary/5 p-3 shadow-sticker-sm press-sm"
+              className="stagger text-left rounded-2xl bg-primary-soft/70 px-3.5 py-3 press"
+              style={{ '--i': i } as React.CSSProperties}
             >
-              <div className="font-bold flex items-center gap-2 min-w-0">
+              <div className="font-semibold flex items-center gap-2 min-w-0">
                 <span className="truncate">{p.name}</span>
-                <span className="shrink-0 text-[10px] font-black px-1.5 py-0.5 rounded-md border-2 border-on-surface bg-accent">
+                <span className="shrink-0 text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-white text-primary-dark">
                   {p.visit_count > 0 ? `📍 来过 ${p.visit_count} 次` : '🌱 想去'}
                 </span>
               </div>
-              <div className="text-xs text-on-surface-variant/80 mt-0.5 truncate">
+              <div className="text-xs text-on-surface-variant mt-0.5 truncate">
                 {[p.business_area, p.address].filter(Boolean).join(' · ') || '你们记过的店'}
               </div>
             </button>
           ))}
-          {displayRemote.map((p) => (
+          {displayRemote.map((p, i) => (
             <button
               key={p.id}
               onClick={() => pick(p, false)}
               disabled={!!picking}
-              className="text-left rounded-xl border-2 border-on-surface bg-white p-3 shadow-sticker-sm press-sm disabled:opacity-60"
+              className="stagger text-left rounded-2xl bg-white shadow-soft ring-1 ring-line px-3.5 py-3 press disabled:opacity-60"
+              style={{ '--i': i + localHits.length } as React.CSSProperties}
             >
-              <div className="font-bold">
-                {p.name} {picking === p.id && <span className="text-xs text-on-surface-variant">加载中…</span>}
+              <div className="font-semibold flex items-center gap-2">
+                <span className="truncate">{p.name}</span>
+                {picking === p.id && <span className="shrink-0 w-3.5 h-3.5 rounded-full border-2 border-primary border-r-transparent animate-spin" />}
               </div>
               <div className="text-xs text-on-surface-variant mt-0.5">
                 {[cleanTag(p.business?.tag), p.business?.rating && `⭐${p.business.rating}`, p.business?.cost && `¥${p.business.cost}/人`]
@@ -184,19 +191,20 @@ export default function StoreSearchBox({
       )}
 
       {showEmpty && (
-        <div className="text-center text-on-surface-variant text-sm py-5">
+        <div className="text-center text-on-surface-variant text-sm py-6 animate-fade-up">
+          <div className="text-3xl mb-2">🔍</div>
           没搜到「{q.trim()}」
           <br />
           换个关键词试试{onEmptyAction ? '，或者：' : ''}
           {onEmptyAction && (
-            <button onClick={() => onEmptyAction(q.trim())} className="block mx-auto mt-2 text-primary font-bold press-sm">
+            <button onClick={() => onEmptyAction(q.trim())} className="block mx-auto mt-3 rounded-full bg-primary-soft text-primary-dark font-semibold px-4 py-2 press-sm">
               {emptyActionLabel || '✍️ 手动加这家店'}
             </button>
           )}
         </div>
       )}
 
-      {err && <div className="text-primary font-bold text-sm bg-primary/10 border-2 border-primary/25 rounded-lg px-3 py-2 mt-2">{err}</div>}
+      {err && <div className="text-primary-dark text-sm bg-primary-soft rounded-2xl px-3.5 py-2.5 mt-2 animate-fade-up">{err}</div>}
     </div>
   )
 }
