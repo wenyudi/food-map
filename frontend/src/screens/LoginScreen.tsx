@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import type { ReactNode } from 'react'
 import Icon from '../ui/Icon'
 import Wordmark from '../ui/Wordmark'
+import Tape from '../ui/Tape'
 import Button from '../ui/Button'
 import { login, register, sendCode, resetPassword, setToken } from '../api'
 import type { MeInfo } from '../api'
@@ -134,9 +135,10 @@ export default function LoginScreen({ onLoggedIn, invited = false }: LoginScreen
             e.preventDefault()
             submit()
           }}
-          className="card px-5 pt-5 pb-5 flex flex-col animate-fade-up"
+          className="card relative px-5 pt-6 pb-5 flex flex-col animate-fade-up"
           style={{ animationDelay: '80ms' }}
         >
+          <Tape color="#f2a9b8" angle={-5} width={72} className="-top-2 left-1/2 -ml-9" />
           {/* 登录 / 注册 切换（滑块）；找回密码时换成返回入口 */}
           {mode === 'reset' ? (
             <div className="mb-5 animate-fade-in">
@@ -154,7 +156,7 @@ export default function LoginScreen({ onLoggedIn, invited = false }: LoginScreen
             <div className="relative grid grid-cols-2 p-1 rounded-full bg-surface-2 mb-5">
               <span
                 aria-hidden
-                className="absolute top-1 bottom-1 left-1 w-[calc(50%-0.25rem)] rounded-full bg-white shadow-soft transition-transform duration-500 ease-spring"
+                className="absolute top-1 bottom-1 left-1 w-[calc(50%-0.25rem)] rounded-full bg-on-surface transition-transform duration-500 ease-spring"
                 style={{ transform: mode === 'register' ? 'translateX(100%)' : 'none' }}
               />
               {(['login', 'register'] as const).map((m) => (
@@ -163,7 +165,7 @@ export default function LoginScreen({ onLoggedIn, invited = false }: LoginScreen
                   type="button"
                   onClick={() => switchMode(m)}
                   className={`relative py-2.5 rounded-full font-semibold text-sm transition-colors duration-300 ${
-                    mode === m ? 'text-on-surface' : 'text-on-surface-variant'
+                    mode === m ? 'text-white' : 'text-on-surface-variant'
                   }`}
                 >
                   {m === 'login' ? '登录' : '注册'}
@@ -279,14 +281,14 @@ function MapHero() {
   return (
     <div className="absolute inset-x-0 top-0 h-[max(15rem,38dvh)] overflow-hidden [mask-image:linear-gradient(to_bottom,#000_62%,transparent)]" aria-hidden>
       <svg viewBox="0 0 390 320" preserveAspectRatio="xMidYMid slice" className="absolute inset-0 w-full h-full">
-        <rect width="390" height="320" fill="#f3ece3" />
+        <rect width="390" height="320" fill="#ebe0d1" />
         {/* 街区色块（取自 app 图标的地图格子） */}
-        <path d="M0 0H150L120 96 0 118Z" fill="#fbe5d9" />
-        <path d="M250 0H390V92L282 112Z" fill="#e9efd9" />
-        <path d="M150 128 262 136 240 236 128 214Z" fill="#fdf0d3" />
-        <path d="M296 150 390 132V262L276 250Z" fill="#fbe5d9" />
+        <path d="M0 0H150L120 96 0 118Z" fill="#f8d8c8" />
+        <path d="M250 0H390V92L282 112Z" fill="#dfe8cc" />
+        <path d="M150 128 262 136 240 236 128 214Z" fill="#fae6bb" />
+        <path d="M296 150 390 132V262L276 250Z" fill="#f8d8c8" />
         {/* 江 */}
-        <path d="M-20 262C60 218 112 300 196 276S320 196 420 226" fill="none" stroke="#d9e6e4" strokeWidth="30" strokeLinecap="round" />
+        <path d="M-20 262C60 218 112 300 196 276S320 196 420 226" fill="none" stroke="#cfdfdc" strokeWidth="30" strokeLinecap="round" />
         {/* 路 */}
         <g fill="none" stroke="#fff" strokeLinecap="round">
           <path d="M-10 122 124 98 262 134 400 110" strokeWidth="9" />

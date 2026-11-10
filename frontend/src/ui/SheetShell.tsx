@@ -25,14 +25,14 @@ export default function SheetShell({ children, onClose, className = '' }: SheetS
   return createPortal(
     <div className={`fixed inset-0 z-sheet flex items-end justify-center ${leaving ? 'pointer-events-none' : ''}`}>
       <div
-        className={`absolute inset-0 bg-[#2b1f16]/40 ${leaving ? 'animate-fade-out' : 'animate-fade-in'}`}
+        className={`absolute inset-0 bg-[#24190f]/45 ${leaving ? 'animate-fade-out' : 'animate-fade-in'}`}
         style={{ opacity: dragY ? Math.max(0.2, 1 - dragY / 500) : undefined }}
         onClick={onClose}
       />
       <div
         role="dialog"
         aria-modal="true"
-        className={`relative w-full max-w-[440px] max-h-[90dvh] flex flex-col bg-surface grain rounded-t-[28px] shadow-sheet ${
+        className={`relative w-full max-w-[440px] max-h-[90dvh] flex flex-col bg-surface rounded-t-[24px] shadow-sheet ${
           leaving ? 'animate-sheet-down' : 'animate-sheet-up'
         }`}
         style={{
@@ -56,7 +56,7 @@ export default function SheetShell({ children, onClose, className = '' }: SheetS
           <Icon name="close" className="text-[19px]" />
         </button>
         <div
-          className={`min-h-0 overflow-y-auto overscroll-contain px-5 pt-1 ${className}`}
+          className={`min-h-0 overflow-y-auto overscroll-contain paper px-5 pt-1 ${className}`}
           style={{ paddingBottom: 'max(1.75rem, calc(env(safe-area-inset-bottom) + 1rem))' }}
         >
           {children}

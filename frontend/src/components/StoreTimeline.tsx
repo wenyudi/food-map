@@ -225,9 +225,11 @@ export function TimelineRow({ event, onEdit, showAuthor, myUsername, hidePhotos 
         </div>
       )}
       {showPhotos && (
-        <div className="flex gap-1.5 mt-2.5 overflow-x-auto hide-scrollbar -mr-4 pr-4">
-          {photos.slice(0, 4).map((u) => (
-            <img key={u} src={u} alt="这顿的照片" loading="lazy" onError={hideOnError} className="zoomable w-[72px] h-[72px] shrink-0 object-cover rounded-xl bg-surface-2" />
+        <div className="flex gap-2.5 mt-2.5 pt-1 pb-1 pl-0.5 overflow-x-auto hide-scrollbar -mr-4 pr-4">
+          {photos.slice(0, 4).map((u, i) => (
+            <span key={u} className="polaroid shrink-0" style={{ '--tilt': `${i % 2 ? 1.5 : -1.5}deg` } as React.CSSProperties}>
+              <img src={u} alt="这顿的照片" loading="lazy" onError={hideOnError} className="zoomable block w-[70px] h-[70px] object-cover bg-surface-2" />
+            </span>
           ))}
         </div>
       )}

@@ -2,7 +2,7 @@
 @tailwind components;
 @tailwind utilities;
 
-/* ===== 吃了么 · 暖纸质感 —— 基础层 ===== */
+/* ===== 吃了么 · 美食手账 —— 基础层 ===== */
 @layer base {
   html,
   body,
@@ -37,12 +37,13 @@
 /* ===== 组件层 ===== */
 @layer components {
   /* 白卡：无描边，暖色柔影 + 极淡发丝环勾边 */
+  /* 白纸条：小圆角、短而实的影子、极细墨边 —— 贴在点阵纸上 */
   .card {
-    @apply bg-white rounded-3xl shadow-card ring-1 ring-[#53341a]/[0.04];
+    @apply bg-white rounded-[14px] shadow-card ring-1 ring-[#1f1b16]/[0.07];
   }
   /* 毛玻璃浮层（地图上的统计条 / 按钮 / 底部导航） */
   .glass {
-    @apply bg-white/80 shadow-float ring-1 ring-white/70;
+    @apply bg-white/95 shadow-float ring-1 ring-[#1f1b16]/[0.08];
     -webkit-backdrop-filter: blur(18px) saturate(1.6);
     backdrop-filter: blur(18px) saturate(1.6);
   }
@@ -50,19 +51,20 @@
   .chip {
     @apply inline-flex items-center gap-1 rounded-full px-3 py-1.5 text-sm font-medium bg-surface-2 text-on-surface transition-colors duration-200;
   }
+  /* 选中 = 深咖实底白字（橙色只留给「去做这件事」的按钮） */
   .chip-on {
-    @apply bg-primary text-white shadow-glow;
+    @apply bg-on-surface text-white;
   }
   /* 输入框：下沉底色，聚焦变白 + 橙色光晕 */
   .field {
-    @apply w-full rounded-2xl bg-surface-2 px-4 py-3 text-[15px] text-on-surface outline-none ring-1 ring-transparent transition-all duration-200 placeholder:text-on-surface-variant/60;
+    @apply w-full rounded-xl bg-surface-2 px-4 py-3 text-[15px] text-on-surface outline-none ring-1 ring-[#1f1b16]/[0.06] transition-all duration-200 placeholder:text-on-surface-variant/70;
   }
   .field:focus {
     @apply bg-white ring-primary/40 shadow-ring;
   }
   /* 小节标题 */
   .section-label {
-    @apply text-[13px] font-semibold text-on-surface-variant tracking-wide;
+    @apply text-[13px] font-bold text-on-surface/75 tracking-wide;
   }
   /* 圆形图标按钮（地图右侧那列） */
   .icon-btn {
@@ -71,7 +73,7 @@
   /* 骨架屏：暖色流光 */
   .skeleton {
     @apply rounded-xl animate-shimmer;
-    background-image: linear-gradient(100deg, #f1e9df 30%, #f9f4ee 50%, #f1e9df 70%);
+    background-image: linear-gradient(100deg, #ebe4d8 30%, #f6f2ea 50%, #ebe4d8 70%);
     background-size: 200% 100%;
   }
   /* 油墨印章 */
@@ -84,7 +86,7 @@
     width: var(--stamp-size, 56px);
     height: var(--stamp-size, 56px);
     border-radius: 9999px;
-    border: calc(var(--stamp-size, 56px) / 24) solid var(--ink);
+    border: calc(var(--stamp-size, 56px) / 20) solid var(--ink);
     color: var(--ink);
     font-family: 'ZCOOL KuaiLe', 'PingFang SC', sans-serif;
     font-size: calc(var(--stamp-size, 56px) * 0.35);
@@ -93,12 +95,12 @@
     letter-spacing: 0.02em;
     white-space: nowrap;
     transform: rotate(-14deg);
-    opacity: 0.9;
+    opacity: 1;
     mix-blend-mode: multiply;
     pointer-events: none;
     /* 油墨不匀：用噪点蒙版吃掉一点笔画，像真的盖上去 */
-    -webkit-mask-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='120' height='120'><filter id='i'><feTurbulence type='fractalNoise' baseFrequency='.8' numOctaves='2'/><feColorMatrix values='0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 -5 3.9'/></filter><rect width='100%' height='100%' filter='url(%23i)'/></svg>");
-    mask-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='120' height='120'><filter id='i'><feTurbulence type='fractalNoise' baseFrequency='.8' numOctaves='2'/><feColorMatrix values='0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 -5 3.9'/></filter><rect width='100%' height='100%' filter='url(%23i)'/></svg>");
+    -webkit-mask-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='120' height='120'><filter id='i'><feTurbulence type='fractalNoise' baseFrequency='.8' numOctaves='2'/><feColorMatrix values='0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 -4 3.4'/></filter><rect width='100%' height='100%' filter='url(%23i)'/></svg>");
+    mask-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='120' height='120'><filter id='i'><feTurbulence type='fractalNoise' baseFrequency='.8' numOctaves='2'/><feColorMatrix values='0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 -4 3.4'/></filter><rect width='100%' height='100%' filter='url(%23i)'/></svg>");
   }
   .stamp::before {
     content: '';
@@ -107,6 +109,58 @@
     border-radius: 9999px;
     border: 1px solid var(--ink);
     opacity: 0.7;
+  }
+  /* 手账点阵纸：点跟着内容一起滚（background-attachment: local） */
+  .paper {
+    background-color: #f6f2ea;
+    background-image: radial-gradient(rgba(31, 27, 22, 0.15) 1px, transparent 1.3px);
+    background-size: 20px 20px;
+    background-position: 10px 10px;
+    background-attachment: local;
+  }
+  /* 和纸胶带：半透明、带斜纹、两头撕口；颜色走 --tape，角度走 --r */
+  .tape {
+    position: absolute;
+    z-index: 2;
+    width: var(--tape-w, 44px);
+    height: 16px;
+    background-color: var(--tape, #f3cf6a);
+    background-image: repeating-linear-gradient(-45deg, rgba(255, 255, 255, 0.38) 0 3px, transparent 3px 7px);
+    opacity: 0.88;
+    mix-blend-mode: multiply;
+    transform: rotate(var(--r, -6deg));
+    clip-path: polygon(3% 0, 97% 0, 100% 22%, 96% 42%, 100% 62%, 96% 82%, 99% 100%, 3% 100%, 0 80%, 4% 60%, 0 40%, 4% 20%);
+    pointer-events: none;
+  }
+  /* 名章：方形朱红印，白字（阴刻），边角被油墨吃掉一点 */
+  .seal {
+    @apply flex items-center justify-center text-white font-display leading-none;
+    background: #c2452a;
+    border-radius: 10px;
+    box-shadow: inset 0 0 0 3px #c2452a, inset 0 0 0 4.5px rgba(255, 255, 255, 0.85);
+    transform: rotate(-4deg);
+    -webkit-mask-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='120' height='120'><filter id='i'><feTurbulence type='fractalNoise' baseFrequency='.8' numOctaves='2'/><feColorMatrix values='0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 -4 3.5'/></filter><rect width='100%' height='100%' filter='url(%23i)'/></svg>");
+    mask-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='120' height='120'><filter id='i'><feTurbulence type='fractalNoise' baseFrequency='.8' numOctaves='2'/><feColorMatrix values='0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 -4 3.5'/></filter><rect width='100%' height='100%' filter='url(%23i)'/></svg>");
+  }
+  /* 拍立得：白边 + 一点歪 */
+  .polaroid {
+    @apply bg-white p-[3px] shadow-soft ring-1 ring-[#1f1b16]/[0.08];
+    border-radius: 3px;
+    transform: rotate(var(--tilt, -2deg));
+  }
+  .polaroid > img,
+  .polaroid > .polaroid-face {
+    border-radius: 2px;
+  }
+  /* 横线纸：写一句话的地方（行高 = 行距，左边一条红色页边线） */
+  .ruled {
+    line-height: 30px;
+    background-image: linear-gradient(90deg, transparent 40px, rgba(230, 92, 60, 0.45) 40px, rgba(230, 92, 60, 0.45) 41px, transparent 41px),
+      linear-gradient(transparent 29px, rgba(31, 27, 22, 0.13) 29px);
+    background-size: 100% 100%, 100% 30px;
+    background-position: 0 0, 0 12px;
+    background-attachment: local;
+    padding: 12px 18px 6px 54px;
   }
   /* 依次入场：配合 style={{ '--i': index }} */
   .stagger {
@@ -189,13 +243,13 @@
 }
 
 /* ===== Leaflet 地图：柔化底图 / 落点 marker / 聚合簇 / 片区 chip / 定位脉冲 ===== */
-/* 高德底图很艳：压饱和、加暖调、降对比，底图退后当纸，让点位跳出来 */
+/* 高德底图很艳：稍压饱和、加一点暖调，底图退半步，让点位跳出来但不发灰 */
 .leaflet-tile-pane {
-  filter: saturate(0.55) sepia(0.18) brightness(1.04) contrast(0.92);
+  filter: saturate(0.78) sepia(0.12) brightness(1.02) contrast(1);
 }
 .leaflet-container {
   font: inherit;
-  background: #efe9df;
+  background: #ece6dc;
 }
 /* 署名挪到左下、抬到悬浮导航上方，别被「记一笔」圆钮挡住 */
 .leaflet-bottom.leaflet-left {
@@ -207,7 +261,7 @@
   margin-left: 16px !important;
   padding: 0 5px !important;
   font-size: 10px;
-  color: #766657 !important;
+  color: #6c6256 !important;
 }
 
 
@@ -226,7 +280,7 @@
   height: 40px;
   border-radius: 9999px;
   background: #fff;
-  box-shadow: 0 0 0 3px var(--ring, #e65c3c), 0 6px 14px -4px rgba(83, 52, 26, 0.45);
+  box-shadow: 0 0 0 3px var(--ring, #e65c3c), 0 0 0 5.5px #fff, 0 8px 16px -4px rgba(31, 27, 22, 0.5);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -241,14 +295,14 @@
 }
 /* 还没吃过：虚线圈、半透明，等着被「点亮」 */
 .marker-dot.want {
-  background: rgba(255, 255, 255, 0.82);
-  box-shadow: 0 4px 10px -4px rgba(83, 52, 26, 0.35);
-  outline: 2px dashed var(--ring);
+  background: rgba(255, 255, 255, 0.92);
+  box-shadow: 0 0 0 5px rgba(255, 255, 255, 0.7), 0 6px 12px -4px rgba(31, 27, 22, 0.4);
+  outline: 2.5px dashed var(--ring);
   outline-offset: 1px;
 }
 .marker-wrap.is-active .marker-dot {
   transform: scale(1.24) translateY(-3px);
-  box-shadow: 0 0 0 3px var(--ring, #e65c3c), 0 0 0 9px rgba(230, 92, 60, 0.18), 0 12px 22px -6px rgba(83, 52, 26, 0.5);
+  box-shadow: 0 0 0 3px var(--ring, #e65c3c), 0 0 0 5.5px #fff, 0 0 0 11px rgba(230, 92, 60, 0.2), 0 12px 22px -6px rgba(31, 27, 22, 0.5);
 }
 /* 去过几次 */
 .marker-badge {
@@ -277,7 +331,7 @@
   padding: 0 11px 0 8px;
   background: #fff;
   border-radius: 9999px;
-  box-shadow: 0 0 0 3px #e65c3c, 0 8px 18px -6px rgba(83, 52, 26, 0.5);
+  box-shadow: 0 0 0 3px #e65c3c, 0 0 0 5.5px #fff, 0 10px 20px -6px rgba(31, 27, 22, 0.55);
   font-size: 18px;
   white-space: nowrap;
   transform: translate(-50%, -50%);
@@ -300,14 +354,14 @@
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  background: rgba(255, 255, 255, 0.92);
+  background: #fff;
   border-radius: 9999px;
-  box-shadow: 0 6px 18px -6px rgba(83, 52, 26, 0.4), 0 0 0 1px rgba(83, 52, 26, 0.05);
+  box-shadow: 0 8px 20px -6px rgba(36, 25, 15, 0.45), 0 0 0 1px rgba(83, 52, 26, 0.12);
   padding: 4px 4px 4px 12px;
   white-space: nowrap;
   font-weight: 600;
   font-size: 13px;
-  color: #2b1f16;
+  color: #1f1b16;
   transform: translate(-50%, -50%);
   animation: chip-in 0.5s cubic-bezier(0.34, 1.56, 0.64, 1) backwards;
   animation-delay: var(--d, 0ms);
@@ -333,11 +387,11 @@
   font-weight: 600;
 }
 .area-chip.more {
-  background: #2b1f16;
+  background: #1f1b16;
   color: #fff;
 }
 .area-chip.locked {
-  color: #766657;
+  color: #6c6256;
 }
 .area-chip.locked .ac-count {
   background: #c9bcae;

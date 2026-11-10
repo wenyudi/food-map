@@ -20,7 +20,7 @@ export default function EmptyState({ emoji, title, desc, action, extra, card = f
         <span className="absolute inset-x-2 -bottom-1 h-3 rounded-full bg-on-surface/10 blur-[6px]" aria-hidden />
         <div className="relative text-[56px] leading-none animate-bob">{emoji}</div>
       </div>
-      <div className="text-xl font-bold tracking-tight mb-1.5">{title}</div>
+      <div className="font-hand text-[30px] leading-tight mb-1.5">{title}</div>
       {desc && <div className="text-sm text-on-surface-variant leading-relaxed text-balance">{desc}</div>}
       {(action || extra) && (
         <div className="flex flex-col items-center gap-3 mt-5">

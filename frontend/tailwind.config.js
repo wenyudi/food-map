@@ -1,29 +1,34 @@
 /** @type {import('tailwindcss').Config} */
-// 吃了么 · 暖纸质感 —— 品牌色不变（番茄橙 + 奶油底），去掉粗描边硬阴影，改柔和分层 + 暖色调阴影
+// 吃了么 · 美食手账 —— 点阵纸 + 白纸条 + 墨字 + 和纸胶带 + 印章；对比靠材质和排版，不靠加深颜色
 export default {
   darkMode: 'class',
   content: ['./index.html', './src/**/*.{ts,tsx,js,jsx}'],
   theme: {
     extend: {
       colors: {
-        surface: '#faf6f0',              // 暖纸底
-        'surface-2': '#f3ece3',          // 下沉面（输入框 / 次级块）
-        line: '#ece3d8',                 // 发丝分隔线
-        'on-surface': '#2b1f16',         // 深咖（主文字）
-        'on-surface-variant': '#766657', // 弱化文字（小字也要过 4.5:1）
+        surface: '#f6f2ea',              // 手账纸（叠一层点阵，见 tailwind.css .paper）
+        'surface-2': '#ece6dc',          // 下沉面（输入框 / 次级块）
+        line: '#e3dbcd',                 // 发丝分隔线
+        'on-surface': '#1f1b16',         // 墨（主文字；也是「选中」的实底色）
+        'on-surface-variant': '#6c6256', // 弱化文字（小字也要过 4.5:1）
         primary: '#e65c3c',              // 番茄橙（唯一主强调色）
         'primary-dark': '#c2452a',        // 小字 / 浅底上的橙
-        'primary-soft': '#fdebe5',
+        'primary-soft': '#fbdfd4',
         accent: '#f4b740',               // 金黄（星标 / 想再来，少量点缀）
-        'accent-soft': '#fdf3dc',
+        'accent-soft': '#fbebc6',
         // 状态语义色：降饱和，只出现在小面积标记上
         sage: '#5fa777',                 // 营业中 / 已兑现（圆点、外圈）
         'sage-ink': '#3c7f55',           // 同色系文字
-        'sage-soft': '#e6f2e9',
+        'sage-soft': '#dbebdf',
         rose: '#e5788f',                 // 种草 / 想去（圆点、外圈）
         'rose-ink': '#b9476a',           // 同色系文字
-        'rose-soft': '#fce8ec',
+        'rose-soft': '#f9dbe2',
         'amber-ink': '#96660a',          // 金黄同色系文字
+        // 和纸胶带：全站唯一的彩色点缀，只贴在照片 / 纸条上
+        'tape-yellow': '#f3cf6a',
+        'tape-pink': '#f2a9b8',
+        'tape-mint': '#a9d3b5',
+        'tape-blue': '#a8c8ea',
       },
       borderRadius: {
         DEFAULT: '0.5rem',
@@ -39,6 +44,8 @@ export default {
         sans: ['-apple-system', 'BlinkMacSystemFont', '"PingFang SC"', '"HarmonyOS Sans SC"', '"MiSans"', '"Noto Sans SC"', '"Microsoft YaHei"', 'sans-serif'],
         headline: ['-apple-system', 'BlinkMacSystemFont', '"PingFang SC"', '"HarmonyOS Sans SC"', '"MiSans"', '"Noto Sans SC"', '"Microsoft YaHei"', 'sans-serif'],
         // 站酷快乐体只留给品牌时刻（字标 / 回忆报告大字）
+        // 手写体只写少数几处（月份、问候、空状态），像在本子上随手记
+        hand: ['"Long Cang"', '"ZCOOL KuaiLe"', 'cursive'],
         display: ['"ZCOOL KuaiLe"', '"PingFang SC"', 'sans-serif'],
         num: ['Fredoka', '-apple-system', '"PingFang SC"', 'sans-serif'], // 大数字
       },
@@ -47,11 +54,11 @@ export default {
       },
       boxShadow: {
         // 阴影统一带暖棕色调，光源在正上方
-        soft: '0 1px 2px rgba(83,52,26,.05), 0 2px 8px -2px rgba(83,52,26,.06)',
-        card: '0 1px 2px rgba(83,52,26,.04), 0 8px 24px -8px rgba(83,52,26,.14)',
-        float: '0 2px 6px rgba(83,52,26,.08), 0 16px 36px -12px rgba(83,52,26,.32)',
-        glow: '0 8px 20px -6px rgba(230,92,60,.55), inset 0 1px 0 rgba(255,255,255,.25)',
-        sheet: '0 -12px 40px -12px rgba(83,52,26,.28)',
+        soft: '0 1px 2px rgba(31,27,22,.08), 0 2px 6px -2px rgba(31,27,22,.16)',
+        card: '0 1px 1px rgba(31,27,22,.06), 0 6px 14px -8px rgba(31,27,22,.30)', // 纸条贴在纸上：影子短而实
+        float: '0 2px 4px rgba(31,27,22,.10), 0 14px 32px -12px rgba(31,27,22,.38)',
+        glow: '0 10px 22px -6px rgba(230,92,60,.62), inset 0 1px 0 rgba(255,255,255,.25)',
+        sheet: '0 -12px 40px -12px rgba(31,27,22,.35)',
         ring: '0 0 0 4px rgba(230,92,60,.16)',
       },
       zIndex: {

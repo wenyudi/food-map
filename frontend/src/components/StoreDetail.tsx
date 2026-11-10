@@ -2,6 +2,7 @@ import { useState } from 'react'
 import Icon from '../ui/Icon'
 import Presence from '../ui/Presence'
 import Stamp from '../ui/Stamp'
+import Tape from '../ui/Tape'
 import Toast from '../ui/Toast'
 import EditRecordSheet from '../screens/EditRecordSheet'
 import OpenHours from './OpenHours'
@@ -111,9 +112,14 @@ export default function StoreDetail({ point: p, showAuthor, myUsername, circleRo
       </div>
 
       {photos.length > 0 && (
-        <div className="flex gap-1.5 mt-3 overflow-x-auto hide-scrollbar">
-          {photos.map((u) => (
-            <img key={u} src={u} alt={p.name} loading="lazy" onError={hideOnError} className="zoomable w-[84px] h-[84px] shrink-0 object-cover rounded-xl bg-surface-2" />
+        <div className="flex gap-3 mt-4 pt-2 pb-1 px-1 overflow-x-auto hide-scrollbar">
+          {photos.map((u, i) => (
+            <span key={u} className="relative shrink-0">
+              {i === 0 && <Tape seed={p.poi_id} angle={-9} width={40} className="-top-2 left-6" />}
+              <span className="polaroid block" style={{ '--tilt': `${[-2.5, 1.5, -1][i]}deg` } as React.CSSProperties}>
+                <img src={u} alt={p.name} loading="lazy" onError={hideOnError} className="zoomable block w-[86px] h-[86px] object-cover bg-surface-2" />
+              </span>
+            </span>
           ))}
         </div>
       )}

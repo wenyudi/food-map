@@ -32,7 +32,7 @@ export default function StorePeek({ point: p, showAuthor, myUsername, circleRole
     <div
       role="dialog"
       aria-label={p.name}
-      className={`absolute inset-x-3 bottom-tabbar z-map-ui flex flex-col rounded-[26px] bg-white shadow-float ring-1 ring-[#53341a]/[0.06] transition-[max-height,transform] duration-500 ease-out-expo ${
+      className={`absolute inset-x-3 bottom-tabbar z-map-ui flex flex-col rounded-[20px] bg-white shadow-float ring-1 ring-[#1f1b16]/[0.08] transition-[max-height,transform] duration-500 ease-out-expo ${
         expanded ? 'max-h-[80%]' : 'max-h-[52%]'
       } ${leaving ? 'animate-peek-out pointer-events-none' : 'animate-peek-in'}`}
       style={{

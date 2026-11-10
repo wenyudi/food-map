@@ -6,6 +6,7 @@ import EmptyState from '../ui/EmptyState'
 import Presence from '../ui/Presence'
 import ScopeBar from '../ui/ScopeBar'
 import Stamp from '../ui/Stamp'
+import Tape from '../ui/Tape'
 import Toast from '../ui/Toast'
 import AskSheet from './AskSheet'
 import FilterSheet from '../components/FilterSheet'
@@ -37,8 +38,8 @@ function monthLabel(ts: number): string {
   if (!ts) return '更早'
   const d = new Date(ts)
   const now = new Date()
-  if (d.getFullYear() !== now.getFullYear()) return `${d.getFullYear()} 年 ${d.getMonth() + 1} 月`
-  return d.getMonth() === now.getMonth() ? '本月' : `${d.getMonth() + 1} 月`
+  if (d.getFullYear() !== now.getFullYear()) return `${d.getFullYear()}年${d.getMonth() + 1}月`
+  return d.getMonth() === now.getMonth() ? '本月' : `${d.getMonth() + 1}月`
 }
 
 /** 清单：一家店一行，够认出来、够回想起来就好；要细看点开详情 */
@@ -85,17 +86,17 @@ export default function ListScreen({ browse, newPoiIds, onShowOnMap, onRecordSto
 
   return (
     <div className="h-full flex flex-col">
-      <div className="flex-1 min-h-0 overflow-y-auto px-4 pb-tabbar" onScroll={(e) => setScrolled(e.currentTarget.scrollTop > 56)}>
+      <div className="flex-1 min-h-0 overflow-y-auto paper px-4 pb-tabbar" onScroll={(e) => setScrolled(e.currentTarget.scrollTop > 56)}>
         {/* 大标题 */}
         <header className="pt-[calc(env(safe-area-inset-top)_+_1.25rem)] pb-1 animate-fade-up">
-          <h1 className="text-[28px] font-bold tracking-tight leading-tight">清单</h1>
+          <h1 className="text-[32px] font-black tracking-tight leading-tight">清单</h1>
           <p className="text-sm text-on-surface-variant mt-0.5">{loading && points.length === 0 ? '翻一翻…' : summary}</p>
         </header>
 
         {/* 吸顶：搜索 + 筛选 + 问地图，范围切换 + 排序 */}
         <div
           className={`sticky top-0 z-20 -mx-4 px-4 pt-[calc(env(safe-area-inset-top)_+_0.5rem)] pb-2.5 -mt-[env(safe-area-inset-top)] transition-[background-color,box-shadow] duration-300 ${
-            scrolled ? 'bg-surface/85 backdrop-blur-xl shadow-[0_1px_0_#ece3d8]' : ''
+            scrolled ? 'bg-surface/90 backdrop-blur-xl shadow-[0_1px_0_#e2d4c2]' : ''
           }`}
         >
           <div className="flex gap-2">
@@ -116,7 +117,7 @@ export default function ListScreen({ browse, newPoiIds, onShowOnMap, onRecordSto
               <button
                 onClick={() => setFilterOpen(true)}
                 aria-label="筛选"
-                className={`relative shrink-0 w-9 h-9 rounded-full flex items-center justify-center press-sm transition-colors ${removable.length ? 'bg-primary text-white' : 'bg-surface-2 text-on-surface-variant'}`}
+                className={`relative shrink-0 w-9 h-9 rounded-full flex items-center justify-center press-sm transition-colors ${removable.length ? 'bg-on-surface text-white' : 'bg-surface-2 text-on-surface-variant'}`}
               >
                 <Icon name="tune" className="text-xl" />
                 {removable.length > 0 && (
@@ -147,7 +148,7 @@ export default function ListScreen({ browse, newPoiIds, onShowOnMap, onRecordSto
             <button
               onClick={toggleSort}
               aria-pressed={sort === 'near'}
-              className={`shrink-0 h-[38px] rounded-full px-3 flex items-center gap-1 text-[13px] font-semibold press-sm transition-colors ${sort === 'near' ? 'bg-primary-soft text-primary-dark' : 'bg-surface-2 text-on-surface-variant'}`}
+              className={`shrink-0 h-[38px] rounded-full px-3 flex items-center gap-1 text-[13px] font-semibold press-sm transition-colors ${sort === 'near' ? 'bg-on-surface text-white' : 'bg-surface-2 text-on-surface-variant'}`}
             >
               <Icon name={sort === 'near' ? 'near_me' : 'schedule'} filled={sort === 'near'} className={`text-[16px] ${locating ? 'animate-pulse' : ''}`} />
               {sort === 'near' ? '离我近' : '最近'}
@@ -226,7 +227,7 @@ export default function ListScreen({ browse, newPoiIds, onShowOnMap, onRecordSto
             const showMonth = !!month && (i === 0 || month !== monthLabel(latestTs(visible[i - 1])))
             return (
               <div key={p.poi_id} className="contents">
-                {showMonth && <h2 className={`section-label px-1 ${i > 0 ? 'mt-3' : ''}`}>{month}</h2>}
+                {showMonth && <h2 className={`font-hand text-[30px] leading-none text-on-surface px-1 pt-1 -rotate-1 origin-left ${i > 0 ? 'mt-5' : 'mt-1'}`}>{month}</h2>}
                 <StoreRow
                   index={i}
                   point={p}
@@ -307,14 +308,18 @@ function StoreRow({
   const byOther = showAuthor && by && by !== myUsername ? latest?.data.recorded_by_name || by : ''
 
   return (
-    <button onClick={onOpen} className="card !rounded-[22px] relative w-full text-left p-3 flex gap-3 stagger press" style={{ '--i': index } as React.CSSProperties}>
+    <button onClick={onOpen} className="card relative w-full text-left p-3 pl-3.5 flex gap-3.5 stagger press" style={{ '--i': index } as React.CSSProperties}>
       {status.label && <Stamp text={status.label} tone={STATUS_STAMP[status.key]} size={44} index={index} className="absolute top-2 right-2" />}
-      <div className="shrink-0 w-[60px] h-[60px] rounded-2xl overflow-hidden bg-surface-2 flex items-center justify-center text-[28px]">
-        {photo && photoOk ? (
-          <img src={photo} alt="" loading="lazy" onError={() => setPhotoOk(false)} className="w-full h-full object-cover" />
-        ) : (
-          cuisineEmoji(storeCuisine(point))
-        )}
+      {/* 拍立得 + 胶带：有自己拍的就贴自己拍的 */}
+      <div className="relative shrink-0 mt-1">
+        <Tape seed={point.poi_id} angle={index % 2 ? 7 : -8} width={34} className="-top-2 left-3.5" />
+        <div className="polaroid w-[62px] h-[62px]" style={{ '--tilt': `${index % 2 ? 2 : -2.5}deg` } as React.CSSProperties}>
+          {photo && photoOk ? (
+            <img src={photo} alt="" loading="lazy" onError={() => setPhotoOk(false)} className="w-full h-full object-cover" />
+          ) : (
+            <span className="polaroid-face w-full h-full bg-surface-2 flex items-center justify-center text-[26px]">{cuisineEmoji(storeCuisine(point))}</span>
+          )}
+        </div>
       </div>
       <div className="flex-1 min-w-0">
         <div className={`text-[16px] font-bold leading-snug tracking-tight line-clamp-1 ${status.label ? 'pr-11' : ''}`}>
@@ -367,8 +372,8 @@ function ListSkeleton() {
   return (
     <div className="flex flex-col gap-2.5 mt-1">
       {[0, 1, 2, 3].map((i) => (
-        <div key={i} className="card !rounded-[22px] p-3 flex gap-3" style={{ opacity: 1 - i * 0.2 }}>
-          <div className="skeleton w-[60px] h-[60px] !rounded-2xl shrink-0" />
+        <div key={i} className="card p-3 flex gap-3.5" style={{ opacity: 1 - i * 0.2 }}>
+          <div className="skeleton w-[62px] h-[62px] !rounded-[3px] shrink-0" />
           <div className="flex-1 space-y-2 pt-1">
             <div className="skeleton h-4 w-2/3" />
             <div className="skeleton h-3 w-1/2" />

@@ -5,6 +5,7 @@ import Button from '../ui/Button'
 import MemoryScreen from './MemoryScreen'
 import CircleSheet from './CircleSheet'
 import Wordmark from '../ui/Wordmark'
+import Tape from '../ui/Tape'
 import Presence from '../ui/Presence'
 import MonthlySummary from './MonthlySummary'
 import { exportData, resetMine, changePassword } from '../api'
@@ -86,14 +87,13 @@ export default function MeScreen({ me, points, circleName, circleCount, onLogout
 
   return (
     <div className="h-full flex flex-col">
-      <div className="flex-1 min-h-0 overflow-y-auto px-4 pt-[calc(env(safe-area-inset-top)_+_1.5rem)] pb-tabbar space-y-4">
+      <div className="flex-1 min-h-0 overflow-y-auto paper px-4 pt-[calc(env(safe-area-inset-top)_+_1.5rem)] pb-tabbar space-y-4">
         {/* 资料头 */}
         <section className="flex items-center gap-4 px-1 stagger" style={{ '--i': 0 } as React.CSSProperties}>
-          <div className="relative w-[72px] h-[72px] rounded-[26px] bg-gradient-to-br from-accent to-primary shadow-glow flex items-center justify-center font-display text-[34px] text-white shrink-0">
-            {initial}
-          </div>
+          {/* 名章：方形红印，名字的第一个字 */}
+          <div className="seal shrink-0 w-[68px] h-[68px] text-[34px]">{initial}</div>
           <div className="flex flex-col gap-1.5 min-w-0">
-            <h2 className="text-[24px] font-bold tracking-tight leading-tight truncate">{me.nickname || me.username}</h2>
+            <h2 className="text-[28px] font-black tracking-tight leading-tight truncate">{me.nickname || me.username}</h2>
             <button
               onClick={() => setSheet('circle')}
               className="flex items-center gap-1 bg-white shadow-soft ring-1 ring-line rounded-full pl-2.5 pr-1.5 py-1 text-[13px] font-medium w-fit max-w-full press-sm"
@@ -120,11 +120,14 @@ export default function MeScreen({ me, points, circleName, circleCount, onLogout
         {/* 美食回忆报告 */}
         <button
           onClick={() => setMemoryOpen(true)}
-          className="stagger relative w-full overflow-hidden text-left rounded-3xl bg-gradient-to-br from-primary via-[#f27c5c] to-[#f6a467] shadow-glow p-5 press"
+          className="stagger relative w-full text-left rounded-[16px] bg-gradient-to-br from-primary via-[#f27c5c] to-[#f6a467] shadow-glow p-5 press"
           style={{ '--i': 3 } as React.CSSProperties}
         >
-          <span className="absolute inset-0 grain opacity-60" aria-hidden />
-          <span className="absolute -right-6 -top-8 w-36 h-36 rounded-full bg-white/15 blur-2xl" aria-hidden />
+          <span className="absolute inset-0 grain opacity-60 rounded-[16px]" aria-hidden />
+          <span className="absolute inset-0 overflow-hidden rounded-[16px]" aria-hidden>
+            <span className="absolute -right-6 -top-8 w-36 h-36 rounded-full bg-white/15 blur-2xl" />
+          </span>
+          <Tape color="#f3cf6a" angle={-7} width={58} className="-top-2 left-10" />
           {/* 漂浮的美食 */}
           <span className="absolute right-5 top-3 text-[34px] animate-bob" aria-hidden>🍜</span>
           <span className="absolute right-20 top-11 text-[22px] animate-bob [animation-delay:-1.2s]" aria-hidden>🍡</span>

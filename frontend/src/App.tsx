@@ -234,7 +234,7 @@ type PhoneProps = Readonly<{
 /** 手机视口外壳：居中、限宽；切 Tab 时内容淡入上浮；底部悬浮共享导航 */
 function Phone({ children, tab, onTab, onCompose, listBadge, overlay }: PhoneProps) {
   return (
-    <div className="h-[100dvh] w-full max-w-[440px] mx-auto flex flex-col overflow-hidden bg-surface grain relative md:shadow-float">
+    <div className="h-[100dvh] w-full max-w-[440px] mx-auto flex flex-col overflow-hidden paper relative md:shadow-float">
       <main key={tab} className="flex-1 min-h-0 relative overflow-hidden animate-screen-in">
         {children}
       </main>

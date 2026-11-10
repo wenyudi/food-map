@@ -11,14 +11,14 @@ type ScopeBarProps = Readonly<{
   className?: string
 }>
 
-/** 范围切换：数字就是入口，点一下地图 / 列表就只看这一类，高亮块滑过去 */
+/** 范围切换：数字就是入口，点一下地图 / 清单就只看这一类，墨色高亮块滑过去 */
 export default function ScopeBar({ cells, active, onPick, inline = false, className = '' }: ScopeBarProps) {
   const idx = Math.max(0, cells.findIndex((c) => c.key === active))
   return (
     <div className={`relative flex ${inline ? 'rounded-full p-1' : 'rounded-[22px] p-1.5'} ${className}`} role="tablist">
       <span
         aria-hidden
-        className={`absolute bg-primary-soft transition-transform duration-500 ease-spring ${
+        className={`absolute bg-on-surface transition-transform duration-500 ease-spring ${
           inline ? 'top-1 bottom-1 left-1 rounded-full' : 'top-1.5 bottom-1.5 left-1.5 rounded-2xl'
         }`}
         style={{
@@ -35,7 +35,7 @@ export default function ScopeBar({ cells, active, onPick, inline = false, classN
 
 function ScopeCell({ cell, on, inline, onClick }: { cell: Cell; on: boolean; inline: boolean; onClick: () => void }) {
   const value = Math.round(useCountUp(cell.value))
-  const tone = on ? 'text-primary-dark' : 'text-on-surface'
+  const tone = on ? 'text-white' : 'text-on-surface'
   return (
     <button
       role="tab"
@@ -45,13 +45,13 @@ function ScopeCell({ cell, on, inline, onClick }: { cell: Cell; on: boolean; inl
     >
       {inline ? (
         <>
-          <span className={`text-[13px] ${on ? 'font-semibold text-primary-dark' : 'font-medium text-on-surface-variant'}`}>{cell.label}</span>
-          <span className={`font-num text-[13px] tabular-nums ${on ? 'font-semibold text-primary-dark' : 'text-on-surface-variant'}`}>{value}</span>
+          <span className={`text-[13px] ${on ? 'font-semibold text-white' : 'font-medium text-on-surface-variant'}`}>{cell.label}</span>
+          <span className={`font-num text-[13px] tabular-nums ${on ? 'font-semibold text-white/80' : 'text-on-surface-variant'}`}>{value}</span>
         </>
       ) : (
         <>
           <span className={`font-num font-semibold text-[21px] leading-none tabular-nums ${tone}`}>{value}</span>
-          <span className={`mt-1 text-[11px] ${on ? 'font-semibold text-primary-dark' : 'text-on-surface-variant'}`}>{cell.label}</span>
+          <span className={`mt-1 text-[11px] ${on ? 'font-semibold text-white/85' : 'text-on-surface-variant'}`}>{cell.label}</span>
         </>
       )}
     </button>

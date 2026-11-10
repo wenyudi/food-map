@@ -20,21 +20,21 @@ type TabBarProps = Readonly<{
 }>
 
 /**
- * 全站唯一的底部导航：悬浮毛玻璃胶囊（地图 / 清单 / 我的）+ 右侧橙色「记一笔」圆钮。
- * 选中项背后有一块会滑动的高亮，图标从线性切实心。
+ * 全站唯一的底部导航：悬浮白色胶囊（地图 / 清单 / 我的）+ 右侧橙色「记一笔」圆钮。
+ * 选中项是一块会滑动的墨色实底，图标从线性切实心。
  */
 export default function TabBar({ active, onChange, onCompose, listBadge = 0 }: TabBarProps) {
   const idx = TABS.findIndex((t) => t.key === active)
   return (
     <nav className="absolute inset-x-0 bottom-0 z-tabbar px-4 pb-safe pointer-events-none">
-      {/* 清单类页面：内容滚到导航前先渐隐，文字不透过毛玻璃；地图页不要这层 */}
-      {active !== 'map' && <span aria-hidden className="absolute inset-x-0 bottom-0 h-[5.25rem] bg-gradient-to-t from-surface via-surface/80 to-transparent" />}
+      {/* 清单类页面：内容滚到导航前先渐隐；地图页不要这层 */}
+      {active !== 'map' && <span aria-hidden className="absolute inset-x-0 bottom-0 h-[5.25rem] bg-gradient-to-t from-surface via-surface/85 to-transparent" />}
       <div className="relative flex items-center gap-3 pointer-events-auto">
-        <div className="glass !bg-white/90 relative flex-1 flex rounded-full p-1.5">
+        <div className="relative flex-1 flex rounded-full p-1.5 bg-white shadow-float ring-1 ring-[#53341a]/[0.08]">
           {/* 滑动高亮：宽度 = 一格 */}
           <span
             aria-hidden
-            className="absolute top-1.5 bottom-1.5 left-1.5 rounded-full bg-primary-soft transition-transform duration-500 ease-spring"
+            className="absolute top-1.5 bottom-1.5 left-1.5 rounded-full bg-on-surface transition-transform duration-500 ease-spring"
             style={{ width: `calc((100% - 0.75rem) / ${TABS.length})`, transform: `translateX(${idx * 100}%)` }}
           />
           {TABS.map((t) => {
@@ -45,13 +45,13 @@ export default function TabBar({ active, onChange, onCompose, listBadge = 0 }: T
                 onClick={() => onChange(t.key)}
                 aria-current={on ? 'page' : undefined}
                 className={`relative flex-1 flex flex-col items-center justify-center gap-0.5 py-1.5 rounded-full press-sm transition-colors duration-300 ${
-                  on ? 'text-primary' : 'text-on-surface-variant'
+                  on ? 'text-white' : 'text-on-surface-variant'
                 }`}
               >
                 <span className="relative flex">
                   <Icon name={t.icon} filled={on} className={`text-[23px] transition-transform duration-500 ease-spring ${on ? '-translate-y-px scale-110' : ''}`} />
                   {t.key === 'list' && listBadge > 0 && !on && (
-                    <span aria-label={`${listBadge} 家有新记录`} className="absolute -top-1 -right-2 min-w-[16px] h-4 px-1 rounded-full bg-primary text-white text-[10px] font-semibold font-num flex items-center justify-center ring-2 ring-white animate-pop-in">
+                    <span aria-label={`${listBadge} 家有新记录`} className="absolute -top-1.5 -right-2.5 min-w-[17px] h-[17px] px-1 rounded-full bg-primary text-white text-[10px] font-semibold font-num flex items-center justify-center ring-2 ring-white animate-pop-in">
                       {listBadge}
                     </span>
                   )}

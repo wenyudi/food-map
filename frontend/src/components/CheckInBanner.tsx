@@ -10,9 +10,9 @@ type CheckInBannerProps = Readonly<{
 /** 「吃了么？」——app 的名字本身就是这句话：去过的店问一声，一点就预填好记一笔 */
 export default function CheckInBanner({ checkIn, onEaten, onSkip }: CheckInBannerProps) {
   return (
-    <div className="absolute inset-x-3 bottom-tabbar z-map-ui card !rounded-[26px] px-4 py-3.5 flex items-center gap-3 animate-peek-in">
+    <div className="absolute inset-x-3 bottom-tabbar z-map-ui card !rounded-[20px] px-4 py-3.5 flex items-center gap-3 animate-peek-in">
       <div className="flex-1 min-w-0">
-        <p className="font-display text-[22px] leading-none">
+        <p className="font-hand text-[28px] leading-none">
           吃了<span className="text-primary">么</span>？
         </p>
         <p className="text-[13px] text-on-surface-variant mt-1.5 truncate">

@@ -3,6 +3,7 @@ import type { ReactNode } from 'react'
 import Icon from '../ui/Icon'
 import Button, { Spinner } from '../ui/Button'
 import Stamp from '../ui/Stamp'
+import Tape from '../ui/Tape'
 import SheetShell from '../ui/SheetShell'
 import EmptyState from '../ui/EmptyState'
 import Presence from '../ui/Presence'
@@ -345,7 +346,7 @@ export default function AddScreen({ points: allPoints, onSubmitted, onClose, cir
     return p ? [p.lat, p.lng] : [29.56, 106.55]
   }, [myLocation, allPoints])
 
-  const shell = `absolute inset-0 z-compose bg-surface grain flex flex-col ${leaving ? 'animate-sheet-down pointer-events-none' : 'animate-sheet-up'}`
+  const shell = `absolute inset-0 z-compose paper flex flex-col ${leaving ? 'animate-sheet-down pointer-events-none' : 'animate-sheet-up'}`
   const roundBtn = 'shrink-0 w-10 h-10 rounded-full bg-white shadow-soft ring-1 ring-line flex items-center justify-center press'
 
   // 观光位没有记录权限：不显示任何录入框，只给提示
@@ -413,27 +414,28 @@ export default function AddScreen({ points: allPoints, onSubmitted, onClose, cir
         </span>
       </div>
 
-      <div ref={scrollRef} className="flex-1 min-h-0 overflow-y-auto px-4 pt-2 pb-6">
+      <div ref={scrollRef} className="flex-1 min-h-0 overflow-y-auto paper px-4 pt-2 pb-6">
         {!parsed && (
           <div key="compose" className="animate-screen-in">
             {/* 问候大标题 */}
             <header className="mb-4 px-0.5">
-              <p className="text-sm font-medium text-on-surface-variant">
+              <p className="font-hand text-[24px] leading-none text-primary-dark -rotate-1 origin-left">
                 {greet.emoji} {greet.hello}
               </p>
-              <h1 className="text-[28px] font-bold tracking-tight leading-tight mt-0.5">{greet.prompt}</h1>
+              <h1 className="text-[30px] font-black tracking-tight leading-tight mt-1.5">{greet.prompt}</h1>
             </header>
 
             {/* 主输入卡：AI 解析时外圈流动彩边 */}
-            <div className={`rounded-[30px] p-[2px] mb-3 transition-[background] duration-300 ${busy ? 'ai-border' : ''}`}>
+            <div className={`relative rounded-[17px] p-[2px] mb-3 transition-[background] duration-300 ${busy ? 'ai-border' : ''}`}>
+              <Tape color="#f3cf6a" angle={-4} width={64} className="-top-2 left-8" />
               <div className="card overflow-hidden focus-within:shadow-ring transition-shadow duration-300">
                 <textarea
                   value={text}
                   onChange={(e) => setText(e.target.value)}
                   placeholder="一句话就行，比如：今晚和朋友去家川菜馆，人均 80，水煮鱼挺嫩"
-                  rows={3}
+                  rows={4}
                   maxLength={500}
-                  className="w-full px-5 pt-5 pb-2 bg-transparent outline-none resize-none text-[16px] leading-relaxed text-on-surface placeholder:text-on-surface-variant/55"
+                  className="ruled w-full bg-transparent outline-none resize-none text-[16px] text-on-surface placeholder:text-on-surface-variant/55"
                 />
                 {text.length >= 450 && (
                   <div className="px-5 text-right text-xs font-num text-on-surface-variant animate-fade-in">{text.length}/500</div>
@@ -582,7 +584,7 @@ export default function AddScreen({ points: allPoints, onSubmitted, onClose, cir
           <div key="review" className="animate-screen-in">
             {/* 原话：默认收成一行引用，想改再展开（做完解析它就不是主角了） */}
             {sentenceOpen ? (
-              <div className={`rounded-[30px] p-[2px] mb-3 transition-[background] duration-300 animate-pop-in origin-top ${busy ? 'ai-border' : ''}`}>
+              <div className={`rounded-[17px] p-[2px] mb-3 transition-[background] duration-300 animate-pop-in origin-top ${busy ? 'ai-border' : ''}`}>
                 <div className="card overflow-hidden focus-within:shadow-ring transition-shadow duration-300">
                   <textarea
                     value={text}
@@ -591,7 +593,7 @@ export default function AddScreen({ points: allPoints, onSubmitted, onClose, cir
                     rows={2}
                     maxLength={500}
                     autoFocus
-                    className="w-full px-5 pt-4 pb-1 bg-transparent outline-none resize-none text-[15px] leading-relaxed text-on-surface placeholder:text-on-surface-variant/55"
+                    className="ruled w-full bg-transparent outline-none resize-none text-[15px] text-on-surface placeholder:text-on-surface-variant/55"
                   />
                   {text.length >= 450 && <div className="px-5 text-right text-xs font-num text-on-surface-variant">{text.length}/500</div>}
                   <div className="flex items-center justify-end gap-2 px-3 pb-3 pt-1">
@@ -929,7 +931,7 @@ function InfoTile({
   onClick: () => void
 }) {
   return (
-    <button onClick={onClick} className="card !rounded-2xl stagger flex flex-col gap-1 text-left px-3.5 py-3 press min-w-0" style={{ '--i': i } as React.CSSProperties}>
+    <button onClick={onClick} className="card stagger flex flex-col gap-1 text-left px-3.5 py-3 press min-w-0" style={{ '--i': i } as React.CSSProperties}>
       <span className="flex items-center gap-1 text-[11px] text-on-surface-variant whitespace-nowrap">
         <Icon name={icon} className="text-[15px] text-primary" />
         {label}
@@ -954,7 +956,7 @@ function Segmented<K extends string>({
     <div className="relative inline-flex rounded-full bg-surface-2 p-1">
       <span
         aria-hidden
-        className="absolute top-1 bottom-1 left-1 rounded-full bg-white shadow-soft transition-transform duration-500 ease-spring"
+        className="absolute top-1 bottom-1 left-1 rounded-full bg-on-surface transition-transform duration-500 ease-spring"
         style={{ width: `calc((100% - 0.5rem) / ${options.length})`, transform: `translateX(${idx * 100}%)` }}
       />
       {options.map((o) => (
@@ -962,7 +964,7 @@ function Segmented<K extends string>({
           key={o.key}
           onClick={() => onChange(o.key)}
           className={`relative px-3.5 py-1.5 rounded-full text-[13px] font-semibold whitespace-nowrap transition-colors duration-300 ${
-            o.key === value ? 'text-on-surface' : 'text-on-surface-variant'
+            o.key === value ? 'text-white' : 'text-on-surface-variant'
           }`}
         >
           {o.label}
@@ -994,7 +996,7 @@ function CelebrationOverlay({ cel }: { cel: Celebration }) {
   const leaving = useContext(PresenceLeaving)
   return (
     <div
-      className={`fixed inset-0 z-overlay flex items-center justify-center p-6 ${cel.title ? 'bg-[#2b1f16]/45' : 'bg-surface/70'} ${leaving ? 'animate-fade-out' : 'animate-fade-in'}`}
+      className={`fixed inset-0 z-overlay flex items-center justify-center p-6 ${cel.title ? 'bg-[#24190f]/50' : 'bg-surface/75'} ${leaving ? 'animate-fade-out' : 'animate-fade-in'}`}
       style={{ WebkitBackdropFilter: 'blur(3px)', backdropFilter: 'blur(3px)' }}
     >
       {cel.title && <Confetti />}

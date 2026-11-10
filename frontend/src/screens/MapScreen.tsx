@@ -217,7 +217,7 @@ export default function MapScreen({ browse, focusPoiId, onConsumeFocus, onCompos
               <button
                 onClick={() => setFilterOpen(true)}
                 aria-label="筛选"
-                className={`relative shrink-0 w-11 h-11 rounded-full flex items-center justify-center pointer-events-auto press ${activeCount ? 'bg-primary text-white shadow-glow' : 'glass'}`}
+                className={`relative shrink-0 w-11 h-11 rounded-full flex items-center justify-center pointer-events-auto press ${activeCount ? 'bg-on-surface text-white shadow-float' : 'glass'}`}
               >
                 <Icon name="tune" className="text-[21px]" />
                 {activeCount > 0 && (
